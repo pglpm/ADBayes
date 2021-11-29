@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-11-29T13:05:21+0100
+## Last-Updated: 2021-11-29T14:03:09+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -44,8 +44,8 @@ library('nimble')
 
 
 seed <- 149
-baseversion <- 'posterior_'
-nclusters <- as.integer(32) #as.integer(2^6)
+baseversion <- 'test_'
+nclusters <- as.integer(16) #as.integer(2^6)
 niter <- as.integer(256) #as.integer(2^11)
 niter0 <- as.integer(256) #as.integer(2^10)
 thin <- as.integer(2)
@@ -91,9 +91,9 @@ gc()
 ##
 ##
 dat <- list(
-    X=alldata[, ..realCovs],
-    Y=alldata[, ..integerCovs],
-    Z=alldata[, ..binaryCovs]
+    X=as.matrix(alldata[, ..realCovs]),
+    Y=as.matrix(alldata[, ..integerCovs]),
+    Z=as.matrix(alldata[, ..binaryCovs])
 )
 ##
 ##
@@ -107,94 +107,104 @@ for(acov in covNames){
 medianrcovs <- apply(alldata[1:ndata,..realCovs],2,median)
 widthrcovs <- irq2sd * apply(alldata[1:ndata,..realCovs],2,IQR)
 ##
-medianicovs <- apply(alldata[1:ndata,..integerCovs],2,function(x){max(median(x),1)})
+medianicovs <- apply(alldata[1:ndata,..integerCovs],2,median)
 widthicovs <- ceiling(apply(alldata[1:ndata,..integerCovs],2,IQR))
 maxicovs <- apply(alldata[1:ndata,..integerCovs],2,max)
 thmaxicovs <- covMaxs[integerCovs]
-thmaxccovs <- covMaxs[categoricalCovs]
 matrixprobicovs <- matrix(0, nrow=nicovs, ncol=max(thmaxicovs), dimnames=list(integerCovs))
 for(acov in integerCovs){
     matrixprobicovs[acov,1:thmaxicovs[acov]] <- 1/thmaxicovs[acov]
 }
 ##
+medianbcovs <- apply(alldata[1:ndata,..binaryCovs],2,median)
+##
 print('Creating and saving checkpoints')
 checkpointsFile <- paste0('_checkpoints-',ncheckpoints,'-R',baseversion,'-V',length(covNames),'-D',ndata,'-K',nclusters,'.rds')
 checkpoints <- rbind(
-    c(medianrcovs, round(medianicovs)),
-    c(medianrcovs+widthrcovs, round(medianicovs+widthicovs)),
-    c(medianrcovs-widthrcovs, sapply(round(medianicovs-widthicovs), function(x){max(0,x)})),
+    c(medianrcovs, medianicovs, medianbcovs),
+    c(medianrcovs+widthrcovs, sapply(round(medianicovs+widthicovs), function(x){min(maxicovs,x)}), 1+0*medianbcovs),
+    c(medianrcovs-widthrcovs, sapply(round(medianicovs-widthicovs), function(x){max(0,x)}), 0*medianbcovs),
     as.matrix(alldata[sample(1:ndata, size=ncheckpoints), ..covNames])
 )
 rownames(checkpoints) <- c('Pdatamedians', 'PdatacornerHi', 'PdatacornerLo', paste0('Pdatum',1:ncheckpoints))
 saveRDS(checkpoints,file=checkpointsFile)
 ##
 ##
-constants <- list(
-    nClusters=nclusters,
-    nData=ndata,
-    nRcovs=nrcovs,
-    nIcovs=nicovs,
-    maxIcovs=ncol(matrixprobicovs)
+constants <- c(
+    list(nClusters=nclusters),
+    if(nrcovs>0){list(nRcovs=nrcovs)},
+    if(nicovs>0){list(nIcovs=nicovs, maxIcovs=ncol(matrixprobicovs))},
+    if(nbcovs>0){list(nBcovs=nbcovs)},
+    if(posterior){list(nData=ndata)}
 )
 
 ##
-initsFunction <- function(){
-list(
-    qalpha=rep(1/nclusters, nclusters),
-    meanRmean=medianrcovs,
-    meanRshape1=rep(1/2, nrcovs),
-    meanRrate2=1/(widthrcovs/2)^2, # dims = inv. variance
-    ##
-    tauRshape1=rep(1, nrcovs),
-    tauRrate2=1/(widthrcovs/2)^2, # dims = inv. variance
-    ##
-    probIa1=rep(2, nicovs),
-    probIb1=rep(1, nicovs),
-    sizeIprob1=matrixprobicovs,
-    ##
-    probBa1=1,
-    probBa2=1,
-    ##
-    ##
-    meanRtau1=1/(widthrcovs/2)^2, # dims = inv. variance
-    meanRrate1=(widthrcovs/2)^2, # dims = variance
-    tauRrate1=(widthrcovs/2)^2, # dims = variance
-    ##
-    ##
-    q=rep(1/nclusters, nclusters),
-    meanR=matrix(rnorm(n=nrcovs*(nclusters), mean=medianrcovs, sd=1/sqrt(rgamma(n=nrcovs, shape=1/2, rate=rgamma(n=nrcovs, shape=1/2, rate=1/(widthrcovs/2)^2)))), nrow=nrcovs, ncol=nclusters),
-    tauR=matrix(rgamma(n=nrcovs*(nclusters), shape=1/2, rate=rgamma(n=nrcovs, shape=1/2, rate=1/(widthrcovs/2)^2)), nrow=nrcovs, ncol=nclusters),
-    probI=matrix(rbeta(n=nicovs*(nclusters), shape1=1, shape2=1), nrow=nicovs, ncol=nclusters),
-    sizeI=matrix(maxicovs, nrow=nicovs, ncol=nclusters),
-    ## sizeI=matrix(apply(matrix(rcat(n=nicovs*(nclusters), prob=rbeta(n=nicovs, shape1=16, shape2=16), size=maxicovs), nrow=nicovs, ncol=nclusters), 2, function(x){maxicovs*(x<maxicovs)+x*(x>=maxicovs)}), nrow=nicovs, ncol=nclusters),
-    probB=matrix(0.5, nrow=nbcovs, ncol=nclusters),
-    ##
-    C=rep(1,ndata)
-)
-}
+initsFunction <- function(){c(list(
+       qalpha=rep(1/nclusters, nclusters),
+       q=rep(1/nclusters, nclusters)
+       ),
+       if(nrcovs>0){list(
+                        meanRmean=medianrcovs,
+                        meanRshape1=rep(1/2, nrcovs),
+                        meanRrate2=1/(widthrcovs/2)^2, # dims = inv. variance
+                        ##
+                        tauRshape1=rep(1, nrcovs),
+                        tauRrate2=1/(widthrcovs/2)^2, # dims = inv. variance
+                        ##
+                        meanRtau1=1/(widthrcovs/2)^2, # dims = inv. variance
+                        meanRrate1=(widthrcovs/2)^2, # dims = variance
+                        tauRrate1=(widthrcovs/2)^2, # dims = variance
+                        ##
+                        meanR=matrix(rnorm(n=nrcovs*(nclusters), mean=medianrcovs, sd=1/sqrt(rgamma(n=nrcovs, shape=1/2, rate=rgamma(n=nrcovs, shape=1/2, rate=1/(widthrcovs/2)^2)))), nrow=nrcovs, ncol=nclusters),
+                        tauR=matrix(rgamma(n=nrcovs*(nclusters), shape=1/2, rate=rgamma(n=nrcovs, shape=1/2, rate=1/(widthrcovs/2)^2)), nrow=nrcovs, ncol=nclusters)
+                        )},
+       if(nicovs>0){list(
+                        probIa1=rep(2, nicovs),
+                        probIb1=rep(1, nicovs),
+                        sizeIprob1=matrixprobicovs,
+                        ##
+                        probI=matrix(rbeta(n=nicovs*(nclusters), shape1=1, shape2=1), nrow=nicovs, ncol=nclusters),
+                        sizeI=matrix(maxicovs, nrow=nicovs, ncol=nclusters)
+                        )},
+       if(nbcovs>0){list(
+                        probBa1=1,
+                        probBa2=1,
+                        ##
+                        probB=matrix(0.5, nrow=nbcovs, ncol=nclusters)
+                        )},
+       if(posterior){list(C=rep(1,ndata))}
+)}
 
 ##
 ##
 bayesnet <- nimbleCode({
     q[1:nClusters] ~ ddirch(alpha=qalpha[1:nClusters])
     for(acluster in 1:nClusters){
-        for(acov in 1:nRcovs){
-            meanR[acov,acluster] ~ dnorm(mean=meanRmean[acov], tau=meanRtau1[acov])
-            tauR[acov,acluster] ~ dgamma(shape=tauRshape1[acov], rate=tauRrate1[acov])
+        if(nrcovs>0){
+            for(acov in 1:nRcovs){
+                meanR[acov,acluster] ~ dnorm(mean=meanRmean[acov], tau=meanRtau1[acov])
+                tauR[acov,acluster] ~ dgamma(shape=tauRshape1[acov], rate=tauRrate1[acov])
+            }
         }
-        for(acov in 1:nIcovs){
-            probI[acov,acluster] ~ dbeta(shape1=probIa1[acov], shape2=probIb1[acov])
-            sizeI[acov,acluster] ~ dcat(prob=sizeIprob1[acov,1:maxIcovs])
+        if(nicovs>0){
+            for(acov in 1:nIcovs){
+                probI[acov,acluster] ~ dbeta(shape1=probIa1[acov], shape2=probIb1[acov])
+                sizeI[acov,acluster] ~ dcat(prob=sizeIprob1[acov,1:maxIcovs])
+            }
         }
-        for(acov in 1:nBcovs){
-            probB[acov,acluster] ~ dbeta(shape1=probBa1[acov], shape2=probBa1[acov])
+        if(nbcovs>0){
+            for(acov in 1:nBcovs){
+                probB[acov,acluster] ~ dbeta(shape1=probBa1[acov], shape2=probBa2[acov])
+            }
         }
     }
     ##
-    for(acov in 1:nRcovs){
-        meanRtau1[acov] ~ dgamma(shape=meanRshape1[acov], rate=meanRrate1[acov])
-        meanRrate1[acov] ~ dgamma(shape=meanRshape1[acov], rate=meanRrate2[acov])
-        tauRrate1[acov] ~ dgamma(shape=tauRshape1[acov], rate=tauRrate2[acov])
+    if(nrcovs>0){
+        for(acov in 1:nRcovs){
+            meanRtau1[acov] ~ dgamma(shape=meanRshape1[acov], rate=meanRrate1[acov])
+            meanRrate1[acov] ~ dgamma(shape=meanRshape1[acov], rate=meanRrate2[acov])
+            tauRrate1[acov] ~ dgamma(shape=tauRshape1[acov], rate=tauRrate2[acov])
+        }
     }
     ##
     if(posterior){
@@ -202,14 +212,20 @@ bayesnet <- nimbleCode({
             C[adatum] ~ dcat(prob=q[1:nClusters])
         }            ##
         for(adatum in 1:nData){
-            for(acov in 1:nRcovs){
-                X[adatum,acov] ~ dnorm(mean=meanR[acov,C[adatum]], tau=tauR[acov,C[adatum]])
+            if(nrcovs>0){
+                for(acov in 1:nRcovs){
+                    X[adatum,acov] ~ dnorm(mean=meanR[acov,C[adatum]], tau=tauR[acov,C[adatum]])
+                }
             }
-            for(acov in 1:nIcovs){
-                Y[adatum,acov] ~ dbinom(prob=probI[acov,C[adatum]], size=sizeI[acov,C[adatum]])
+            if(nicovs>0){
+                for(acov in 1:nIcovs){
+                    Y[adatum,acov] ~ dbinom(prob=probI[acov,C[adatum]], size=sizeI[acov,C[adatum]])
+                }
             }
-            for(acov in 1:nBcovs){
-                Z[adatum,acov] ~ dbern(prob=probB[acov,C[adatum]])
+            if(nbcovs>0){
+                for(acov in 1:nBcovs){
+                    Z[adatum,acov] ~ dbern(prob=probB[acov,C[adatum]])
+                }
             }
         }
     }
@@ -491,28 +507,36 @@ summary(mcsamples)
 hist(mcsamples[,'p[1]'])
 
 
-
-constants <- list(alph1=1, alph2=1)
-inits <- list(p=0.5)
-dat <- list(x=0)
+xcov <- 0
+constants <- list(alph1=1, alph2=1, Xcov=xcov)
+inits <- list(p=0.5, mu=rep(0,xcov))
+dat <- list(x=0, y=rep(10,xcov))
 ##
 bayesnet <- nimbleCode({
     p ~ dbeta(alph1, alph2)
     x ~ dbern(prob=p)
+    if(xcov>0){
+    for(acov in 1:xcov){
+        mu[acov] ~ dnorm(0,10)
+        y[acov] ~ dnorm(mean=mu[acov],tau=1)
+    }
+    }
     })
 ##
 model <- nimbleModel(code=bayesnet, name='model2', constants=constants, inits=inits, data=dat)
 
 Cmodel <- compileNimble(model, showCompilerOutput=FALSE)
-confmodel <- configureMCMC(Cmodel, monitors=c('p','x'))
+confmodel <- configureMCMC(Cmodel, monitors=c(c('p','x'),if(xcov>0){c('y','mu')}else{NULL}))
 print(confmodel)
 ##
 mcmcsampler <- buildMCMC(confmodel)
 Cmcmcsampler <- compileNimble(mcmcsampler, resetFunctions = TRUE)
 
-thin <- 10000
+thin <- 1
 tottime <- Sys.time()
-mcsamples <- runMCMC(Cmcmcsampler, nburnin=1, niter=1000*thin, thin=1000, inits=inits, setSeed=234)
+rm(mcsamples)
+mcsamples <- runMCMC(Cmcmcsampler, nburnin=1, niter=1000*thin, thin=thin, inits=inits, setSeed=234)
+
 message(paste0('TIME: ', Sys.time()-tottime))
 summary(mcsamples)
-hist(mcsamples[,'p'])
+hist(mcsamples[,'mu[1]'])
