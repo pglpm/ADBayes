@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-11-28T07:04:26+0100
+## Last-Updated: 2021-11-28T19:53:27+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -42,6 +42,19 @@ library('nimble')
 ## library('coda')
 #### End custom setup ####
 
+
+seed <- 149
+baseversion <- 'posterior_'
+nclusters <- as.integer(32) #as.integer(2^6)
+niter <- as.integer(256) #as.integer(2^11)
+niter0 <- as.integer(256) #as.integer(2^10)
+thin <- as.integer(2)
+nstages <- as.integer(1)
+ncheckpoints <- as.integer(4)
+maincov <- 'Subgroup_num_'
+posterior <- TRUE
+##
+
 saveinfofile <- 'variates_info.csv'
 variateinfo <- fread(saveinfofile, sep=',')
 covNames <- variateinfo$variate
@@ -52,23 +65,11 @@ names(covTypes) <- names(covMins) <- names(covMaxs) <- covNames
 
 datafile <- 'data_transformed_shuffled.csv'
 alldata <- fread(datafile, sep=',')
-
-
+alldata <- alldata[Usage_ == 'train']
 
 #################################
 ## Setup for Monte Carlo sampling
 #################################
-
-seed <- 149
-baseversion <- 'posterior_'
-nclusters <- as.integer(32) #as.integer(2^6)
-niter <- as.integer(2^10) #as.integer(2^11)
-niter0 <- as.integer(2^9) #as.integer(2^10)
-thin <- as.integer(2)
-nstages <- as.integer(1)
-ncheckpoints <- as.integer(4)
-maincov <- 'int_Subgroup_'
-posterior <- TRUE
 
 discreteCovs <- covNames[sapply(covNames, function(x){is.integer(alldata[[x]])})]
 continuousCovs <- covNames[sapply(covNames, function(x){is.double(alldata[[x]])})]
@@ -76,6 +77,11 @@ covNames <- c(continuousCovs, discreteCovs)
 nccovs <- length(continuousCovs)
 ndcovs <- length(discreteCovs)
 ndata <- as.integer(nrow(alldata))
+##
+initial.options <- commandArgs(trailingOnly = FALSE)
+thisscriptname <- sub('--file=', "", initial.options[grep('--file=', initial.options)])
+file.copy(from=thisscriptname, to=paste0('script-R',baseversion,'-V',length(covNames),'-D',ndata,'-K',nclusters,'.Rscript'))
+
 
 for(obj in c('constants', 'dat', 'inits', 'bayesnet', 'model', 'Cmodel', 'confmodel', 'mcmcsampler', 'Cmcmcsampler')){if(exists(obj)){do.call(rm,list(obj))}}
 gc()
@@ -87,7 +93,7 @@ dat <- list(
 )
 ##
 ##
-source('functions_MCMC.R')
+source('functions_mcmc.R')
 irq2sd <- 1/(2*qnorm(3/4))
 alldataRanges <- dataQuantiles <- list()
 for(acov in covNames){
@@ -365,7 +371,7 @@ for(stage in 0:nstages){
     for(acov in continuousCovs){
         Xgrid <- seq(extendrange(alldata[[acov]])[1], extendrange(alldata[[acov]])[2], length.out=2^8)
         df <- 1/min(diff(Xgrid))/2
-        plotsamples <- samplesfX(acov, parmList, Xgrid, nfsamples=64)
+        plotsamples <- samplesfX(acov, parmList, Xgrid, nfsamples=min(64,nrow(mcsamples)))
         tplot(Xgrid, plotsamples, type='l', col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=acov, ylab='probability density', ylim=c(0, max(plotsamples[plotsamples<df])))
     }
     for(acov in discreteCovs){
