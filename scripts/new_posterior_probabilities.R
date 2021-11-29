@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-11-29T14:03:09+0100
+## Last-Updated: 2021-11-29T14:26:50+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -79,21 +79,22 @@ nrcovs <- length(realCovs)
 nicovs <- length(integerCovs)
 nbcovs <- length(binaryCovs)
 ncovs <- length(covNames)
-ndata <- as.integer(nrow(alldata))
+ndata <- 16
 ##
+if(file.exists("/cluster/home/pglpm/R")){
 initial.options <- commandArgs(trailingOnly = FALSE)
 thisscriptname <- sub('--file=', "", initial.options[grep('--file=', initial.options)])
 file.copy(from=thisscriptname, to=paste0('script-R',baseversion,'-V',length(covNames),'-D',ndata,'-K',nclusters,'.Rscript'))
-
+}
 
 for(obj in c('constants', 'dat', 'inits', 'bayesnet', 'model', 'Cmodel', 'confmodel', 'mcmcsampler', 'Cmcmcsampler')){if(exists(obj)){do.call(rm,list(obj))}}
 gc()
 ##
 ##
 dat <- list(
-    X=as.matrix(alldata[, ..realCovs]),
-    Y=as.matrix(alldata[, ..integerCovs]),
-    Z=as.matrix(alldata[, ..binaryCovs])
+    X=as.matrix(alldata[1:ndata, ..realCovs]),
+    Y=as.matrix(alldata[1:ndata, ..integerCovs]),
+    Z=as.matrix(alldata[1:ndata, ..binaryCovs])
 )
 ##
 ##
@@ -101,8 +102,8 @@ source('functions_mcmc.R')
 irq2sd <- 1/(2*qnorm(3/4))
 alldataRanges <- dataQuantiles <- list()
 for(acov in covNames){
-        dataQuantiles[[acov]] <- quant(alldata[[acov]], prob=c(0.005,0.995))
-        alldataRanges[[acov]] <- range(alldata[[acov]])
+        dataQuantiles[[acov]] <- quant(alldata[1:ndata][[acov]], prob=c(0.005,0.995))
+        alldataRanges[[acov]] <- range(alldata[1:ndata][[acov]])
 }
 medianrcovs <- apply(alldata[1:ndata,..realCovs],2,median)
 widthrcovs <- irq2sd * apply(alldata[1:ndata,..realCovs],2,IQR)
@@ -167,8 +168,8 @@ initsFunction <- function(){c(list(
                         sizeI=matrix(maxicovs, nrow=nicovs, ncol=nclusters)
                         )},
        if(nbcovs>0){list(
-                        probBa1=1,
-                        probBa2=1,
+                        probBa1=rep(1,nbcovs),
+                        probBa2=rep(1,nbcovs),
                         ##
                         probB=matrix(0.5, nrow=nbcovs, ncol=nclusters)
                         )},
@@ -243,40 +244,57 @@ Cmodel <- compileNimble(model, showCompilerOutput=FALSE)
 gc()
 ##
 
-    confmodel <- configureMCMC(Cmodel,
-                               monitors=c('q','meanR', 'tauR', 'probI', 'sizeI'),
-                               monitors2=c('C', 'meanRtau1', 'meanRrate1', 'tauRrate1'))
-
-
 if(posterior){
     confmodel <- configureMCMC(Cmodel, nodes=NULL,
-                               monitors=c('q','meanR', 'tauR', 'probI', 'sizeI'),
-                               monitors2=c('C', 'meanRtau1', 'meanRrate1', 'tauRrate1'))
+                               monitors=c('q',
+                                          if(nrcovs>0){c('meanR', 'tauR')},
+                                          if(nicovs>0){c('probI', 'sizeI')},
+                                          if(nbcovs>0){c('probB')}
+                                          ),
+                               monitors2=c('C',
+                                           if(nrcovs>0){c('meanRtau1', 'meanRrate1', 'tauRrate1')}
+                                           ))
+    ##
     for(adatum in 1:ndata){
         confmodel$addSampler(target=paste0('C[', adatum, ']'), type='categorical')
     }
     confmodel$addSampler(target=paste0('q[1:', nclusters, ']'), type='conjugate')
     for(acluster in 1:nclusters){
-        for(acov in 1:nrcovs){
-            confmodel$addSampler(target=paste0('meanR[', acov, ', ', acluster, ']'), type='conjugate')
-            confmodel$addSampler(target=paste0('tauR[', acov, ', ', acluster, ']'), type='conjugate')
+        if(nrcovs>0){
+            for(acov in 1:nrcovs){
+                confmodel$addSampler(target=paste0('meanR[', acov, ', ', acluster, ']'), type='conjugate')
+                confmodel$addSampler(target=paste0('tauR[', acov, ', ', acluster, ']'), type='conjugate')
+            }
         }
-        for(acov in 1:nicovs){
-            confmodel$addSampler(target=paste0('probI[', acov, ', ', acluster, ']'), type='conjugate')
-            confmodel$addSampler(target=paste0('sizeI[', acov, ', ', acluster, ']'), type='categorical')
+        if(nicovs>0){
+            for(acov in 1:nicovs){
+                confmodel$addSampler(target=paste0('probI[', acov, ', ', acluster, ']'), type='conjugate')
+                confmodel$addSampler(target=paste0('sizeI[', acov, ', ', acluster, ']'), type='categorical')
+            }
+        }
+        if(nbcovs>0){
+            for(acov in 1:nbcovs){
+                confmodel$addSampler(target=paste0('probB[', acov, ', ', acluster, ']'), type='conjugate')
+            }
         }
     }
-    for(acov in 1:nrcovs){
-        confmodel$addSampler(target=paste0('meanRtau1[', acov, ']'), type='conjugate')
-        confmodel$addSampler(target=paste0('meanRrate1[', acov, ']'), type='conjugate')
-        confmodel$addSampler(target=paste0('tauRrate1[', acov, ']'), type='conjugate')
+    if(nrcovs>0){
+        for(acov in 1:nrcovs){
+            confmodel$addSampler(target=paste0('meanRtau1[', acov, ']'), type='conjugate')
+            confmodel$addSampler(target=paste0('meanRrate1[', acov, ']'), type='conjugate')
+            confmodel$addSampler(target=paste0('tauRrate1[', acov, ']'), type='conjugate')
+        }
     }
 }else{
-    confmodel <- configureMCMC(Cmodel,
-                               monitors=c('q','meanR', 'tauR', 'probI', 'sizeI'))
+    confmodel <- configureMCMC(Cmodel, 
+                               monitors=c('q',
+                                          if(nrcovs>0){c('meanR', 'tauR')},
+                                          if(nicovs>0){c('probI', 'sizeI')},
+                                          if(nbcovs>0){c('probB')}
+                                          ))
 }
-## confmodel$printSamplers(executionOrder=TRUE)
 print(confmodel)
+## confmodel$printSamplers(executionOrder=TRUE)
 
 mcmcsampler <- buildMCMC(confmodel)
 Cmcmcsampler <- compileNimble(mcmcsampler, resetFunctions = TRUE)
