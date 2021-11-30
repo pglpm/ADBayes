@@ -67,26 +67,241 @@ finalstate2list <- function(mcsamples){
     names(parmList) <- parmNames
     parmList
 }
-## ##
-## ## percentile functions for cont. and discr. covars
-## qpdf <- function(parmprob){
-##     myoptim(rep(0,length(prob)),
-##             function(xe){
-##                 sum((sapply(xe,function(i){
-##                     sum(qs * pnorm(i, mean=Kmeans, sd=Ksds))
-##                 })/prob-1)^2)
-##                 })$par
-## }
-## ##
-## qpmf <- function(qs, Kprobs, Ksizes, prob){
-##     sapply(prob,function(aprob){
-##         x <- 0
-##         while((sum(qs * pbinom(x, prob=Kprobs, size=Ksizes)) - aprob) < 0){
-##             x <- x + 1
-##         }
-##     x - 1
-##     })
-## }
+##
+## Calculates the probability of the data (likelihood of parameters) for several MCMC samples
+llSamples <- function(dat, parmList){
+    realCovs <- dimnames(parmList$meanR)[[2]]
+    integerCovs <- dimnames(parmList$probI)[[2]]
+    binaryCovs <- dimnames(parmList$probB)[[2]]
+    covNames <- c(realCovs, integerCovs, binaryCovs)
+    nrcovs <- length(realCovs)
+    nicovs <- length(integerCovs)
+    nbcovs <- length(binaryCovs)
+    ndata <- nrow(dat[[which.max(c(nrcovs,nicovs,nbcovs))]])
+    q <- parmList$q
+    ##
+    foreach(asample=seq_len(nrow(q)), .combine=c, .inorder=TRUE)%dopar%{
+        sum( log( colSums(
+            exp(
+                log(q[asample,]) +
+                t(vapply(seq_len(ncol(q)), function(acluster){
+                    ## real covariates
+                    if(nrcovs>0){
+                        colSums(dnorm(t(dat$X), mean=parmList$meanR[asample,,acluster], sd=1/sqrt(parmList$tauR[asample,,acluster]), log=TRUE))
+                        }else{0} +
+                        ## integer covariates
+                        if(nicovs>0){
+                            colSums(dbinom(t(dat$Y), prob=parmList$probI[asample,,acluster], size=parmList$sizeI[asample,,acluster], log=TRUE))
+                            }else{0} +
+                    ## binary covariates
+                    if(nbcovs>0){
+                            colSums(log(
+                                parmList$probB[asample,,acluster] * t(dat$Z) +
+                                (1-parmList$probB[asample,,acluster]) * (1-t(dat$Z))
+                                ))
+                    }else{0}
+    }, numeric(ndata)))
+            )
+        ) ) )
+    }
+}
+## tottime <- Sys.time()
+## for(i in 1:1e6){extraDistr::dbern(x=testx, prob=testp, log=TRUE)}
+## Sys.time()-tottime
+## ## Time difference of 56.0237 secs
+## tottime <- Sys.time()
+## for(i in 1:1e6){log(testp*testx + (1-testp)*(1L-testx))}
+## Sys.time()-tottime
+## ## Time difference of 31.73911 secs
+## tottime <- Sys.time()
+## for(i in 1:1e6){log(testx + (-1L)^testx*(1-testp))}
+## Sys.time()-tottime
+## ## Time difference of 51.8646 secs
+##
+## Calculates means and covariances of the sampled frequency distributions
+moments12Samples <- function(parmList){
+    realCovs <- dimnames(parmList$meanR)[[2]]
+    integerCovs <- dimnames(parmList$probI)[[2]]
+    binaryCovs <- dimnames(parmList$probB)[[2]]
+    covNames <- c(realCovs, integerCovs, binaryCovs)
+    nrcovs <- length(realCovs)
+    nicovs <- length(integerCovs)
+    nbcovs <- length(binaryCovs)
+    ncovs <- length(covNames)
+    q <- t(parmList$q)
+    ##
+    meansr <- aperm(parmList$meanR, c(3, 1, 2))
+    meansi <- aperm(parmList$probI * parmList$sizeI, c(3, 1, 2))
+    meansb <- aperm(parmList$probB, c(3, 1, 2))
+    clustermeans <- c(meansr, meansi, meansb)
+    dim(clustermeans) <- c(dim(meansr)[-3], ncovs)
+    mixmeans <- colSums(c(q) * clustermeans)
+    dimnames(mixmeans) <- list(NULL, paste0('MEAN_', covNames))
+    ##
+    quadr <- aperm(1/parmList$tauR + parmList$meanR * parmList$meanR, c(3, 1, 2))
+    quadi <- aperm(parmList$probI * parmList$sizeI *
+                    (1 + parmList$probI * (parmList$sizeI - 1)), c(3, 1, 2))
+    quadb <- aperm(parmList$probB * parmList$probB, c(3, 1, 2))
+    mixvars <- c(quadr, quadi, quadb)
+    dim(mixvars) <- c(dim(quadr)[-3], ncovs)
+    mixvars <- colSums(c(q) * mixvars) - mixmeans*mixmeans
+    dimnames(mixvars) <- list(NULL, paste0('VAR_', covNames))
+    ##
+    mixcovars <- foreach(cov1=seq_len(ncovs-1), .combine=cbind)%:%foreach(cov2=(cov1+1):ncovs, .combine=cbind)%do%{
+       colSums(c(q)*clustermeans[,,cov1,drop=FALSE]*clustermeans[,,cov2,drop=FALSE]) - mixmeans[,cov1,drop=FALSE]*mixmeans[,cov2,drop=FALSE]
+    }
+    colnames(mixcovars) <- foreach(cov1=seq_len(ncovs-1), .combine=c)%:%foreach(cov2=(cov1+1):ncovs, .combine=c)%do%{paste0('COV_',covNames[cov1],'|',covNames[cov2])}
+    ##
+    list(
+        Dcovars=((matrix(colSums(c(q) * apply(
+        (clustermeans -
+         array(rep(c(mixmeans), each=nrow(q)), dim=dim(clustermeans)))/array(rep(sqrt(c(mixvars)), each=nrow(q)), dim=dim(clustermeans)),
+        c(1,2), prod)),
+        ncol=1, dimnames=list(NULL, 'Dcov')))),
+        means=mixmeans,
+        vars=(mixvars),
+        covars=mixcovars
+        )
+}
+##
+## Gives samples of frequency distributions of any set of Y conditional on any set of X
+samplesF <- function(Y, X=NULL, parmList, nfsamples=NULL, inorder=FALSE){
+    rCovs <- dimnames(parmList$meanR)[[2]]
+    iCovs <- dimnames(parmList$probI)[[2]]
+    bCovs <- dimnames(parmList$probB)[[2]]
+    covNames <- c(rCovs, iCovs, bCovs)
+    nrcovs <- length(rCovs)
+    nicovs <- length(iCovs)
+    nbcovs <- length(bCovs)
+    ##
+    Y <- as.matrix(Y)
+    rY <- colnames(Y)[colnames(Y) %in% rCovs]
+    iY <- colnames(Y)[colnames(Y) %in% iCovs]
+    bY <- colnames(Y)[colnames(Y) %in% bCovs]
+    ##
+    if(!is.null(X)){
+        X <- as.matrix(X)
+        rX <- colnames(X)[colnames(X) %in% rCovs]
+        if(length(intersect(rX,rY))>0){
+            message('**WARNING: predictor and predictand have real variates in common. Removing from predictor**')
+            rX <- setdiff(rX,rY)
+        }
+        iX <- colnames(X)[colnames(X) %in% iCovs]
+        if(length(intersect(iX,iY))>0){
+            message('**WARNING: predictor and predictand have integer variates in common. Removing from predictor**')
+            iX <- setdiff(iX,iY)
+        }
+        bX <- colnames(X)[colnames(X) %in% bCovs]
+        if(length(intersect(bX,bY))>0){
+            message('**WARNING: predictor and predictand have binary variates in common. Removing from predictor**')
+            bX <- setdiff(bX,bY)
+        }
+        if(length(c(rX,iX,bX)==0)){X <- NULL}
+    }
+    ##
+    if(!is.null(X)){
+        if(nrow(X) < nrow(Y)){
+        message('**WARNING: X has fewer data than Y. Recycling**')
+        X <- t(matrix(rep(t(X), ceiling(nrow(Y)/nrow(X))), nrow=ncol(X), dimnames=list(colnames(X),NULL)))[1:nrow(Y),]
+    }
+    if(nrow(X) > nrow(Y)){
+        message('**WARNING: X has more data than Y. Recycling**')
+        Y <- t(matrix(rep(t(Y), ceiling(nrow(X)/nrow(Y))), nrow=ncol(Y), dimnames=list(colnames(Y),NULL)))[1:nrow(X),]
+    }
+    }
+    ndata <- nrow(Y)
+    ##
+    q <- parmList$q
+    nclusters <- ncol(q)
+    if(is.numeric(nfsamples)){
+        fsubsamples <- round(seq(1, nrow(q), length.out=nfsamples))
+    }else{
+        nfsamples <- nrow(q)
+        fsubsamples <- seq_len(nfsamples)
+    }
+    ##
+    if(!is.null(X)){
+        freqs <- foreach(asample=fsubsamples, .combine=cbind, .inorder=inorder)%dopar%{
+            ## pX: rows=clusters, cols=datapoints
+            pX <- exp(
+                log(q[asample,]) +
+                t(rbind(vapply(seq_len(nclusters), function(acluster){
+                    ## real covariates
+                    if(length(rX)>0){
+                        colSums(dnorm(x=t(X[,rX,drop=FALSE]), mean=parmList$meanR[asample,rX,acluster], sd=1/sqrt(parmList$tauR[asample,rX,acluster]), log=TRUE))
+                    }else{0} +
+                        ## integer covariates
+                        if(length(iX)>0){
+                            colSums(dbinom(x=t(X[,iX,drop=FALSE]), prob=parmList$probI[asample,iX,acluster], size=parmList$sizeI[asample,iX,acluster], log=TRUE))
+                        }else{0} +
+                        ## binary covariates
+                        if(length(bX)>0){
+                            colSums(log(
+                                parmList$probB[asample,bX,acluster] * t(X[,bX,drop=FALSE]) +
+                                (1-parmList$probB[asample,bX,acluster]) * (1-t(X[,bX,drop=FALSE]))
+                            ))
+                        }else{0}
+                }, numeric(ndata))))
+            )
+            ## pY: rows=clusters, cols=datapoints
+            pY <- exp(
+                t(rbind(vapply(seq_len(nclusters), function(acluster){
+                    ## real covariates
+                    if(length(rY)>0){
+                        colSums(dnorm(x=t(Y[,rY,drop=FALSE]), mean=parmList$meanR[asample,rY,acluster], sd=1/sqrt(parmList$tauR[asample,rY,acluster]), log=TRUE))
+                    }else{0} +
+                        ## integer covariates
+                        if(length(iY)>0){
+                            colSums(dbinom(x=t(Y[,iY,drop=FALSE]), prob=parmList$probI[asample,iY,acluster], size=parmList$sizeI[asample,iY,acluster], log=TRUE))
+                        }else{0} +
+                        ## binary covariates
+                        if(length(bY)>0){
+                            colSums(log(
+                                parmList$probB[asample,bY,acluster] * t(Y[,bY,drop=FALSE]) +
+                                (1-parmList$probB[asample,bY,acluster]) * (1-t(Y[,bY,drop=FALSE]))
+                            ))
+                        }else{0}
+                }, numeric(ndata))))
+            )
+            ##
+            colSums(pX * pY)/colSums(pX)
+        }
+    }else{
+        freqs <- foreach(asample=fsubsamples, .combine=cbind, .inorder=inorder)%dopar%{
+            ## pY: rows=clusters, cols=datapoints
+            pY <- exp(
+                log(q[asample,]) +
+                t(rbind(vapply(seq_len(nclusters), function(acluster){
+                    ## real covariates
+                    if(length(rY)>0){
+                        colSums(dnorm(x=t(Y[,rY,drop=FALSE]), mean=parmList$meanR[asample,rY,acluster], sd=1/sqrt(parmList$tauR[asample,rY,acluster]), log=TRUE))
+                    }else{0} +
+                        ## integer covariates
+                        if(length(iY)>0){
+                            colSums(dbinom(x=t(Y[,iY,drop=FALSE]), prob=parmList$probI[asample,iY,acluster], size=parmList$sizeI[asample,iY,acluster], log=TRUE))
+                        }else{0} +
+                        ## binary covariates
+                        if(length(bY)>0){
+                            colSums(log(
+                                parmList$probB[asample,bY,acluster] * t(Y[,bY,drop=FALSE]) +
+                                (1-parmList$probB[asample,bY,acluster]) * (1-t(Y[,bY,drop=FALSE]))
+                            ))
+                        }else{0}
+                }, numeric(ndata))))
+            )
+            ##
+            colSums(pY)
+        }
+    }
+    freqs
+}
+
+
+
+
+####################################################
+#### Functions below are not used at the moment ####
+####################################################
 ##
 ## Calculates the median and IQR of each sample frequency
 calcSampleMQ <- function(parmList, maxD=1000){
@@ -131,44 +346,28 @@ calcSampleMQ <- function(parmList, maxD=1000){
     quants
 }
 ##
-## Calculates means and covariances of the sampled frequency distributions
-moments12Samples <- function(parmList){
+## Calculates the probability of some datapoints for the MCMC samples
+probValuesSamples <- function(X, parmList){
     realCovs <- dimnames(parmList$meanR)[[2]]
     integerCovs <- dimnames(parmList$probI)[[2]]
     covNames <- c(realCovs, integerCovs)
     ncovs <- length(covNames)
-    q <- t(parmList$q)
+    q <- parmList$q
+    ndataz <- nrow(X)
     ##
-    meansc <- aperm(parmList$meanR, c(3, 1, 2))
-    meansd <- aperm(parmList$probI * parmList$sizeI, c(3, 1, 2))
-    clustermeans <- c(meansc, meansd)
-    dim(clustermeans) <- c(dim(meansc)[-3], ncovs)
-    mixmeans <- colSums(c(q) * clustermeans)
-    dimnames(mixmeans) <- list(NULL, paste0('MEAN_', covNames))
-    ##
-    quadrc <- aperm(1/parmList$tauR + parmList$meanR * parmList$meanR, c(3, 1, 2))
-    quadrd <- aperm(parmList$probI * parmList$sizeI *
-                    (1 + parmList$probI * (parmList$sizeI - 1)), c(3, 1, 2))
-    mixvars <- c(quadrc, quadrd)
-    dim(mixvars) <- c(dim(quadrc)[-3], ncovs)
-    mixvars <- colSums(c(q) * mixvars) - mixmeans*mixmeans
-    dimnames(mixvars) <- list(NULL, paste0('VAR_', covNames))
-    ##
-    mixcovars <- foreach(cov1=seq_len(ncovs-1), .combine=cbind)%:%foreach(cov2=(cov1+1):ncovs, .combine=cbind)%do%{
-       colSums(c(q)*clustermeans[,,cov1,drop=FALSE]*clustermeans[,,cov2,drop=FALSE]) - mixmeans[,cov1,drop=FALSE]*mixmeans[,cov2,drop=FALSE]
-    }
-    colnames(mixcovars) <- foreach(cov1=seq_len(ncovs-1), .combine=c)%:%foreach(cov2=(cov1+1):ncovs, .combine=c)%do%{paste0('COV_',covNames[cov1],'|',covNames[cov2])}
-    ##
-    list(
-        Dcovars=((matrix(colSums(c(q) * apply(
-        (clustermeans -
-         array(rep(c(mixmeans), each=nrow(q)), dim=dim(clustermeans)))/array(rep(sqrt(c(mixvars)), each=nrow(q)), dim=dim(clustermeans)),
-        c(1,2), prod)),
-        ncol=1, dimnames=list(NULL, 'Dcov')))),
-        means=mixmeans,
-        vars=(mixvars),
-        covars=mixcovars
+    (foreach(asample=seq_len(nrow(q)), .combine=cbind, .inorder=TRUE)%dopar%{
+        colSums(
+            exp(
+                log(q[asample,]) +
+                t(vapply(seq_len(ncol(q)), function(acluster){
+                    ## real covariates
+                    colSums(dnorm(t(X[,realCovs]), mean=parmList$meanR[asample,,acluster,drop=FALSE], sd=1/sqrt(parmList$tauR[asample,,acluster,drop=FALSE]), log=TRUE)) +
+                        ## integer covariates
+                    colSums(dbinom(t(X[,integerCovs]), prob=parmList$probI[asample,,acluster,drop=FALSE], size=parmList$sizeI[asample,,acluster,drop=FALSE], log=TRUE))
+    }, numeric(ndataz)))
+            )
         )
+    })
 }
 ##
 ## Improved optimization functions
@@ -222,68 +421,6 @@ calcSampleQuantiles <- function(parmList){
     quants <- aperm(quants)
     dimnames(quants) <- list(NULL, covNames, c('0.5%', '99.5%'))
     quants
-}
-##
-## Calculates the probability of some datapoints for the MCMC samples
-probValuesSamples <- function(X, parmList){
-    realCovs <- dimnames(parmList$meanR)[[2]]
-    integerCovs <- dimnames(parmList$probI)[[2]]
-    covNames <- c(realCovs, integerCovs)
-    ncovs <- length(covNames)
-    q <- parmList$q
-    ndataz <- nrow(X)
-    ##
-    (foreach(asample=seq_len(nrow(q)), .combine=cbind, .inorder=TRUE)%dopar%{
-        colSums(
-            exp(
-                log(q[asample,]) +
-                t(vapply(seq_len(ncol(q)), function(acluster){
-                    ## real covariates
-                    colSums(dnorm(t(X[,realCovs]), mean=parmList$meanR[asample,,acluster,drop=FALSE], sd=1/sqrt(parmList$tauR[asample,,acluster,drop=FALSE]), log=TRUE)) +
-                        ## integer covariates
-                    colSums(dbinom(t(X[,integerCovs]), prob=parmList$probI[asample,,acluster,drop=FALSE], size=parmList$sizeI[asample,,acluster,drop=FALSE], log=TRUE))
-    }, numeric(ndataz)))
-            )
-        )
-    })
-}
-##
-## Calculates the probability of the data (likelihood of parameters) for several MCMC samples
-llSamples <- function(dat, parmList){
-    realCovs <- dimnames(parmList$meanR)[[2]]
-    integerCovs <- dimnames(parmList$probI)[[2]]
-    binaryCovs <- dimnames(parmList$probB)[[2]]
-    covNames <- c(realCovs, integerCovs, binaryCovs)
-    nrcovs <- length(realCovs)
-    nicovs <- length(integerCovs)
-    nbcovs <- length(binaryCovs)
-    ndata <- nrow(dat[[which.max(c(nrcovs,nicovs,nbcovs))]])
-    q <- parmList$q
-    ##
-    foreach(asample=seq_len(nrow(q)), .combine=c, .inorder=TRUE)%dopar%{
-        sum( log( colSums(
-            exp(
-                log(q[asample,]) +
-                t(vapply(seq_len(ncol(q)), function(acluster){
-                    ## real covariates
-                    if(nrcovs>0){
-                        colSums(dnorm(t(dat$X), mean=parmList$meanR[asample,,acluster], sd=1/sqrt(parmList$tauR[asample,,acluster]), log=TRUE))
-                        }else{0} +
-                        ## integer covariates
-                        if(nicovs>0){
-                            colSums(dbinom(t(dat$Y), prob=parmList$probI[asample,,acluster], size=parmList$sizeI[asample,,acluster], log=TRUE))
-                            }else{0} +
-                    ## binary covariates
-                    if(nbcovs>0){
-                            colSums(log(
-                                parmList$probB[asample,,acluster] * t(dat$Z) +
-                                (1-parmList$probB[asample,,acluster]) * (1-t(dat$Z))
-                                ))
-                    }else{0}
-    }, numeric(ndata)))
-            )
-        ) ) )
-    }
 }
 ##
 ## Calculates the probability of the data (likelihood of parameters) for one MCMC samples
@@ -729,102 +866,4 @@ samplesfX <- function(acov, parmList, acovgrid, nfsamples=100){
 
 
 
-
-## Gives samples of frequency distributions of log_RMSD conditional on several feature values
-samplesF <- function(Y, X, parmList, nfsamples=NULL, inorder=FALSE){
-    rCovs <- dimnames(parmList$meanR)[[2]]
-    iCovs <- dimnames(parmList$probI)[[2]]
-    bCovs <- dimnames(parmList$probB)[[2]]
-    covNames <- c(rCovs, iCovs, bCovs)
-    nrcovs <- length(rCovs)
-    nicovs <- length(iCovs)
-    nbcovs <- length(bCovs)
-    ##
-    X <- as.matrix(X)
-    rX <- colnames(X)[colnames(X) %in% rCovs]
-    iX <- colnames(X)[colnames(X) %in% iCovs]
-    bX <- colnames(X)[colnames(X) %in% bCovs]
-    ##
-    Y <- as.matrix(Y)
-    rY <- colnames(Y)[colnames(Y) %in% rCovs]
-    if(length(intersect(rY,rX))>0){
-        message('**WARNING: predictor and predictand have real variates in common. Removing from predictor**')
-        rX <- setdiff(rX,rY)
-    }
-    iY <- colnames(Y)[colnames(Y) %in% iCovs]
-    if(length(intersect(iY,iX))>0){
-        message('**WARNING: predictor and predictand have integer variates in common. Removing from predictor**')
-        iX <- setdiff(iX,iY)
-    }
-    bY <- colnames(Y)[colnames(Y) %in% bCovs]
-    if(length(intersect(bY,bX))>0){
-        message('**WARNING: predictor and predictand have binary variates in common. Removing from predictor**')
-        bX <- setdiff(bX,bY)
-    }
-    if(nrow(Y) < nrow(X)){
-        message('**WARNING: Y has fewer data than X. Recycling**')
-        Y <- t(matrix(rep(t(Y), ceiling(nrow(X)/nrow(Y))), nrow=ncol(Y), dimnames=list(colnames(Y),NULL)))[1:nrow(X),]
-    }
-    if(nrow(Y) > nrow(X)){
-        message('**WARNING: Y has more data than X. Recycling**')
-        X <- t(matrix(rep(t(X), ceiling(nrow(Y)/nrow(X))), nrow=ncol(X), dimnames=list(colnames(X),NULL)))[1:nrow(Y),]
-    }
-    ndata <- nrow(Y)
-    ##
-    q <- parmList$q
-    nclusters <- ncol(q)
-    if(is.numeric(nfsamples)){
-        fsubsamples <- round(seq(1, nrow(q), length.out=nfsamples))
-    }else{
-        nfsamples <- nrow(q)
-        fsubsamples <- seq_len(nfsamples)
-    }
-    ##
-    freqs <- foreach(asample=fsubsamples, .combine=cbind, .inorder=inorder)%dopar%{
-        ## pX: rows=clusters, cols=datapoints
-        pX <- exp(
-            log(q[asample,]) +
-            t(rbind(vapply(seq_len(nclusters), function(acluster){
-                ## real covariates
-                if(length(rX)>0){
-                    colSums(dnorm(x=t(X[,rX,drop=FALSE]), mean=parmList$meanR[asample,rX,acluster], sd=1/sqrt(parmList$tauR[asample,rX,acluster]), log=TRUE))
-                }else{0} +
-                    ## integer covariates
-                    if(length(iX)>0){
-                        colSums(dbinom(x=t(X[,iX,drop=FALSE]), prob=parmList$probI[asample,iX,acluster], size=parmList$sizeI[asample,iX,acluster], log=TRUE))
-                    }else{0} +
-                    ## binary covariates
-                        if(length(bX)>0){
-                            colSums(log(
-                                parmList$probB[asample,bX,acluster] * t(X[,bX,drop=FALSE]) +
-                                (1-parmList$probB[asample,bX,acluster]) * (1-t(X[,bX,drop=FALSE]))
-                                ))
-                            }else{0}
-            }, numeric(ndata))))
-        )
-        ## pY: rows=clusters, cols=datapoints
-        pY <- exp(
-            t(rbind(vapply(seq_len(nclusters), function(acluster){
-                ## real covariates
-                if(length(rY)>0){
-                    colSums(dnorm(x=t(Y[,rY,drop=FALSE]), mean=parmList$meanR[asample,rY,acluster], sd=1/sqrt(parmList$tauR[asample,rY,acluster]), log=TRUE))
-                }else{0} +
-                    ## integer covariates
-                    if(length(iY)>0){
-                        colSums(dbinom(x=t(Y[,iY,drop=FALSE]), prob=parmList$probI[asample,iY,acluster], size=parmList$sizeI[asample,iY,acluster], log=TRUE))
-                    }else{0} +
-                    ## binary covariates
-                    if(length(bY)>0){
-                            colSums(log(
-                                parmList$probB[asample,bY,acluster] * t(Y[,bY,drop=FALSE]) +
-                                (1-parmList$probB[asample,bY,acluster]) * (1-t(Y[,bY,drop=FALSE]))
-                                ))
-                    }else{0}
-            }, numeric(ndata))))
-        )
-        ##
-        colSums(pX * pY)/colSums(pX)
-    }
-    freqs
-} 
 

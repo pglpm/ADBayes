@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-03-20T10:07:17+0100
-## Last-Updated: 2021-11-28T17:43:59+0100
+## Last-Updated: 2021-11-30T15:01:53+0100
 ################
 ## Exploration for MMIV poster
 ################
@@ -84,8 +84,8 @@ covSelect <- c(
 covtypes = rep(NA, length(covSelect)) #c('integer', 'double', 'integer', 'integer', 'integer', 'integer', 'integer', 'integer', 'integer', 'double', 'integer', 'integer', 'integer'),
 covmin = c(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NA)
 covmax = c(1, +Inf, 1, 75, 15, 15, 150, 300, 60, +Inf, 1, 5, 50, NA)
-covtransf <- rep(NA, length(covSelect))
-names(covtypes) <- names(covmin) <- names(covmax) <- names(covtransf) <- covSelect
+covtransfM <- covtransfW <- rep(NA, length(covSelect))
+names(covtypes) <- names(covmin) <- names(covmax) <- names(covtransfM) <- names(covtransfW) <- covSelect
 ##
 ## load data and select variates of interest
 ## datafile <- 'RF_K50_final_df_best_blended_top5_K50.csv' # test file
@@ -125,15 +125,16 @@ for(acov in covSelect){
     ) && covmin[acov] == 0
     ){
         datum <- log(datum)
-        m <- signif(mean(datum),2)
-        s <- signif(sd(datum),2)
+        m <- signif(median(datum),2)
+        s <- signif(IQR(datum, type=8)/diff(qnorm(c(1,3)/4)),2)
         newacov <- paste0(acov, '_log_')
         origdata[[newacov]] <- (datum-m)/s
         message(paste0('* ', acov, ': transforming to log-scale and standardizing as "', newacov, '"'))
-        message(paste0(acov, ' = exp(A * ', newacov, ' + B)'))
-        message(paste0('with  A = ', s, ',  B = ', m))
+        message(paste0(acov, ' = exp(W * ', newacov, ' + M)'))
+        message(paste0('with  W = ', s, ',  M = ', m))
         covNames[acov] <- newacov
-        covtransf[acov] <- m + s*1i
+        covtransfM[acov] <- m
+        covtransfW[acov] <- s
         covtypes[acov] <- 'double'
     } else if(is.na(covtypes[acov])){covtypes[acov] <- typeof(datum)}
     if(is.na(covmin[acov])){covmin[acov] <- min(datum, na.rm=TRUE)}
@@ -165,7 +166,8 @@ variateinfo <- data.table(
     type = covtypes,
     min = covmin,
     max = covmax,
-    transfparams = covtransf
+    transfM = covtransfM,
+    transfW = covtransfW
 )
 saveinfofile <- 'variates_info.csv'
 message(paste0('\nSaving variate info in "', savefile, '"'))

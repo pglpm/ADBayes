@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-11-30T20:12:10+0100
+## Last-Updated: 2021-11-30T17:44:30+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -44,12 +44,12 @@ library('nimble')
 
 
 seed <- 149
-baseversion <- 'test_'
+baseversion <- 'posteriorRIB_'
 nclusters <- as.integer(45) #as.integer(2^6)
-niter <- as.integer(256) #as.integer(2^11)
-niter0 <- as.integer(256) #as.integer(2^10)
-thin <- as.integer(1)
-nstages <- as.integer(1)
+niter <- as.integer(1024) #as.integer(2^11)
+niter0 <- as.integer(1024) #as.integer(2^10)
+thin <- as.integer(8)
+nstages <- as.integer(3)
 ncheckpoints <- as.integer(4)
 maincov <- 'Subgroup_num_'
 family <- 'Palatino'
@@ -341,7 +341,6 @@ for(stage in 0:nstages){
     saveRDS(finalstate2list(finalstate),file=paste0('_finalstate-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
     ##
     parmList <- mcsamples2parmlist(mcsamples)
-    saveRDS(parmList,file=paste0('_frequencies-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
     ## Traces to follow for diagnostics
     ll <- llSamples(dat, parmList)
     flagll <- FALSE
@@ -503,4 +502,3 @@ for(stage in 0:nstages){
 ############################################################
 ## End MCMC
 ############################################################
-
