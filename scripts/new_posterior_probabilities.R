@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-11-30T20:12:10+0100
+## Last-Updated: 2021-12-01T07:09:11+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -45,7 +45,7 @@ library('nimble')
 
 seed <- 149
 baseversion <- 'test_'
-nclusters <- as.integer(45) #as.integer(2^6)
+nclusters <- as.integer(64) #as.integer(2^6)
 niter <- as.integer(256) #as.integer(2^11)
 niter0 <- as.integer(256) #as.integer(2^10)
 thin <- as.integer(1)
@@ -82,10 +82,12 @@ nbcovs <- length(binaryCovs)
 ncovs <- length(covNames)
 ndata <- nrow(alldata)
 ##
+dirname <- paste0(baseversion,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',niter)
+dir.create(dirname)
 if(file.exists("/cluster/home/pglpm/R")){
 initial.options <- commandArgs(trailingOnly = FALSE)
 thisscriptname <- sub('--file=', "", initial.options[grep('--file=', initial.options)])
-file.copy(from=thisscriptname, to=paste0('script-R',baseversion,'-V',length(covNames),'-D',ndata,'-K',nclusters,'.Rscript'))
+file.copy(from=thisscriptname, to=paste0(dirname,'/script-R',baseversion,'-V',length(covNames),'-D',ndata,'-K',nclusters,'.Rscript'))
 }
 
 for(obj in c('constants', 'dat', 'inits', 'bayesnet', 'model', 'Cmodel', 'confmodel', 'mcmcsampler', 'Cmcmcsampler')){if(exists(obj)){do.call(rm,list(obj))}}
@@ -120,7 +122,7 @@ for(acov in integerCovs){
 medianbcovs <- apply(alldata[1:ndata,..binaryCovs],2,median)
 ##
 print('Creating and saving checkpoints')
-checkpointsFile <- paste0('_checkpoints-',ncheckpoints,'-R',baseversion,'-V',length(covNames),'-D',ndata,'-K',nclusters,'.rds')
+checkpointsFile <- paste0(dirname,'/_checkpoints-',ncheckpoints,'-R',baseversion,'-V',length(covNames),'-D',ndata,'-K',nclusters,'.rds')
 checkpoints <- rbind(
     c(medianrcovs, medianicovs, medianbcovs),
     c(medianrcovs+widthrcovs, sapply(round(medianicovs+widthicovs), function(x){min(maxicovs,x)}), 1+0*medianbcovs),
@@ -330,7 +332,7 @@ for(stage in 0:nstages){
     ##
     if(any(is.na(mcsamples))){print('WARNING: SOME NA OUTPUTS')}
     if(any(!is.finite(mcsamples))){print('WARNING: SOME INFINITE OUTPUTS')}
-    saveRDS(mcsamples,file=paste0('_mcsamples-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
+    saveRDS(mcsamples,file=paste0(dirname,'/_mcsamples-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
     ## save final state of MCMC chain
     finalstate <- as.matrix(Cmcmcsampler$mvSamples2)
     finalstate <- c(mcsamples[nrow(mcsamples),], finalstate[nrow(finalstate),])
@@ -338,10 +340,10 @@ for(stage in 0:nstages){
     usedclusters <- length(unique(occupations))
     if(usedclusters > nclusters-5){print('WARNING: TOO MANY CLUSTERS OCCUPIED')}
     print(paste0('OCCUPIED CLUSTERS: ', usedclusters, ' OF ', nclusters))
-    saveRDS(finalstate2list(finalstate),file=paste0('_finalstate-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
+    saveRDS(finalstate2list(finalstate),file=paste0(dirname,'/_finalstate-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
     ##
     parmList <- mcsamples2parmlist(mcsamples)
-    saveRDS(parmList,file=paste0('_frequencies-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
+    saveRDS(parmList,file=paste0(dirname,'/_frequencies-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
     ## Traces to follow for diagnostics
     ll <- llSamples(dat, parmList)
     flagll <- FALSE
@@ -363,7 +365,7 @@ for(stage in 0:nstages){
                     do.call(cbind, momentstraces))
     badcols <- foreach(i=1:ncol(traces), .combine=c)%do%{if(all(is.na(traces[,i]))){i}else{NULL}}
     if(!is.null(badcols)){traces <- traces[,-badcols]}
-    saveRDS(traces,file=paste0('_traces-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
+    saveRDS(traces,file=paste0(dirname,'/_traces-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
     
     ##
     if(nrow(traces)>=1000){
