@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-02T17:53:20+0100
+## Last-Updated: 2021-12-02T21:11:18+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -43,7 +43,7 @@ if(file.exists("/cluster/home/pglpm/R")){
 
 maincov <- 'Subgroup_num_'
 source('new_functions_mcmc.R')
-frequenciesfile <- 'newIposterior_-V13-D539-K50-I1024/_frequencies-RnewIposterior_2-V13-D539-K50-I1024.rds'
+frequenciesfile <- 'ADposterior_-V13-D539-K64-I1024/_frequencies-RADposterior_2-V13-D539-K64-I1024.rds'
 parmList <- readRDS(frequenciesfile)
 nclusters <- ncol(parmList$q)
 nFsamples <- nrow(parmList$q)
@@ -136,36 +136,53 @@ qdistsAF <- foreach(acov=otherCovs)%do%{
 names(qdistsAF) <- otherCovs
 
 ## plot of frequencies of features given AD state f(F|AD)
-pdff('plots_features_given_AD')
+pdff('plots_features_given_AD2')
 for(acov in otherCovs){
     agrid <- grids[[acov]]
     ymax <- quant(apply(qdistsFA[[acov]],2,function(x){quant(x,99/100)}),99/100)
-ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
-for(i in 1:2){
-    tplot(x=agrid, y=qdistsFA[[acov]][1,,i],
-          col=i, lty=i, lwd=4, alpha=0.25, ylim=ylim,
-          xlab=acov, ylab='frequency of feature for patients with AD/MCI', add=(i==2))
-        tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
+    xlim <- c(NA,NA)
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
     if(!any(is.na(tpar))){
-        Ogrid <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
-        axis(3,at=(log(Ogrid)-tpar['transfM'])/tpar['transfW'],labels=Ogrid,lwd=0,lwd.ticks=1,col.ticks='#bbbbbb80')
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+        xlabels <- TRUE}
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
     }
-    polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
-}
-legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',subgroupnames), '87.5% uncertainty'),
-       col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
-                       )
+    for(i in 1:2){
+        tplot(x=agrid, y=qdistsFA[[acov]][1,,i], yticks=NULL, xlim=xlim,
+              col=i, lty=i, lwd=4, alpha=0.25, ylim=ylim, xticks=xticks, xlabels=xlabels,
+              xlab=acov, ylab='frequency of feature for patients with AD/MCI', add=(i==2))
+        polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
+    }
+    legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',subgroupnames), '87.5% uncertainty'),
+           col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
+           )
 }
 dev.off()
 
 
 ## plot of frequencies of AD state given features, using bayes f(F|AD)
-pdff('plots_predictAD_bayes')
+pdff('plots_predictAD_bayes2')
 for(acov in otherCovs){
     agrid <- grids[[acov]]
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+    xlabels <- TRUE}
     ylim <- c(0,1)
+    xlim <- c(NA,NA)
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
     tplot(x=agrid, y=qbayesAF[[acov]][1,,'AD'],
-          col=7, lty=1, lwd=4, ylim=ylim,
+          col=7, lty=1, lwd=4, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
           xlab=acov, ylab='probability of AD')
     tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
     if(!any(is.na(tpar))){
@@ -181,12 +198,23 @@ legend('topleft', legend=c('87.5% uncertainty on the probability'),
 dev.off()
 
 ## plot of frequencies of AD state given features, f(AD|F)
-pdff('plots_predictAD_direct')
+pdff('plots_predictAD_direct2')
 for(acov in otherCovs){
     agrid <- grids[[acov]]
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+    xlabels <- TRUE}
 ylim <- c(0,1)
+    xlim <- c(NA,NA)
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
     tplot(x=agrid, y=qdistsAF[[acov]][1,,'AD'],
-          col=2, lty=1, lwd=4, ylim=ylim,
+          col=2, lty=1, lwd=4, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
           xlab=acov, ylab='probability of AD')
     polygon(x=c(agrid,rev(agrid)), y=c(qdistsAF[[acov]][2,,'AD'], rev(qdistsAF[[acov]][3,,'AD'])), col=paste0(palette()[2],'80'), border=NA)
     abline(h=0.5, lty=2, lwd=1, col=2)
@@ -219,18 +247,18 @@ bpredictions <- foreach(adatum=1:nrow(ipredictions0), .combine=rbind)%do%{
 ##
 mean(rowMeans(bpredictions)*log2(1/rowMeans(bpredictions)))
 sd(rowMeans(bpredictions)*log2(1/rowMeans(bpredictions)))
-## > [1] 0.4789668
-## > [1] 0.044583
+## > [1] 0.480607
+## > [1] 0.04011874
 
-predictions <- samplesF(X=rbind(xcond[,2]), Y=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
+predictions <- samplesF(Y=rbind(xcond[,2]), X=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
 ##
 mean(rowMeans(predictions)*log2(1/rowMeans(predictions)))
 sd(rowMeans(predictions)*log2(1/rowMeans(predictions)))
-## > [1] 0.488735
-## > [1] 0.03724209
+## > [1] 0.4911335
+## > [1] 0.03228495
 
 ## plot of predictive probabilities for test data
-pdff('predictions_testset')
+pdff('predictions_testset2')
 for(adatum in 1:nrow(testdata)){
     truev <- testdata[[maincov]][adatum]+1
     aprob <- predictions[adatum,]
@@ -258,7 +286,7 @@ for(adatum in 1:nrow(testdata)){
 dev.off()
 
 ## plot of predictive probabilities for test data using Bayes's theorem
-pdff('predictions_bayes_testset')
+pdff('predictions_bayes_testset2')
 for(adatum in 1:nrow(testdata)){
     truev <- testdata[[maincov]][adatum]+1
     aprob <- bpredictions[adatum,]
@@ -282,7 +310,7 @@ for(adatum in 1:nrow(testdata)){
 dev.off()
 
 ## Comparison of direct and indirect predictive probabilities
-pdff('predictions_testset_compbayes')
+pdff('predictions_testset_compbayes2')
 for(adatum in 1:nrow(testdata)){
     truev <- testdata[[maincov]][adatum]+1
     aprob1 <- predictions[adatum,]
