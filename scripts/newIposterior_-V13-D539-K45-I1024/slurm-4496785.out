@@ -1,0 +1,27 @@
+Starting job 4496785 on c5-37 at Wed Dec 1 21:22:58 CET 2021
+
+  1) StdEnv
+slurmstepd: error: *** JOB 4496785 ON c5-37 CANCELLED AT 2021-12-02T07:53:08 ***
+
+Task and CPU usage stats:
+       JobID    JobName  AllocCPUS   NTasks     MinCPU MinCPUTask     AveCPU    Elapsed ExitCode 
+------------ ---------- ---------- -------- ---------- ---------- ---------- ---------- -------- 
+4496785           MCMC3          6                                             10:30:11      0:0 
+4496785.bat+      batch          6        1   10:29:45          0   10:29:45   10:30:12     0:15 
+4496785.ext+     extern          6        1   00:00:00          0   00:00:00   10:30:11      0:0 
+
+Memory usage stats:
+       JobID     MaxRSS MaxRSSTask     AveRSS MaxPages   MaxPagesTask   AvePages 
+------------ ---------- ---------- ---------- -------- -------------- ---------- 
+4496785                                                                          
+4496785.bat+   1110836K          0   1110836K        0              0          0 
+4496785.ext+          0          0          0        0              0          0 
+
+Disk usage stats:
+       JobID  MaxDiskRead MaxDiskReadTask    AveDiskRead MaxDiskWrite MaxDiskWriteTask   AveDiskWrite 
+------------ ------------ --------------- -------------- ------------ ---------------- -------------- 
+4496785                                                                                               
+4496785.bat+        8.00M               0          8.00M        0.14M                0          0.14M 
+4496785.ext+        0.00M               0          0.00M            0                0              0 
+
+Job 4496785 completed at Thu Dec 2 07:53:10 CET 2021

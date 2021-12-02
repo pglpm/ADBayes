@@ -183,30 +183,30 @@ samplesF <- function(Y, X=NULL, parmList, nfsamples=NULL, inorder=FALSE){
         X <- as.matrix(X)
         rX <- colnames(X)[colnames(X) %in% rCovs]
         if(length(intersect(rX,rY))>0){
-            message('**WARNING: predictor and predictand have real variates in common. Removing from predictor**')
+            warning('*WARNING: predictor and predictand have real variates in common. Removing from predictor*')
             rX <- setdiff(rX,rY)
         }
         iX <- colnames(X)[colnames(X) %in% iCovs]
         if(length(intersect(iX,iY))>0){
-            message('**WARNING: predictor and predictand have integer variates in common. Removing from predictor**')
+            warning('*WARNING: predictor and predictand have integer variates in common. Removing from predictor*')
             iX <- setdiff(iX,iY)
         }
         bX <- colnames(X)[colnames(X) %in% bCovs]
         if(length(intersect(bX,bY))>0){
-            message('**WARNING: predictor and predictand have binary variates in common. Removing from predictor**')
+            warning('*WARNING: predictor and predictand have binary variates in common. Removing from predictor*')
             bX <- setdiff(bX,bY)
         }
-        if(length(c(rX,iX,bX)==0)){X <- NULL}
+        if(length(c(rX,iX,bX))==0){X <- NULL}
     }
     ##
     if(!is.null(X)){
         if(nrow(X) < nrow(Y)){
-        message('**WARNING: X has fewer data than Y. Recycling**')
-        X <- t(matrix(rep(t(X), ceiling(nrow(Y)/nrow(X))), nrow=ncol(X), dimnames=list(colnames(X),NULL)))[1:nrow(Y),]
+        warning('*Note: X has fewer data than Y. Recycling*')
+        X <- t(matrix(rep(t(X), ceiling(nrow(Y)/nrow(X))), nrow=ncol(X), dimnames=list(colnames(X),NULL)))[1:nrow(Y),,drop=FALSE]
     }
     if(nrow(X) > nrow(Y)){
-        message('**WARNING: X has more data than Y. Recycling**')
-        Y <- t(matrix(rep(t(Y), ceiling(nrow(X)/nrow(Y))), nrow=ncol(Y), dimnames=list(colnames(Y),NULL)))[1:nrow(X),]
+        warning('*Note: X has more data than Y. Recycling*')
+        Y <- t(matrix(rep(t(Y), ceiling(nrow(X)/nrow(Y))), nrow=ncol(Y), dimnames=list(colnames(Y),NULL)))[1:nrow(X),,drop=FALSE]
     }
     }
     ndata <- nrow(Y)
