@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-02T16:04:49+0100
+## Last-Updated: 2021-12-02T17:25:57+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -184,12 +184,12 @@ for(acov in otherCovs){
     agrid <- grids[[acov]]
 ylim <- c(0,1)
     tplot(x=agrid, y=qdistsAF[[acov]][1,,'AD'],
-          col=7, lty=1, lwd=4, ylim=ylim,
+          col=2, lty=1, lwd=4, ylim=ylim,
           xlab=acov, ylab='probability of AD')
-    polygon(x=c(agrid,rev(agrid)), y=c(qdistsAF[[acov]][2,,'AD'], rev(qdistsAF[[acov]][3,,'AD'])), col=paste0(palette()[7],'80'), border=NA)
+    polygon(x=c(agrid,rev(agrid)), y=c(qdistsAF[[acov]][2,,'AD'], rev(qdistsAF[[acov]][3,,'AD'])), col=paste0(palette()[2],'80'), border=NA)
     abline(h=0.5, lty=2, lwd=1, col=2)
-legend(x=agrid[1], y=ylim[2]*1, legend=c('75% uncertainty on the probability'),
-       col=palette()[c(7)], lty=c(1), lwd=c(15), cex=1.5, bty='n'
+legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability'),
+       col=palette()[c(2)], lty=c(1), lwd=c(15), cex=1.5, bty='n'
                        )
 }
 dev.off()
@@ -253,15 +253,56 @@ for(adatum in 1:nrow(testdata)){
     uncprob <- quant(aprob, c(1,15)/16)
     histo <- thist(aprob)
     tplot(x=histo$breaks, y=histo$density,
-          xlim=c(0,1), ylim=c(0,NA), col=7, 
-          xlab='uncertainty over the probability of AD', ylab='density')
-    abline(v=mean(aprob), lty=1, lwd=3, col=tcol)
-    abline(v=0.5, lty=3, lwd=2, col=3)
-    legend('topleft', legend=c(
-                          paste0('true outcome: ',subgroupnames[truev]),
-                          paste0('probability of AD: ',signif(meanprob*100,2),'%'),
-                          paste0('87.5% uncertainty:\n[',signif(uncprob[1],2),', ',signif(uncprob[2],2),']')
-                          ),
-           cex=1.5, bty='n')
+          xlim=c(0,1), ylim=c(0,NA), col=3, 
+          xlab='probability of AD', ylab='density')
+    abline(v=meanprob, lty=1, lwd=3, col=3)
+    legend(x=0.25,y=max(histo$density)*1.15,legend=c(
+                         paste0('probability of AD between [',signif(uncprob[1],2),', ',
+                                signif(uncprob[2],2),']')),
+           cex=1.5, bty='n', xpd=T)
+    ## legend('topleft', legend=c(
+    ##                       paste0('probability of AD between\n[',signif(uncprob[1],2),', ',signif(uncprob[2],2),']')
+    ##                       ),
+    ##        cex=1.5, bty='n')
+    legend(if(truev==2){pleg <- 'right'}else{pleg <- 'left'},
+           legend=c( paste0('true outcome:\n',subgroupnames[truev])),
+           col=truev, cex=1.5, bty='n')
+}
+dev.off()
+
+
+pdff('predictions_testset_compbayes')
+for(adatum in 1:nrow(testdata)){
+    truev <- testdata[[maincov]][adatum]+1
+    aprob1 <- predictions[adatum,]
+    meanprob1 <- mean(aprob)
+    uncprob1 <- quant(aprob, c(1,15)/16)
+    histo1 <- thist(aprob)
+    aprob <- bpredictions[adatum,]
+    meanprob2 <- mean(aprob)
+    uncprob2 <- quant(aprob, c(1,15)/16)
+    histo2 <- thist(aprob)
+    ymax <- max(histo1$density,histo2$density)
+    tplot(x=histo1$breaks, y=histo1$density,
+          xlim=c(0,1), ylim=c(0,ymax), col=3, 
+          xlab='probability of AD', ylab='density')
+    abline(v=meanprob1, lty=1, lwd=3, col=3)
+    tplot(x=histo2$breaks, y=histo2$density,
+          xlim=c(0,1), ylim=c(0,NA), col=4, 
+          xlab='uncertainty over the probability of AD', ylab='density', add=T)
+    abline(v=meanprob2, lty=1, lwd=3, col=4)
+    ## legend('topleft', legend=c(
+    ##                       paste0('probability of AD between\n[',signif(uncprob[1],2),', ',signif(uncprob[2],2),']')
+    ##                       ),
+    ##        cex=1.5, bty='n')
+    legend(x=0.25,y=ymax*1.2,legend=c(
+                         paste0('direct prediction [',signif(uncprob1[1],2),', ',
+                                signif(uncprob1[2],2),']'),
+                         paste0('prediction via bayes [',signif(uncprob2[1],2),', ',
+                                signif(uncprob2[2],2),']')),
+           col=c(3,4), lty=1, lwd=3, cex=1.5, bty='n', xpd=T)
+    legend(if(truev==2){pleg <- 'right'}else{pleg <- 'left'},
+           legend=c( paste0('true outcome:\n',subgroupnames[truev])),
+           col=truev, cex=1.5, bty='n')
 }
 dev.off()
