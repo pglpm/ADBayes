@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-02T15:27:00+0100
+## Last-Updated: 2021-12-02T16:04:49+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -196,3 +196,72 @@ dev.off()
 
 
 
+
+
+
+
+
+datafile <- 'data_transformed_shuffled.csv'
+testdata <- fread(datafile, sep=',')
+testdata <- testdata[Usage_ == 'test']
+
+xcond <- matrix(0:1,ncol=2,dimnames=list(NULL,rep(maincov,2)))
+subgroupnames <- c('MCI', 'AD')
+## subgroup=1 is AD
+## subgroup=0 is MCI
+
+ipredictions0 <- samplesF(X=rbind(xcond[,1]), Y=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
+ipredictions1 <- samplesF(X=rbind(xcond[,2]), Y=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
+
+bpredictions <- foreach(adatum=1:nrow(ipredictions0), .combine=rbind)%do%{
+    dist <- ipredictions1[adatum,]/(ipredictions0[adatum,]+ipredictions1[adatum,])
+}
+
+
+predictions <- samplesF(X=rbind(xcond[,2]), Y=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
+
+pdff('predictions_bayes_testset')
+for(adatum in 1:nrow(testdata)){
+    truev <- testdata[[maincov]][adatum]+1
+    aprob <- bpredictions[adatum,]
+    meanprob <- mean(aprob)
+    tcol <- 2
+    if((meanprob>=0.5 && truev==2) || (meanprob<=0.5 && truev==1)){tcol <- 1}
+    uncprob <- quant(aprob, c(1,15)/16)
+    histo <- thist(aprob)
+    tplot(x=histo$breaks, y=histo$density,
+          xlim=c(0,1), ylim=c(0,NA), col=7, 
+          xlab='uncertainty over the probability of AD', ylab='density')
+    abline(v=mean(aprob), lty=1, lwd=3, col=tcol)
+    abline(v=0.5, lty=3, lwd=2, col=3)
+    legend('topleft', legend=c(
+                          paste0('true outcome: ',subgroupnames[truev]),
+                          paste0('probability of AD: ',signif(meanprob*100,2),'%'),
+                          paste0('87.5% uncertainty:\n[',signif(uncprob[1],2),', ',signif(uncprob[2],2),']')
+                          ),
+           cex=1.5, bty='n')
+}
+dev.off()
+
+pdff('predictions_testset')
+for(adatum in 1:nrow(testdata)){
+    truev <- testdata[[maincov]][adatum]+1
+    aprob <- predictions[adatum,]
+    meanprob <- mean(aprob)
+    tcol <- 2
+    if((meanprob>=0.5 && truev==2) || (meanprob<=0.5 && truev==1)){tcol <- 1}
+    uncprob <- quant(aprob, c(1,15)/16)
+    histo <- thist(aprob)
+    tplot(x=histo$breaks, y=histo$density,
+          xlim=c(0,1), ylim=c(0,NA), col=7, 
+          xlab='uncertainty over the probability of AD', ylab='density')
+    abline(v=mean(aprob), lty=1, lwd=3, col=tcol)
+    abline(v=0.5, lty=3, lwd=2, col=3)
+    legend('topleft', legend=c(
+                          paste0('true outcome: ',subgroupnames[truev]),
+                          paste0('probability of AD: ',signif(meanprob*100,2),'%'),
+                          paste0('87.5% uncertainty:\n[',signif(uncprob[1],2),', ',signif(uncprob[2],2),']')
+                          ),
+           cex=1.5, bty='n')
+}
+dev.off()
