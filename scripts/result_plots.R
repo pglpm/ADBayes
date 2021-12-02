@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-02T17:25:57+0100
+## Last-Updated: 2021-12-02T17:53:20+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -65,8 +65,7 @@ otherCovs <- setdiff(covNames, maincov)
 subgroupnames <- c('MCI', 'AD')
 ## subgroup=1 is AD
 ## subgroup=0 is MCI
-
-
+##
 datafile <- 'data_transformed_shuffled.csv'
 alldata <- fread(datafile, sep=',')
 alldata <- alldata[Usage_ == 'train']
@@ -83,9 +82,10 @@ grids <- foreach(acov=covNames)%do%{
     matrix(Xgrid, ncol=1, dimnames=list(NULL,acov))
 }
 names(grids) <- covNames
-
+##
 xcond <- matrix(0:1,ncol=2,dimnames=list(NULL,rep(maincov,2)))
 
+## Frequencies of each feature given AD state
 distsFA <- foreach(acov=otherCovs)%do%{
     dists <- rbind(samplesF(Y=grids[[acov]], X=rbind(xcond[,1]), parmList=parmList, inorder=T),
                    samplesF(Y=grids[[acov]], X=rbind(xcond[,2]), parmList=parmList, inorder=T)
@@ -96,11 +96,13 @@ distsFA <- foreach(acov=otherCovs)%do%{
 }
 names(distsFA) <- otherCovs
 
+## quantiles
 qdistsFA <- foreach(acov=otherCovs)%do%{
     apply(distsFA[[acov]],c(2,3),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
 }
 names(qdistsFA) <- otherCovs
 
+## probability of AD state given features, via Bayes's theorem
 bayesAF <- foreach(acov=otherCovs)%do%{
     dist <- distsFA[[acov]]
     zz <- dist[,,'AD']+dist[,,'MCI']
@@ -110,14 +112,13 @@ bayesAF <- foreach(acov=otherCovs)%do%{
 }
 names(bayesAF) <- otherCovs
 
+## quantiles
 qbayesAF <- foreach(acov=otherCovs)%do%{
     apply(bayesAF[[acov]],c(2,3),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
 }
 names(qbayesAF) <- otherCovs
 
-
-
-
+## frequencies of AD state given features
 distsAF <- foreach(acov=setdiff(covNames, maincov))%do%{
     dists <- rbind(samplesF(X=grids[[acov]], Y=rbind(xcond[,1]), parmList=parmList, inorder=T),
                    samplesF(X=grids[[acov]], Y=rbind(xcond[,2]), parmList=parmList, inorder=T)
@@ -128,12 +129,13 @@ distsAF <- foreach(acov=setdiff(covNames, maincov))%do%{
 }
 names(distsAF) <- otherCovs
 
+## quantiles
 qdistsAF <- foreach(acov=otherCovs)%do%{
     apply(distsAF[[acov]],c(2,3),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
 }
 names(qdistsAF) <- otherCovs
 
-
+## plot of frequencies of features given AD state f(F|AD)
 pdff('plots_features_given_AD')
 for(acov in otherCovs){
     agrid <- grids[[acov]]
@@ -157,7 +159,7 @@ legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients wit
 dev.off()
 
 
-
+## plot of frequencies of AD state given features, using bayes f(F|AD)
 pdff('plots_predictAD_bayes')
 for(acov in otherCovs){
     agrid <- grids[[acov]]
@@ -178,7 +180,7 @@ legend('topleft', legend=c('87.5% uncertainty on the probability'),
 }
 dev.off()
 
-
+## plot of frequencies of AD state given features, f(AD|F)
 pdff('plots_predictAD_direct')
 for(acov in otherCovs){
     agrid <- grids[[acov]]
@@ -195,12 +197,8 @@ legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability')
 dev.off()
 
 
-
-
-
-
-
-
+## Exploration on test data
+## Load test file
 datafile <- 'data_transformed_shuffled.csv'
 testdata <- fread(datafile, sep=',')
 testdata <- testdata[Usage_ == 'test']
@@ -210,39 +208,28 @@ subgroupnames <- c('MCI', 'AD')
 ## subgroup=1 is AD
 ## subgroup=0 is MCI
 
+## predictive probabilities with uncertainty
 ipredictions0 <- samplesF(X=rbind(xcond[,1]), Y=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
 ipredictions1 <- samplesF(X=rbind(xcond[,2]), Y=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
 
+## predictive probabilities via Bayes's theorem
 bpredictions <- foreach(adatum=1:nrow(ipredictions0), .combine=rbind)%do%{
     dist <- ipredictions1[adatum,]/(ipredictions0[adatum,]+ipredictions1[adatum,])
 }
-
+##
+mean(rowMeans(bpredictions)*log2(1/rowMeans(bpredictions)))
+sd(rowMeans(bpredictions)*log2(1/rowMeans(bpredictions)))
+## > [1] 0.4789668
+## > [1] 0.044583
 
 predictions <- samplesF(X=rbind(xcond[,2]), Y=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
+##
+mean(rowMeans(predictions)*log2(1/rowMeans(predictions)))
+sd(rowMeans(predictions)*log2(1/rowMeans(predictions)))
+## > [1] 0.488735
+## > [1] 0.03724209
 
-pdff('predictions_bayes_testset')
-for(adatum in 1:nrow(testdata)){
-    truev <- testdata[[maincov]][adatum]+1
-    aprob <- bpredictions[adatum,]
-    meanprob <- mean(aprob)
-    tcol <- 2
-    if((meanprob>=0.5 && truev==2) || (meanprob<=0.5 && truev==1)){tcol <- 1}
-    uncprob <- quant(aprob, c(1,15)/16)
-    histo <- thist(aprob)
-    tplot(x=histo$breaks, y=histo$density,
-          xlim=c(0,1), ylim=c(0,NA), col=7, 
-          xlab='uncertainty over the probability of AD', ylab='density')
-    abline(v=mean(aprob), lty=1, lwd=3, col=tcol)
-    abline(v=0.5, lty=3, lwd=2, col=3)
-    legend('topleft', legend=c(
-                          paste0('true outcome: ',subgroupnames[truev]),
-                          paste0('probability of AD: ',signif(meanprob*100,2),'%'),
-                          paste0('87.5% uncertainty:\n[',signif(uncprob[1],2),', ',signif(uncprob[2],2),']')
-                          ),
-           cex=1.5, bty='n')
-}
-dev.off()
-
+## plot of predictive probabilities for test data
 pdff('predictions_testset')
 for(adatum in 1:nrow(testdata)){
     truev <- testdata[[maincov]][adatum]+1
@@ -270,7 +257,31 @@ for(adatum in 1:nrow(testdata)){
 }
 dev.off()
 
+## plot of predictive probabilities for test data using Bayes's theorem
+pdff('predictions_bayes_testset')
+for(adatum in 1:nrow(testdata)){
+    truev <- testdata[[maincov]][adatum]+1
+    aprob <- bpredictions[adatum,]
+    meanprob <- mean(aprob)
+    tcol <- 2
+    if((meanprob>=0.5 && truev==2) || (meanprob<=0.5 && truev==1)){tcol <- 1}
+    uncprob <- quant(aprob, c(1,15)/16)
+    histo <- thist(aprob)
+    tplot(x=histo$breaks, y=histo$density,
+          xlim=c(0,1), ylim=c(0,NA), col=7, 
+          xlab='uncertainty over the probability of AD', ylab='density')
+    abline(v=mean(aprob), lty=1, lwd=3, col=tcol)
+    abline(v=0.5, lty=3, lwd=2, col=3)
+    legend('topleft', legend=c(
+                          paste0('true outcome: ',subgroupnames[truev]),
+                          paste0('probability of AD: ',signif(meanprob*100,2),'%'),
+                          paste0('87.5% uncertainty:\n[',signif(uncprob[1],2),', ',signif(uncprob[2],2),']')
+                          ),
+           cex=1.5, bty='n')
+}
+dev.off()
 
+## Comparison of direct and indirect predictive probabilities
 pdff('predictions_testset_compbayes')
 for(adatum in 1:nrow(testdata)){
     truev <- testdata[[maincov]][adatum]+1
