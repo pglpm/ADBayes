@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-02T14:40:38+0100
+## Last-Updated: 2021-12-02T15:27:00+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -43,7 +43,7 @@ if(file.exists("/cluster/home/pglpm/R")){
 
 maincov <- 'Subgroup_num_'
 source('new_functions_mcmc.R')
-frequenciesfile <- 'newIposterior_-V13-D539-K50-I1024/_frequencies-RnewIposterior_1-V13-D539-K50-I1024.rds'
+frequenciesfile <- 'newIposterior_-V13-D539-K50-I1024/_frequencies-RnewIposterior_2-V13-D539-K50-I1024.rds'
 parmList <- readRDS(frequenciesfile)
 nclusters <- ncol(parmList$q)
 nFsamples <- nrow(parmList$q)
@@ -96,6 +96,28 @@ distsFA <- foreach(acov=otherCovs)%do%{
 }
 names(distsFA) <- otherCovs
 
+qdistsFA <- foreach(acov=otherCovs)%do%{
+    apply(distsFA[[acov]],c(2,3),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
+}
+names(qdistsFA) <- otherCovs
+
+bayesAF <- foreach(acov=otherCovs)%do%{
+    dist <- distsFA[[acov]]
+    zz <- dist[,,'AD']+dist[,,'MCI']
+    dist[,,'AD'] <- dist[,,'AD']/zz
+    dist[,,'MCI'] <- dist[,,'MCI']/zz
+    dist
+}
+names(bayesAF) <- otherCovs
+
+qbayesAF <- foreach(acov=otherCovs)%do%{
+    apply(bayesAF[[acov]],c(2,3),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
+}
+names(qbayesAF) <- otherCovs
+
+
+
+
 distsAF <- foreach(acov=setdiff(covNames, maincov))%do%{
     dists <- rbind(samplesF(X=grids[[acov]], Y=rbind(xcond[,1]), parmList=parmList, inorder=T),
                    samplesF(X=grids[[acov]], Y=rbind(xcond[,2]), parmList=parmList, inorder=T)
@@ -106,71 +128,70 @@ distsAF <- foreach(acov=setdiff(covNames, maincov))%do%{
 }
 names(distsAF) <- otherCovs
 
-quantFA <- foreach(acov=otherCovs)%do%{
-    apply(distsFA[[acov]],c(2,3),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,7)/8, na.rm=T)))
+qdistsAF <- foreach(acov=otherCovs)%do%{
+    apply(distsAF[[acov]],c(2,3),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
 }
-names(quantFA) <- otherCovs
+names(qdistsAF) <- otherCovs
 
 
 pdff('plots_features_given_AD')
 for(acov in otherCovs){
     agrid <- grids[[acov]]
-    ymax <- quant(apply(quantFA[[acov]],2,function(x){quant(x,99/100)}),99/100)
-ylim <- c(0,ymax)#max(quantFA[[acov]]))
+    ymax <- quant(apply(qdistsFA[[acov]],2,function(x){quant(x,99/100)}),99/100)
+ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
 for(i in 1:2){
-    tplot(x=agrid, y=quantFA[[acov]][1,,i],
-          col=i, lty=i, lwd=3, alpha=0.25, ylim=ylim,
-          xlab=acov, ylab='population frequency', add=(i==2))
-    polygon(x=c(agrid,rev(agrid)), y=c(quantFA[[acov]][2,,i], rev(quantFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
+    tplot(x=agrid, y=qdistsFA[[acov]][1,,i],
+          col=i, lty=i, lwd=4, alpha=0.25, ylim=ylim,
+          xlab=acov, ylab='frequency of feature for patients with AD/MCI', add=(i==2))
+        tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        Ogrid <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        axis(3,at=(log(Ogrid)-tpar['transfM'])/tpar['transfW'],labels=Ogrid,lwd=0,lwd.ticks=1,col.ticks='#bbbbbb80')
+    }
+    polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
 }
-legend(x=agrid[1], y=ylim[2]*1.2, legend=c(subgroupnames, '75% uncertainty'),
-       col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(2,2,15), cex=1.5, bty='n'
+legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',subgroupnames), '87.5% uncertainty'),
+       col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
                        )
 }
 dev.off()
 
-tplot(x=grids[[acov]], y=t(quantFA[[acov]][,,2]),col=2, add=T)
 
 
-pdff('plots_subgroups')
-for(acov in setdiff(covNames, maincov)){
-    if(acov %in% realCovs){
-
-
-
-        
-        rg <- range(datum)+c(-1,1)*IQR(datum)
-            Xgrid <- seq(rg[1], rg[2], length.out=256)
-            tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
-            if(!any(is.na(tpar))){
-                Ogrid <- pretty(exp(tpar['transfW']*Xgrid + tpar['transfM']),n=10)
-            }
-        }else{
-            rg <- range(datum)
-            rg <- round(c((covMins[acov]+7*rg[1])/8, (covMaxs[acov]+7*rg[2])/8))
-            Xgrid <- rg[1]:rg[2]
-            tpar <- NA
-        }
-        Xgrid <- cbind(Xgrid)
-        colnames(Xgrid) <- acov
-        plotsamples <- samplesF(Y=Xgrid, parmList=parmList, nfsamples=min(64,nrow(mcsamples)), inorder=FALSE)
-
-    
+pdff('plots_predictAD_bayes')
+for(acov in otherCovs){
+    agrid <- grids[[acov]]
+    ylim <- c(0,1)
+    tplot(x=agrid, y=qbayesAF[[acov]][1,,'AD'],
+          col=7, lty=1, lwd=4, ylim=ylim,
+          xlab=acov, ylab='probability of AD')
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        Ogrid <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        axis(3,at=(log(Ogrid)-tpar['transfM'])/tpar['transfW'],labels=Ogrid,lwd=0,lwd.ticks=1,col.ticks='#bbbbbb80')
+    }
+    polygon(x=c(agrid,rev(agrid)), y=c(qbayesAF[[acov]][2,,'AD'], rev(qbayesAF[[acov]][3,,'AD'])), col=paste0(palette()[7],'80'), border=NA)
+    abline(h=0.5, lty=2, lwd=1, col=2)
+legend('topleft', legend=c('87.5% uncertainty on the probability'),
+       col=palette()[c(7)], lty=c(1), lwd=c(15), cex=1.5, bty='n'
+                       )
 }
-
 dev.off()
 
 
-
-
-
-pdff('testhistograms')
-for(acov in colnames(alldata)){
-    print(acov)
-if(is.numeric(alldata[[acov]])){
-    histo <- thist(alldata[[acov]],round((nrow(alldata))^(2/3)))
- tplot(x=histo$breaks, y=histo$density, main=acov,col=2)
-}}
+pdff('plots_predictAD_direct')
+for(acov in otherCovs){
+    agrid <- grids[[acov]]
+ylim <- c(0,1)
+    tplot(x=agrid, y=qdistsAF[[acov]][1,,'AD'],
+          col=7, lty=1, lwd=4, ylim=ylim,
+          xlab=acov, ylab='probability of AD')
+    polygon(x=c(agrid,rev(agrid)), y=c(qdistsAF[[acov]][2,,'AD'], rev(qdistsAF[[acov]][3,,'AD'])), col=paste0(palette()[7],'80'), border=NA)
+    abline(h=0.5, lty=2, lwd=1, col=2)
+legend(x=agrid[1], y=ylim[2]*1, legend=c('75% uncertainty on the probability'),
+       col=palette()[c(7)], lty=c(1), lwd=c(15), cex=1.5, bty='n'
+                       )
+}
 dev.off()
 
 
