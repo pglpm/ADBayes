@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-03T11:00:02+0100
+## Last-Updated: 2021-12-03T11:13:58+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -330,6 +330,38 @@ legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability')
                        )
 }
 dev.off()
+
+## plot of samples of frequencies of AD state given features, f(AD|F)
+pdff('plotssamples_predictAD_direct2')
+for(acov in otherCovs){
+    agrid <- grids[[acov]]
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+    xlabels <- TRUE}
+ylim <- c(0,1)
+    xlim <- c(NA,NA)
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
+    subsam <- seq(1,dim(distsFA[[acov]])[1], length.out=128)
+    tplot(x=agrid, y=t(distsAF[[acov]][,,'AD']),
+          col=2, lty=1, lwd=1, alpha=0.875, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
+          xlab=acov, ylab='probability of AD')
+    tplot(x=agrid, y=qdistsAF[[acov]][1,,'AD'],
+          col=6, lty=1, lwd=4, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
+          xlab=acov, ylab='probability of AD', add=T)
+    abline(h=0.5, lty=2, lwd=1, col=2)
+legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability'),
+       col=palette()[c(2)], lty=c(1), lwd=c(15), cex=1.5, bty='n'
+                       )
+}
+dev.off()
+
+
 
 ###########################
 ## Exploration on test data
