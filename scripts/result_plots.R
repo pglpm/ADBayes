@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-03T09:07:29+0100
+## Last-Updated: 2021-12-03T11:00:02+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -195,6 +195,41 @@ for(acov in otherCovs){
               col=i, lty=i, lwd=4, alpha=0.25, ylim=ylim, xticks=xticks, xlabels=xlabels,
               xlab=acov, ylab='frequency of feature for patients with AD/MCI', add=(i==2))
         polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
+    }
+    legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',diseasenames), '87.5% uncertainty'),
+           col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
+           )
+}
+dev.off()
+
+## plot of samples of frequencies of features given AD state f(F|AD)
+pdff('plotssamples_features_given_AD2')
+for(acov in otherCovs){
+    agrid <- grids[[acov]]
+    ymax <- quant(apply(distsFA[[acov]],2,function(x){quant(x,99/100)}),99/100)
+    ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
+    xlim <- c(NA,NA)
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+        xlabels <- TRUE}
+    subsam <- seq(1,dim(distsFA[[acov]])[1], length.out=128)
+    tplot(x=agrid, y=matrix(
+                       rbind(t(distsFA[[acov]][subsam,,1]),t(distsFA[[acov]][subsam,,2])),
+                       nrow=length(agrid)),
+          yticks=NULL, xlim=xlim,
+              col=c(5,2), lty=1, lwd=1, alpha=0.75, ylim=ylim, xticks=xticks, xlabels=xlabels,
+              xlab=acov, ylab='frequency of feature for patients with AD/MCI')
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
+    for(i in 1:2){
+        tplot(x=agrid, y=qdistsFA[[acov]][1,,i], yticks=NULL, xlim=xlim,
+              col=c(1,6)[i], lty=i, lwd=3, alpha=0.25, ylim=ylim, xticks=xticks, xlabels=xlabels,
+              xlab=acov, ylab='frequency of feature for patients with AD/MCI', add=T)
     }
     legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',diseasenames), '87.5% uncertainty'),
            col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
