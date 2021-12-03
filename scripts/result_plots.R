@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-03T11:13:58+0100
+## Last-Updated: 2021-12-03T20:00:03+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -215,6 +215,10 @@ for(acov in otherCovs){
         xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
     }else{xticks <- NULL
         xlabels <- TRUE}
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
     subsam <- seq(1,dim(distsFA[[acov]])[1], length.out=128)
     tplot(x=agrid, y=matrix(
                        rbind(t(distsFA[[acov]][subsam,,1]),t(distsFA[[acov]][subsam,,2])),
@@ -222,17 +226,13 @@ for(acov in otherCovs){
           yticks=NULL, xlim=xlim,
               col=c(5,2), lty=1, lwd=1, alpha=0.75, ylim=ylim, xticks=xticks, xlabels=xlabels,
               xlab=acov, ylab='frequency of feature for patients with AD/MCI')
-    if(acov %in% binaryCovs){
-        xticks <- 0:1
-        xlim <- c(-0.25,1.25)
-    }
-    for(i in 1:2){
-        tplot(x=agrid, y=qdistsFA[[acov]][1,,i], yticks=NULL, xlim=xlim,
-              col=c(1,6)[i], lty=i, lwd=3, alpha=0.25, ylim=ylim, xticks=xticks, xlabels=xlabels,
-              xlab=acov, ylab='frequency of feature for patients with AD/MCI', add=T)
-    }
-    legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',diseasenames), '87.5% uncertainty'),
-           col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
+    ## for(i in 1:2){
+    ##     tplot(x=agrid, y=qdistsFA[[acov]][1,,i], yticks=NULL, xlim=xlim,
+    ##           col=c(1,6)[i], lty=i, lwd=3, alpha=0.25, ylim=ylim, xticks=xticks, xlabels=xlabels,
+    ##           xlab=acov, ylab='frequency of feature for patients with AD/MCI', add=T)
+    ## }
+    legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distributions for patients with ',diseasenames)),
+           col=palette()[c(1,2,7)], lty=c(1,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
            )
 }
 dev.off()
@@ -360,6 +360,60 @@ legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability')
                        )
 }
 dev.off()
+
+
+## Sample of features of future datapoints
+datasamples <- foreach(asample=1:nrow(parmList$q), .combine=rbind, .packages='nimble', .inorder=F)%dorng%{
+    acluster <- rcat(n=1,prob=parmList$q[asample,])
+    sapply(covNames,function(acov){
+        if(acov %in% realCovs){
+            rnorm(n=1,mean=parmList$meanR[asample,acov,acluster],sd=1/sqrt(parmList$tauR[asample,acov,acluster]))
+        }else if(acov %in% integerCovs){
+            rbinom(n=1,prob=parmList$probI[asample,acov,acluster],size=parmList$sizeI[asample,acov,acluster])
+        }else{
+            nimble::rcat(n=1,prob=c(1-parmList$probB[asample,acov,acluster],parmList$probB[asample,acov,acluster]))-1
+        }
+    })
+}
+
+pADdatasamples <- samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)),
+                           X=datasamples[,otherCovs], parmList=parmList, inorder=F)
+
+pADdata <- rowMeans(pADdatasamples)
+pADdata <- abs(pADdata-0.5)+0.5
+## > summary(pADdata)
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  0.5004  0.5431  0.5784  0.5863  0.6151  0.7269 
+
+pADdatasamplestest <- samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)),
+                           X=testdata[,..otherCovs], parmList=parmList, inorder=F)
+
+pADdatatest <- rowMeans(pADdatasamplestest)
+pADdatatest <- abs(pADdatatest-0.5)+0.5
+## > summary(pADdatatest)
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  0.5027  0.5469  0.5836  0.5900  0.6109  0.7221 
+
+psinglefeatures <- sapply(otherCovs,function(acov){
+    rowMeans(samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)),
+             X=datasamples[,acov,drop=F], parmList=parmList, inorder=F))})
+
+sort(colMeans(abs(psinglefeatures-0.5)+0.5), decreasing=T)
+## >  AVDEL30MIN_neuro   RAVLT_immediate    AVDELTOT_neuro LRHHC_n_long_log_ 
+##         0.6383735         0.6356126         0.6164573         0.5850538 
+##    TRABSCOR_neuro   CATANIMSC_neuro    TRAASCOR_neuro    ANARTERR_neuro 
+##         0.5798381         0.5703339         0.5662306         0.5384173 
+##            Apoe4_          AGE_log_       Gender_num_       GDTOTAL_gds 
+##         0.5372096         0.5357221         0.5299859         0.5277434 
+
+entropysort <- sort(colMeans(psinglefeatures*log2(1/psinglefeatures)+(1-psinglefeatures)*log2(1/(1-psinglefeatures))), decreasing=F)
+## >   RAVLT_immediate  AVDEL30MIN_neuro    AVDELTOT_neuro    TRABSCOR_neuro 
+##         0.9126043         0.9133284         0.9421147         0.9607575 
+## LRHHC_n_long_log_    TRAASCOR_neuro   CATANIMSC_neuro            Apoe4_ 
+##         0.9714212         0.9724730         0.9743210         0.9935568 
+##          AGE_log_       Gender_num_    ANARTERR_neuro       GDTOTAL_gds 
+##         0.9936771         0.9944123         0.9945327         0.9974680 
+message(paste0(names(entropysort),collapse='\n'))
 
 
 
