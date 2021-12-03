@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-02T21:11:18+0100
+## Last-Updated: 2021-12-03T09:07:29+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -41,6 +41,17 @@ if(file.exists("/cluster/home/pglpm/R")){
 ## library('nimble')
 #### End custom setup ####
 
+## Bernoulli distribution
+dbernoulli <- function(x, prob, log=FALSE){
+    if(log){
+        out <- x*log(prob) + (1-x)*log(1-prob)
+        out[is.na(out)] <- 0
+    }else{
+        out <- x*prob + (1-x)*(1-prob)
+    }
+    out
+}
+
 maincov <- 'Subgroup_num_'
 source('new_functions_mcmc.R')
 frequenciesfile <- 'ADposterior_-V13-D539-K64-I1024/_frequencies-RADposterior_2-V13-D539-K64-I1024.rds'
@@ -62,9 +73,12 @@ covMins <- variateinfo$min
 covMaxs <- variateinfo$max
 names(covTypes) <- names(covMins) <- names(covMaxs) <- variateinfo$variate
 otherCovs <- setdiff(covNames, maincov)
-subgroupnames <- c('MCI', 'AD')
-## subgroup=1 is AD
-## subgroup=0 is MCI
+diseasenames <- c('MCI', 'AD')
+## 0 is MCI
+## 1 is AD
+gendernames <- c('male', 'female')
+## 0 is male
+## 1 is female
 ##
 datafile <- 'data_transformed_shuffled.csv'
 alldata <- fread(datafile, sep=',')
@@ -91,7 +105,7 @@ distsFA <- foreach(acov=otherCovs)%do%{
                    samplesF(Y=grids[[acov]], X=rbind(xcond[,2]), parmList=parmList, inorder=T)
                    )
     dim(dists) <- c(length(grids[[acov]]), 2, ncol(dists))
-    dimnames(dists) <- list(NULL, subgroupnames, NULL)
+    dimnames(dists) <- list(NULL, diseasenames, NULL)
     aperm(dists, c(3,1,2))
 }
 names(distsFA) <- otherCovs
@@ -101,6 +115,29 @@ qdistsFA <- foreach(acov=otherCovs)%do%{
     apply(distsFA[[acov]],c(2,3),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
 }
 names(qdistsFA) <- otherCovs
+
+
+
+distsFAG <- foreach(acov=setdiff(covNames, c(maincov, 'Gender_num_')))%do%{
+    dists <- rbind(
+        samplesF(Y=grids[[acov]], X=matrix(c(0,0),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
+        samplesF(Y=grids[[acov]], X=matrix(c(1,0),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
+        samplesF(Y=grids[[acov]], X=matrix(c(0,1),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
+        samplesF(Y=grids[[acov]], X=matrix(c(1,1),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T)
+        )
+    dim(dists) <- c(length(grids[[acov]]), 2, 2, ncol(dists))
+    dimnames(dists) <- list(NULL, diseasenames, gendernames, NULL)
+    aperm(dists, c(4,1,2,3))
+}
+names(distsFAG) <- setdiff(covNames, c(maincov, 'Gender_num_'))
+
+## quantiles
+qdistsFAG <- foreach(acov=names(distsFAG))%do%{
+    apply(distsFAG[[acov]],c(2,3,4),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
+}
+names(qdistsFAG) <- names(distsFAG)
+
+
 
 ## probability of AD state given features, via Bayes's theorem
 bayesAF <- foreach(acov=otherCovs)%do%{
@@ -124,10 +161,11 @@ distsAF <- foreach(acov=setdiff(covNames, maincov))%do%{
                    samplesF(X=grids[[acov]], Y=rbind(xcond[,2]), parmList=parmList, inorder=T)
                    )
     dim(dists) <- c(length(grids[[acov]]), 2, ncol(dists))
-    dimnames(dists) <- list(NULL, subgroupnames, NULL)
+    dimnames(dists) <- list(NULL, diseasenames, NULL)
     aperm(dists, c(3,1,2))
 }
 names(distsAF) <- otherCovs
+
 
 ## quantiles
 qdistsAF <- foreach(acov=otherCovs)%do%{
@@ -158,9 +196,43 @@ for(acov in otherCovs){
               xlab=acov, ylab='frequency of feature for patients with AD/MCI', add=(i==2))
         polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
     }
-    legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',subgroupnames), '87.5% uncertainty'),
+    legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',diseasenames), '87.5% uncertainty'),
            col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
            )
+}
+dev.off()
+
+## plot of frequencies of features given AD state and gender f(F|AD&G)
+pdff('plots_features_given_ADG2')
+for(acov in names(distsFAG)){
+    agrid <- grids[[acov]]
+   ymax <- quant(apply(qdistsFAG[[acov]],2,function(x){quant(x,99/100)}),99/100)
+##    ymax <- max(qdistsFAG[[acov]])
+    ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
+    xlim <- c(NA,NA)
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+        xlabels <- TRUE}
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
+    tcols <- matrix(c(1,6,5,2),nrow=2)
+    for(i in 1:2){
+        for(j in 1:2){
+        tplot(x=agrid, y=qdistsFAG[[acov]][1,,i,j], yticks=NULL, xlim=xlim,
+              col=tcols[i,j], lty=i, lwd=4, alpha=0.25, ylim=ylim, xticks=xticks, xlabels=xlabels,
+              xlab=acov, ylab='frequency of feature given AD/MCI & gender', add=(i+j>2))
+        polygon(x=c(agrid,rev(agrid)), y=c(qdistsFAG[[acov]][2,,i,j], rev(qdistsFAG[[acov]][3,,i,j])), col=paste0(palette()[tcols[i,j]],'40'), border=NA)
+    }
+    }
+    legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',diseasenames), '87.5% uncertainty'),
+           col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
+           )
+    legend(x=agrid[length(agrid)*4/5], y=ylim[2]*1.2, legend=c('darker: male','lighter: female'), bty='n', xpd=T, cex=1.25)
 }
 dev.off()
 
@@ -224,15 +296,16 @@ legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability')
 }
 dev.off()
 
-
+###########################
 ## Exploration on test data
+###########################
 ## Load test file
 datafile <- 'data_transformed_shuffled.csv'
 testdata <- fread(datafile, sep=',')
 testdata <- testdata[Usage_ == 'test']
 
 xcond <- matrix(0:1,ncol=2,dimnames=list(NULL,rep(maincov,2)))
-subgroupnames <- c('MCI', 'AD')
+diseasenames <- c('MCI', 'AD')
 ## subgroup=1 is AD
 ## subgroup=0 is MCI
 
@@ -249,6 +322,8 @@ mean(rowMeans(bpredictions)*log2(1/rowMeans(bpredictions)))
 sd(rowMeans(bpredictions)*log2(1/rowMeans(bpredictions)))
 ## > [1] 0.480607
 ## > [1] 0.04011874
+mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(bpredictions), log=TRUE))
+## > [1] -0.6636753
 
 predictions <- samplesF(Y=rbind(xcond[,2]), X=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
 ##
@@ -256,6 +331,8 @@ mean(rowMeans(predictions)*log2(1/rowMeans(predictions)))
 sd(rowMeans(predictions)*log2(1/rowMeans(predictions)))
 ## > [1] 0.4911335
 ## > [1] 0.03228495
+mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(predictions), log=TRUE))
+## > [1] -0.6608669
 
 ## plot of predictive probabilities for test data
 pdff('predictions_testset2')
@@ -280,7 +357,7 @@ for(adatum in 1:nrow(testdata)){
     ##                       ),
     ##        cex=1.5, bty='n')
     legend(if(truev==2){pleg <- 'right'}else{pleg <- 'left'},
-           legend=c( paste0('true outcome:\n',subgroupnames[truev])),
+           legend=c( paste0('true outcome:\n',diseasenames[truev])),
            col=truev, cex=1.5, bty='n')
 }
 dev.off()
@@ -301,7 +378,7 @@ for(adatum in 1:nrow(testdata)){
     abline(v=mean(aprob), lty=1, lwd=3, col=tcol)
     abline(v=0.5, lty=3, lwd=2, col=3)
     legend('topleft', legend=c(
-                          paste0('true outcome: ',subgroupnames[truev]),
+                          paste0('true outcome: ',diseasenames[truev]),
                           paste0('probability of AD: ',signif(meanprob*100,2),'%'),
                           paste0('87.5% uncertainty:\n[',signif(uncprob[1],2),', ',signif(uncprob[2],2),']')
                           ),
@@ -341,7 +418,7 @@ for(adatum in 1:nrow(testdata)){
                                 signif(uncprob2[2],2),']')),
            col=c(3,4), lty=1, lwd=3, cex=1.5, bty='n', xpd=T)
     legend(if(truev==2){pleg <- 'right'}else{pleg <- 'left'},
-           legend=c( paste0('true outcome:\n',subgroupnames[truev])),
+           legend=c( paste0('true outcome:\n',diseasenames[truev])),
            col=truev, cex=1.5, bty='n')
 }
 dev.off()

@@ -174,13 +174,13 @@ samplesF <- function(Y, X=NULL, parmList, nfsamples=NULL, inorder=FALSE){
     nicovs <- length(iCovs)
     nbcovs <- length(bCovs)
     ##
-    Y <- as.matrix(Y)
+    Y <- data.matrix(rbind(Y))
     rY <- colnames(Y)[colnames(Y) %in% rCovs]
     iY <- colnames(Y)[colnames(Y) %in% iCovs]
     bY <- colnames(Y)[colnames(Y) %in% bCovs]
     ##
     if(!is.null(X)){
-        X <- as.matrix(X)
+        X <- data.matrix(rbind(X))
         rX <- colnames(X)[colnames(X) %in% rCovs]
         if(length(intersect(rX,rY))>0){
             warning('*WARNING: predictor and predictand have real variates in common. Removing from predictor*')

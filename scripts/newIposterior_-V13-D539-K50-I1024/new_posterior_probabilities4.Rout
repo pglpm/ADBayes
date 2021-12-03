@@ -1,0 +1,105 @@
+Loading required package: future
+Loading required package: rngtools
+[1] "availableCores:"
+nproc 
+    6 
+[1] "availableCores-multicore:"
+nproc 
+    6 
+nimble version 0.12.1 is loaded.
+For more information on NIMBLE and a User Manual,
+please visit https://R-nimble.org.
+
+Attaching package: ‘nimble’
+
+The following object is masked from ‘package:future’:
+
+    values
+
+The following object is masked from ‘package:data.table’:
+
+    cube
+
+The following object is masked from ‘package:stats’:
+
+    simulate
+
+[1] TRUE
+          used (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 1836160 98.1    3515012 187.8  2028340 108.4
+Vcells 2294459 17.6    8388608  64.0  5817112  44.4
+[1] "Creating and saving checkpoints"
+Defining model
+Building model
+Setting data and initial values
+Running calculate on model
+  [Note] Any error reports that follow may simply reflect missing values in model variables.
+Checking model sizes and dimensions
+Compiling
+  [Note] This may take a minute.
+  [Note] Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+          used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells 2855728 152.6    4609110 246.2  4609110 246.2
+Vcells 3984492  30.4    8388608  64.0  8388307  64.0
+===== Monitors =====
+thin = 1: meanR, probB, probI, q, sizeI, tauR
+thin2 = 1: C, meanRrate1, meanRtau1, tauRrate1
+===== Samplers =====
+===== Monitors =====
+thin = 1: meanR, probB, probI, q, sizeI, tauR
+thin2 = 1: C, meanRrate1, meanRtau1, tauRrate1
+===== Samplers =====
+conjugate sampler (757)
+  - meanR[]  (100 elements)
+  - tauR[]  (100 elements)
+  - probI[]  (400 elements)
+  - probB[]  (150 elements)
+  - meanRtau1[]  (2 elements)
+  - meanRrate1[]  (2 elements)
+  - tauRrate1[]  (2 elements)
+  - q[1:50] 
+categorical sampler (939)
+  - C[]  (539 elements)
+  - sizeI[]  (400 elements)
+Compiling
+  [Note] This may take a minute.
+  [Note] Use 'showCompilerOutput = TRUE' to see C++ compilation details.
+           used  (Mb) gc trigger  (Mb) max used  (Mb)
+Ncells  3741951 199.9    5619670 300.2  5619670 300.2
+Vcells 11028681  84.2   21468864 163.8 15379833 117.4
+[1] "Setup time:"
+Time difference of 2.747873 mins
+[1] "==== STAGE 0 ===="
+running chain 1...
+|-------------|-------------|-------------|-------------|
+|-------------------------------------------------------|
+[1] "MCMC time:"
+Time difference of 1.251937 hours
+[1] "OCCUPIED CLUSTERS: 36 OF 50"
+[1] "Total runtime:"
+Time difference of 1.257484 hours
+[1] "==== STAGE 1 ===="
+|-------------|-------------|-------------|-------------|
+|-------------------------------------------------------|
+[1] "MCMC time:"
+Time difference of 2.555014 hours
+[1] "OCCUPIED CLUSTERS: 40 OF 50"
+[1] "Total runtime:"
+Time difference of 2.560006 hours
+[1] "==== STAGE 2 ===="
+|-------------|-------------|-------------|-------------|
+|-------------------------------------------------------|
+[1] "MCMC time:"
+Time difference of 2.547227 hours
+[1] "OCCUPIED CLUSTERS: 45 OF 50"
+[1] "Total runtime:"
+Time difference of 2.55167 hours
+[1] "==== STAGE 3 ===="
+|-------------|-------------|-------------|-------------|
+|-------------------------------------------------------|
+[1] "MCMC time:"
+Time difference of 2.618772 hours
+[1] "WARNING: TOO MANY CLUSTERS OCCUPIED"
+[1] "OCCUPIED CLUSTERS: 46 OF 50"
+[1] "Total runtime:"
+Time difference of 2.623342 hours
