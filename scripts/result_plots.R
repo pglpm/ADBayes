@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-03T20:00:03+0100
+## Last-Updated: 2021-12-04T09:44:47+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -54,7 +54,7 @@ dbernoulli <- function(x, prob, log=FALSE){
 
 maincov <- 'Subgroup_num_'
 source('new_functions_mcmc.R')
-frequenciesfile <- 'ADposterior_-V13-D539-K64-I1024/_frequencies-RADposterior_2-V13-D539-K64-I1024.rds'
+frequenciesfile <- 'newIposterior_-V13-D539-K64-I1024/_frequencies-RnewIposterior_2-V13-D539-K64-I1024.rds'
 parmList <- readRDS(frequenciesfile)
 nclusters <- ncol(parmList$q)
 nFsamples <- nrow(parmList$q)
@@ -441,19 +441,57 @@ bpredictions <- foreach(adatum=1:nrow(ipredictions0), .combine=rbind)%do%{
 ##
 mean(rowMeans(bpredictions)*log2(1/rowMeans(bpredictions)))
 sd(rowMeans(bpredictions)*log2(1/rowMeans(bpredictions)))
-## > [1] 0.480607
-## > [1] 0.04011874
+## > [1] 0.4790849
+## > [1] 0.04316858
 mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(bpredictions), log=TRUE))
-## > [1] -0.6636753
+## > [1] -0.6636109
 
 predictions <- samplesF(Y=rbind(xcond[,2]), X=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
 ##
 mean(rowMeans(predictions)*log2(1/rowMeans(predictions)))
 sd(rowMeans(predictions)*log2(1/rowMeans(predictions)))
-## > [1] 0.4911335
-## > [1] 0.03228495
+## > [1] 0.4889011
+## > [1] 0.03585186
 mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(predictions), log=TRUE))
-## > [1] -0.6608669
+## > [1] -0.6607607
+
+confm <- function(thr=0.5){
+c( TP=sum(rowMeans(predictions)>=thr & testdata[[maincov]]==1),
+    FP=sum(rowMeans(predictions)>=thr & testdata[[maincov]]==0),
+    TN=sum(rowMeans(predictions)<thr & testdata[[maincov]]==0),
+    FN=sum(rowMeans(predictions)<thr & testdata[[maincov]]==1)
+  )
+}
+
+tplot(x=agrid <- seq(0,1,length.out=128),
+      y=t(sapply(agrid,confm)))
+legend('top',legend=names(confm()),lty=1:4,col=palette(),bty='n')
+
+tplot(x=agrid <- seq(0,1,length.out=256),
+      y=colSums(sapply(agrid,confm)[c('FP','FN'),]))
+
+
+tplot(x=agrid <- seq(0,1,length.out=256),
+      y=colSums(sapply(agrid,confm)[c('TP','TN'),]))
+
+
+bconfm <- function(thr=0.5){
+c( TP=sum(rowMeans(bpredictions)>=thr & testdata[[maincov]]==1),
+    FP=sum(rowMeans(bpredictions)>=thr & testdata[[maincov]]==0),
+    TN=sum(rowMeans(bpredictions)<thr & testdata[[maincov]]==0),
+    FN=sum(rowMeans(bpredictions)<thr & testdata[[maincov]]==1)
+  )
+}
+
+tplot(x=agrid <- seq(0,1,length.out=128),
+      y=t(sapply(agrid,bconfm)))
+legend('top',legend=names(bconfm()),lty=1:4,col=palette(),bty='n')
+
+tplot(x=agrid <- seq(0,1,length.out=256),
+      y=colSums(sapply(agrid,bconfm)[c('FP','FN'),]))
+
+tplot(x=agrid <- seq(0,1,length.out=256),
+      y=colSums(sapply(agrid,bconfm)[c('TP','TN'),]))
 
 ## plot of predictive probabilities for test data
 pdff('predictions_testset2')
