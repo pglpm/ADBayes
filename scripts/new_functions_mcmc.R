@@ -130,20 +130,35 @@ moments12Samples <- function(parmList){
     ncovs <- length(covNames)
     q <- t(parmList$q)
     ##
+if(length(realCovs)>0){
     meansr <- aperm(parmList$meanR, c(3, 1, 2))
+    quadr <- aperm(1/parmList$tauR + parmList$meanR * parmList$meanR, c(3, 1, 2))
+}else{
+    meansr <- NULL
+    quadr <- NULL
+}
+    if(length(integerCovs)>0){
     meansi <- aperm(parmList$probI * parmList$sizeI, c(3, 1, 2))
+    quadi <- aperm(parmList$probI * parmList$sizeI *
+                    (1 + parmList$probI * (parmList$sizeI - 1)), c(3, 1, 2))
+    }else{
+        meansi <- NULL
+        quadi <- NULL
+}
+    if(length(binaryCovs)>0){
     meansb <- aperm(parmList$probB, c(3, 1, 2))
+    quadb <- aperm(parmList$probB * parmList$probB, c(3, 1, 2))
+    }else{
+        meansb <- NULL
+        quadb <- NULL
+}
     clustermeans <- c(meansr, meansi, meansb)
-    dim(clustermeans) <- c(dim(meansr)[-3], ncovs)
+    dim(clustermeans) <- c(dim((q)), ncovs)
     mixmeans <- colSums(c(q) * clustermeans)
     dimnames(mixmeans) <- list(NULL, paste0('MEAN_', covNames))
     ##
-    quadr <- aperm(1/parmList$tauR + parmList$meanR * parmList$meanR, c(3, 1, 2))
-    quadi <- aperm(parmList$probI * parmList$sizeI *
-                    (1 + parmList$probI * (parmList$sizeI - 1)), c(3, 1, 2))
-    quadb <- aperm(parmList$probB * parmList$probB, c(3, 1, 2))
     mixvars <- c(quadr, quadi, quadb)
-    dim(mixvars) <- c(dim(quadr)[-3], ncovs)
+    dim(mixvars) <- c(dim((q)), ncovs)
     mixvars <- colSums(c(q) * mixvars) - mixmeans*mixmeans
     dimnames(mixvars) <- list(NULL, paste0('VAR_', covNames))
     ##
