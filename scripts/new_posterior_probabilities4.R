@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-07T10:33:25+0100
+## Last-Updated: 2021-12-07T17:58:58+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -187,7 +187,7 @@ initsFunction <- function(){
     if(nbcovs>0){# binary variates
         list(# hyperparameters
             probBa0=rep(1,nbcovs),
-            probBa0=rep(1,nbcovs),
+            probBb0=rep(1,nbcovs),
             ## variables
             probB=matrix(0.5, nrow=nbcovs, ncol=nclusters)
         )},
@@ -213,7 +213,7 @@ bayesnet <- nimbleCode({
         }
         if(nbcovs>0){# binary variates
             for(acov in 1:nBcovs){
-                probB[acov,acluster] ~ dbeta(shape1=probBa0[acov], shape2=probBa0[acov])
+                probB[acov,acluster] ~ dbeta(shape1=probBa0[acov], shape2=probBb0[acov])
             }
         }
     }
@@ -518,3 +518,76 @@ for(stage in 0:nstages){
 ## End MCMC
 ############################################################
 
+buildgrid <- function(X, lgrid=128){
+        if(X %in% realCovs){
+            rgx <- range(alldata[[X]])
+            rgx <- rgx + c(-1,1) * diff(rgx)/4
+            lgrid <- seq(rgx[1], rgx[2], length.out=lgrid)
+        }else if(X %in% integerCovs){
+            rgx <- range(alldata[[X]])
+            rgx <- round(rgx + c(-1,1) * diff(rgx)/4)
+            rgx[1] <- max(rgx[1], variateinfo[variate==X,min])
+            rgx[2] <- min(rgx[2], variateinfo[variate==X,max])
+            if(diff(rgx)<lgrid){lgrid <- rgx[1]:rgx[2]}
+            else{lgrid <- round(seq(rgx[1], rgx[2], length.out=lgrid))}
+        }else{
+            lgrid <- 0:1
+        }
+        lgrid
+}
+
+xgrid <- buildgrid(x=covNames[1])
+ygrid <- buildgrid(x=covNames[2])
+
+grid2d <- cbind(rep(xgrid,length(ygrid)), rep(ygrid, each=length(xgrid)))
+colnames(grid2d) <- c(covNames[1], covNames[2])
+
+nfsamples <- 32
+fsamples2d <- samplesF(Y=grid2d, parmList=parmList, nfsamples=nfsamples, inorder=F)
+dim(fsamples2d) <- c(length(xgrid), length(ygrid), nfsamples)
+
+
+
+
+plot2DsamplesF <- function(X, Y, parmList, xgrid=128, ygrid=128){
+    if(length(xgrid)==1){
+        if(X %in% realCovs){
+            rgx <- range(alldata[[X]])
+            rgx <- rgx + c(-1,1) * diff(rgx)/4
+            xgrid <- seq(rgx[1], rgx[2], length.out=xgrid)
+        }else if(X %in% integerCovs){
+            rgx <- range(alldata[[X]])
+            rgx <- round(rgx + c(-1,1) * diff(rgx)/4)
+            rgx[1] <- max(rgx[1], thminicovs[X])
+            rgx[2] <- min(rgx[2], thmaxicovs[X])
+            if(diff(rgx)<xgrid){xgrid <- rgx[1]:rgx[2]}
+            else{xgrid <- round(seq(rgx[1], rgx[2], length.out=xgrid))}
+        }else{
+            xgrid <- 0:1
+        }
+        ##
+        if(Y %in% realCovs){
+            rgy <- range(alldata[[Y]])
+            rgy <- rgy + c(-1,1) * diff(rgy)/4
+            ygrid <- seq(rgy[1], rgy[2], length.out=ygrid)
+        }else if(Y %in% integerCovs){
+            rgy <- range(alldata[[Y]])
+            rgy <- round(rgy + c(-1,1) * diff(rgy)/4)
+            rgy[1] <- max(rgy[1], thminicovs[Y])
+            rgy[2] <- min(rgy[2], thmaxicovs[Y])
+            if(diff(rgy)<ygrid){ygrid <- rgy[1]:rgy[2]}
+            else{ygrid <- round(seq(rgy[1], rgy[2], length.out=ygrid))}
+        }else{
+            ygrid <- 0:1
+        }
+        ##
+        
+
+
+        
+        if(length(ygrid)==1){
+            rgx <- range(alldata[[X]])
+            rgx <- rgx + c(-1,1) * diff(rgx)/4
+            xgrid <- seq(rgx[1], rgx[2], length.out=xgrid)
+        }
+}
