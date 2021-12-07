@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-07T17:58:58+0100
+## Last-Updated: 2021-12-07T19:02:33+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -536,18 +536,36 @@ buildgrid <- function(X, lgrid=128){
         lgrid
 }
 
-xgrid <- buildgrid(x=covNames[1])
-ygrid <- buildgrid(x=covNames[2])
-
+acov1 <- realCovs[2]
+acov2 <- binaryCovs[2]
+##
+xgrid <- buildgrid(acov1, 64)
+ygrid <- buildgrid(acov2, 64)
+##
 grid2d <- cbind(rep(xgrid,length(ygrid)), rep(ygrid, each=length(xgrid)))
-colnames(grid2d) <- c(covNames[1], covNames[2])
-
+colnames(grid2d) <- c(acov1, acov2)
+##
 nfsamples <- 32
 fsamples2d <- samplesF(Y=grid2d, parmList=parmList, nfsamples=nfsamples, inorder=F)
-dim(fsamples2d) <- c(length(xgrid), length(ygrid), nfsamples)
-
-
-
+##
+##dim(fsamples2d) <- c(length(xgrid), length(ygrid), nfsamples)
+##
+asample <- 1
+ax <- min(diff(xgrid)[1], diff(ygrid)[1])/2
+ay <- min(diff(xgrid)[1], diff(ygrid)[1])/2
+## ax <- diff(xgrid)[1]/2
+## ay <- diff(ygrid)[1]/2
+pmax <- max(fsamples2d[,asample])
+##
+pdff('_test2dplot')
+tplot(x=NA, y=NA, xlim=extendrange(xgrid), ylim=extendrange(ygrid), xlab=acov1, ylab=acov2)
+for(i in 1:nrow(grid2d)){
+    rat <- sqrt(fsamples2d[i,asample]/pmax)
+    polygon(x=grid2d[i,1]+c(-1,1,1,-1)*ax*rat,
+            y=grid2d[i,2]+c(-1,-1,1,1)*ay*rat,
+            border='white', col='black')
+}
+dev.off()
 
 plot2DsamplesF <- function(X, Y, parmList, xgrid=128, ygrid=128){
     if(length(xgrid)==1){
