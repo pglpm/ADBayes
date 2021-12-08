@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-04T09:44:47+0100
+## Last-Updated: 2021-12-08T18:25:32+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -53,8 +53,9 @@ dbernoulli <- function(x, prob, log=FALSE){
 }
 
 maincov <- 'Subgroup_num_'
-source('new_functions_mcmc.R')
-frequenciesfile <- 'newIposterior_-V13-D539-K64-I1024/_frequencies-RnewIposterior_2-V13-D539-K64-I1024.rds'
+source('functions_mcmc.R')
+dirname <- 'newposteriorRdIndO_-V13-D539-K64-I1024'
+frequenciesfile <- paste0(dirname,'/','_frequencies-RnewposteriorRdIndO_1-V13-D539-K64-I1024.rds')
 parmList <- readRDS(frequenciesfile)
 nclusters <- ncol(parmList$q)
 nFsamples <- nrow(parmList$q)
@@ -83,6 +84,15 @@ gendernames <- c('male', 'female')
 datafile <- 'data_transformed_shuffled.csv'
 alldata <- fread(datafile, sep=',')
 alldata <- alldata[Usage_ == 'train']
+
+probc0 <- samplesF(Y=matrix(0,nrow=1,dimnames=list(NULL,maincov)), X=data.matrix(alldata[2,..otherCovs]), parmList=parmList, inorder=T)
+##
+probc1 <- samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)), X=data.matrix(alldata[2,..otherCovs]), parmList=parmList, inorder=T)
+##
+probj0 <- samplesF(X=NULL, Y=cbind(matrix(0,nrow=1,dimnames=list(NULL,maincov)),data.matrix(alldata[2,..otherCovs])), parmList=parmList, inorder=T)
+probj1 <- samplesF(X=NULL, Y=cbind(matrix(1,nrow=1,dimnames=list(NULL,maincov)),data.matrix(alldata[2,..otherCovs])), parmList=parmList, inorder=T)
+##
+probx <- samplesF(X=NULL, Y=data.matrix(alldata[2,..otherCovs]), parmList=parmList, inorder=T)
 
 grids <- foreach(acov=covNames)%do%{
     rg <- range(alldata[[acov]])
@@ -174,7 +184,7 @@ qdistsAF <- foreach(acov=otherCovs)%do%{
 names(qdistsAF) <- otherCovs
 
 ## plot of frequencies of features given AD state f(F|AD)
-pdff('plots_features_given_AD2')
+pdff(paste0(dirname,'/','plots_features_given_AD2'))
 for(acov in otherCovs){
     agrid <- grids[[acov]]
     ymax <- quant(apply(qdistsFA[[acov]],2,function(x){quant(x,99/100)}),99/100)
@@ -203,7 +213,7 @@ for(acov in otherCovs){
 dev.off()
 
 ## plot of samples of frequencies of features given AD state f(F|AD)
-pdff('plotssamples_features_given_AD2')
+pdff(paste0(dirname,'/','plotssamples_features_given_AD2'))
 for(acov in otherCovs){
     agrid <- grids[[acov]]
     ymax <- quant(apply(distsFA[[acov]],2,function(x){quant(x,99/100)}),99/100)
@@ -273,7 +283,7 @@ dev.off()
 
 
 ## plot of frequencies of AD state given features, using bayes f(F|AD)
-pdff('plots_predictAD_bayes2')
+pdff(paste0(dirname,'/','plots_predictAD_bayes2'))
 for(acov in otherCovs){
     agrid <- grids[[acov]]
     tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
@@ -305,7 +315,7 @@ legend('topleft', legend=c('87.5% uncertainty on the probability'),
 dev.off()
 
 ## plot of frequencies of AD state given features, f(AD|F)
-pdff('plots_predictAD_direct2')
+pdff(paste0(dirname,'/','plots_predictAD_direct2'))
 for(acov in otherCovs){
     agrid <- grids[[acov]]
     tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
@@ -399,20 +409,20 @@ psinglefeatures <- sapply(otherCovs,function(acov){
              X=datasamples[,acov,drop=F], parmList=parmList, inorder=F))})
 
 sort(colMeans(abs(psinglefeatures-0.5)+0.5), decreasing=T)
-## >  AVDEL30MIN_neuro   RAVLT_immediate    AVDELTOT_neuro LRHHC_n_long_log_ 
-##         0.6383735         0.6356126         0.6164573         0.5850538 
-##    TRABSCOR_neuro   CATANIMSC_neuro    TRAASCOR_neuro    ANARTERR_neuro 
-##         0.5798381         0.5703339         0.5662306         0.5384173 
-##            Apoe4_          AGE_log_       Gender_num_       GDTOTAL_gds 
-##         0.5372096         0.5357221         0.5299859         0.5277434 
+## >   RAVLT_immediate  AVDEL30MIN_neuro    AVDELTOT_neuro LRHHC_n_long_log_ 
+##         0.6580801         0.6536124         0.6254173         0.5931097 
+##    TRABSCOR_neuro   CATANIMSC_neuro    TRAASCOR_neuro            Apoe4_ 
+##         0.5889707         0.5838083         0.5706103         0.5447360 
+##          AGE_log_    ANARTERR_neuro       Gender_num_       GDTOTAL_gds 
+##         0.5421207         0.5364131         0.5274789         0.5243736 
 
 entropysort <- sort(colMeans(psinglefeatures*log2(1/psinglefeatures)+(1-psinglefeatures)*log2(1/(1-psinglefeatures))), decreasing=F)
-## >   RAVLT_immediate  AVDEL30MIN_neuro    AVDELTOT_neuro    TRABSCOR_neuro 
-##         0.9126043         0.9133284         0.9421147         0.9607575 
-## LRHHC_n_long_log_    TRAASCOR_neuro   CATANIMSC_neuro            Apoe4_ 
-##         0.9714212         0.9724730         0.9743210         0.9935568 
-##          AGE_log_       Gender_num_    ANARTERR_neuro       GDTOTAL_gds 
-##         0.9936771         0.9944123         0.9945327         0.9974680 
+  ## RAVLT_immediate  AVDEL30MIN_neuro    AVDELTOT_neuro    TRABSCOR_neuro 
+  ##       0.8883023         0.8934159         0.9291837         0.9536632 
+  ##  TRAASCOR_neuro LRHHC_n_long_log_   CATANIMSC_neuro          AGE_log_ 
+  ##       0.9636331         0.9658517         0.9660364         0.9915779 
+  ##          Apoe4_    ANARTERR_neuro       Gender_num_       GDTOTAL_gds 
+  ##       0.9920768         0.9939879         0.9951186         0.9978416 
 message(paste0(names(entropysort),collapse='\n'))
 
 
@@ -439,27 +449,40 @@ bpredictions <- foreach(adatum=1:nrow(ipredictions0), .combine=rbind)%do%{
     dist <- ipredictions1[adatum,]/(ipredictions0[adatum,]+ipredictions1[adatum,])
 }
 ##
-mean(rowMeans(bpredictions)*log2(1/rowMeans(bpredictions)))
-sd(rowMeans(bpredictions)*log2(1/rowMeans(bpredictions)))
+mean(rowMeans(bpredictions,na.rm=T)*log2(1/rowMeans(bpredictions,na.rm=T)),na.rm=T)
+sd(rowMeans(bpredictions,na.rm=T)*log2(1/rowMeans(bpredictions,na.rm=T)),na.rm=T)
 ## > [1] 0.4790849
 ## > [1] 0.04316858
-mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(bpredictions), log=TRUE))
+mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(bpredictions,na.rm=T), log=TRUE))
 ## > [1] -0.6636109
 
-predictions <- samplesF(Y=rbind(xcond[,2]), X=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
+predictionsc <- samplesF(Y=rbind(xcond[,2]), X=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
+predictionsj <- samplesF(Y=cbind(rbind(xcond[,2]),as.matrix(testdata[,..otherCovs])), parmList=parmList, inorder=T)
+predictionsx <- samplesF(Y=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
+predictions <- predictionsj/predictionsx
 ##
-mean(rowMeans(predictions)*log2(1/rowMeans(predictions)))
-sd(rowMeans(predictions)*log2(1/rowMeans(predictions)))
+mean(rowMeans(predictions,na.rm=T)*log2(1/rowMeans(predictions,na.rm=T)))
+sd(rowMeans(predictions,na.rm=T)*log2(1/rowMeans(predictions,na.rm=T)),na.rm=T)
 ## > [1] 0.4889011
 ## > [1] 0.03585186
-mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(predictions), log=TRUE))
+mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(predictions,na.rm=T), log=TRUE))
 ## > [1] -0.6607607
 
-confm <- function(thr=0.5){
-c( TP=sum(rowMeans(predictions)>=thr & testdata[[maincov]]==1),
-    FP=sum(rowMeans(predictions)>=thr & testdata[[maincov]]==0),
-    TN=sum(rowMeans(predictions)<thr & testdata[[maincov]]==0),
-    FN=sum(rowMeans(predictions)<thr & testdata[[maincov]]==1)
+
+##@@@@@@@@@@@@@@@@@@
+## X <- data.matrix(testdata[59,..otherCovs])
+## Y <- matrix(1, nrow=1, dimnames=list(NULL,maincov))
+## asample <- 1024
+## inorder <- TRUE
+
+
+
+
+confm <- function(preds, thr=0.5){
+c( TP=sum(rowMeans(preds,na.rm=T)>=thr & testdata[[maincov]]==1),
+    FP=sum(rowMeans(preds,na.rm=T)>=thr & testdata[[maincov]]==0),
+    TN=sum(rowMeans(preds,na.rm=T)<thr & testdata[[maincov]]==0),
+    FN=sum(rowMeans(preds,na.rm=T)<thr & testdata[[maincov]]==1)
   )
 }
 
@@ -474,14 +497,6 @@ tplot(x=agrid <- seq(0,1,length.out=256),
 tplot(x=agrid <- seq(0,1,length.out=256),
       y=colSums(sapply(agrid,confm)[c('TP','TN'),]))
 
-
-bconfm <- function(thr=0.5){
-c( TP=sum(rowMeans(bpredictions)>=thr & testdata[[maincov]]==1),
-    FP=sum(rowMeans(bpredictions)>=thr & testdata[[maincov]]==0),
-    TN=sum(rowMeans(bpredictions)<thr & testdata[[maincov]]==0),
-    FN=sum(rowMeans(bpredictions)<thr & testdata[[maincov]]==1)
-  )
-}
 
 tplot(x=agrid <- seq(0,1,length.out=128),
       y=t(sapply(agrid,bconfm)))
@@ -581,3 +596,137 @@ for(adatum in 1:nrow(testdata)){
            col=truev, cex=1.5, bty='n')
 }
 dev.off()
+
+
+
+
+
+
+#########################################################
+## 2D plots
+#########################################################
+
+buildgrid <- function(X, lgrid=128){
+        if(X %in% realCovs){
+            rgx <- range(alldata[[X]])
+            rgx <- rgx + c(-1,1) * diff(rgx)/4
+            lgrid <- seq(rgx[1], rgx[2], length.out=lgrid)
+        }else if(X %in% integerCovs){
+            rgx <- range(alldata[[X]])
+            rgx <- round(rgx + c(-1,1) * diff(rgx)/4)
+            rgx[1] <- max(rgx[1], variateinfo[variate==X,min])
+            rgx[2] <- min(rgx[2], variateinfo[variate==X,max])
+            if(diff(rgx)<lgrid){lgrid <- rgx[1]:rgx[2]}
+            else{lgrid <- round(seq(rgx[1], rgx[2], length.out=lgrid))}
+        }else{
+            lgrid <- 0:1
+        }
+        lgrid
+}
+
+acov2 <- realCovs[2]
+acov1 <- binaryCovs[1]
+##
+xgrid <- buildgrid(acov1, 128)
+ygrid <- buildgrid(acov2, 128)
+##
+grid2d <- cbind(rep(xgrid,length(ygrid)), rep(ygrid, each=length(xgrid)))
+colnames(grid2d) <- c(acov1, acov2)
+##
+nfsamples <- 32
+fsamples2d <- samplesF(Y=grid2d, parmList=parmList, nfsamples=nfsamples, inorder=F)
+##
+##dim(fsamples2d) <- c(length(xgrid), length(ygrid), nfsamples)
+##
+asample <- 1
+## ax <- min(diff(xgrid)[1], diff(ygrid)[1])/2
+## ay <- min(diff(xgrid)[1], diff(ygrid)[1])/2
+ax <- diff(xgrid)[1]/2
+if(acov1 %in% realCovs){ xticks <- NULL }else{ xticks <- xgrid }
+ay <- diff(ygrid)[1]/2
+if(acov2 %in% realCovs){ yticks <- NULL }else{ yticks <- ygrid }
+pmax <- max(fsamples2d[,asample])
+##
+pdff('_test2dplot')
+par(mfrow=c(4,8))
+for(asample in 1:nfsamples){
+plot2dF(xygrid=grid2d, fsamples=fsamples2d[,asample], ticks=F, labs=F, mar=c(0,0,0,0))
+    }
+dev.off()
+
+
+
+pdff('_test2dplot')
+plot2dF(xygrid=grid2d, fsamples=fsamples2d[,1])
+dev.off()
+
+tplot(x=NA, y=NA, xlim=extendrange(xgrid), ylim=extendrange(ygrid), xlab=acov1, ylab=acov2, xticks=xticks, yticks=yticks)
+for(i in 1:nrow(grid2d)){
+    rat <- fsamples2d[i,asample]/pmax
+    polygon(x=grid2d[i,1]+c(-1,1,1,-1)*ax,
+            y=grid2d[i,2]+c(-1,-1,1,1)*ay,
+            border=gray(1-rat), col=gray(1-rat))
+}
+#tplot(x=NA, y=NA, xlim=extendrange(xgrid), ylim=extendrange(ygrid), xlab=acov1, ylab=acov2,add=T)
+dev.off()
+
+
+
+
+
+
+
+##
+pdff('_test2dplot')
+tplot(x=NA, y=NA, xlim=extendrange(xgrid), ylim=extendrange(ygrid), xlab=acov1, ylab=acov2)
+for(i in 1:nrow(grid2d)){
+    rat <- sqrt(fsamples2d[i,asample]/pmax)
+    polygon(x=grid2d[i,1]+c(-1,1,1,-1)*ax*rat,
+            y=grid2d[i,2]+c(-1,-1,1,1)*ay*rat,
+            border='white', col='black')
+}
+dev.off()
+
+
+plot2DsamplesF <- function(X, Y, parmList, xgrid=128, ygrid=128){
+    if(length(xgrid)==1){
+        if(X %in% realCovs){
+            rgx <- range(alldata[[X]])
+            rgx <- rgx + c(-1,1) * diff(rgx)/4
+            xgrid <- seq(rgx[1], rgx[2], length.out=xgrid)
+        }else if(X %in% integerCovs){
+            rgx <- range(alldata[[X]])
+            rgx <- round(rgx + c(-1,1) * diff(rgx)/4)
+            rgx[1] <- max(rgx[1], thminicovs[X])
+            rgx[2] <- min(rgx[2], thmaxicovs[X])
+            if(diff(rgx)<xgrid){xgrid <- rgx[1]:rgx[2]}
+            else{xgrid <- round(seq(rgx[1], rgx[2], length.out=xgrid))}
+        }else{
+            xgrid <- 0:1
+        }
+        ##
+        if(Y %in% realCovs){
+            rgy <- range(alldata[[Y]])
+            rgy <- rgy + c(-1,1) * diff(rgy)/4
+            ygrid <- seq(rgy[1], rgy[2], length.out=ygrid)
+        }else if(Y %in% integerCovs){
+            rgy <- range(alldata[[Y]])
+            rgy <- round(rgy + c(-1,1) * diff(rgy)/4)
+            rgy[1] <- max(rgy[1], thminicovs[Y])
+            rgy[2] <- min(rgy[2], thmaxicovs[Y])
+            if(diff(rgy)<ygrid){ygrid <- rgy[1]:rgy[2]}
+            else{ygrid <- round(seq(rgy[1], rgy[2], length.out=ygrid))}
+        }else{
+            ygrid <- 0:1
+        }
+        ##
+        
+
+
+        
+        if(length(ygrid)==1){
+            rgx <- range(alldata[[X]])
+            rgx <- rgx + c(-1,1) * diff(rgx)/4
+            xgrid <- seq(rgx[1], rgx[2], length.out=xgrid)
+        }
+}

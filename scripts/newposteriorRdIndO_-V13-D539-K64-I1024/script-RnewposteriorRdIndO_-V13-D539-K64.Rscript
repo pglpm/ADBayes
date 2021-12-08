@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-08T16:06:58+0100
+## Last-Updated: 2021-12-07T19:18:44+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -44,12 +44,12 @@ library('nimble')
 
 
 seed <- 149
-baseversion <- 'test_'
+baseversion <- 'newposteriorRdIndO_'
 nclusters <- as.integer(64) #as.integer(2^6)
-niter <- as.integer(256) #as.integer(2^11)
-niter0 <- as.integer(256) #as.integer(2^10)
-thin <- as.integer(1)
-nstages <- as.integer(1)
+niter <- as.integer(1024) #as.integer(2^11)
+niter0 <- as.integer(1024) #as.integer(2^10)
+thin <- as.integer(8)
+nstages <- as.integer(3)
 ncheckpoints <- as.integer(4)
 maincov <- 'Subgroup_num_'
 family <- 'Palatino'
@@ -127,6 +127,8 @@ if(length(integerCovs)>0){
 ##
 if(nbcovs>0){
     medianbcovs <- apply(alldata[1:ndata,..binaryCovs],2,function(x)median(x, na.rm=TRUE))
+    probba0 <- probbb0 <- rep(1,nbcovs)
+    probba0[which(binaryCovs==maincov)] <- probbb0[which(binaryCovs==maincov)] <- 0.1
 }
 
 ##
@@ -186,8 +188,8 @@ initsFunction <- function(){
         )},
     if(nbcovs>0){# binary variates
         list(# hyperparameters
-            probBa0=rep(1,nbcovs),
-            probBb0=rep(1,nbcovs),
+            probBa0=probba0,
+            probBb0=probbb0,
             ## variables
             probB=matrix(0.5, nrow=nbcovs, ncol=nclusters)
         )},
@@ -517,3 +519,4 @@ for(stage in 0:nstages){
 ############################################################
 ## End MCMC
 ############################################################
+
