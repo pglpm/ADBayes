@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-08T18:25:32+0100
+## Last-Updated: 2021-12-08T20:57:41+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -624,8 +624,8 @@ buildgrid <- function(X, lgrid=128){
         lgrid
 }
 
-acov2 <- realCovs[2]
-acov1 <- binaryCovs[1]
+acov2 <- 'AVDEL30MIN_neuro'#integerCovs[1]
+acov1 <- maincov
 ##
 xgrid <- buildgrid(acov1, 128)
 ygrid <- buildgrid(acov2, 128)
@@ -647,6 +647,15 @@ ay <- diff(ygrid)[1]/2
 if(acov2 %in% realCovs){ yticks <- NULL }else{ yticks <- ygrid }
 pmax <- max(fsamples2d[,asample])
 ##
+pdff('_test2dplot')
+plot2dF(xygrid=grid2d, fsamples=rowMeans(fsamples2d,na.rm=T))
+#plot2dF(xygrid=grid2d, fsamples=apply(fsamples2d,1,function(x)diff(quant(x,c(1,15)/16,na.rm=T))))
+plot2dF(xygrid=grid2d, fsamples=apply(fsamples2d,1,function(x)IQR(x,type=8,na.rm=T)))
+dev.off()
+
+
+
+
 pdff('_test2dplot')
 par(mfrow=c(4,8))
 for(asample in 1:nfsamples){
