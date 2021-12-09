@@ -562,7 +562,43 @@ samplesVars <- function(Y, X=NULL, parmList, nfsamples=NULL, inorder=FALSE){
     dimnames(freqs) <- list(Y,NULL,NULL)
     freqs
 }
-
+##
+## Gives samples of feature values
+samplesX <- function(parmList, nperf=2, nfsamples=NULL, inorder=FALSE){
+    rCovs <- dimnames(parmList$meanR)[[2]]
+    iCovs <- dimnames(parmList$probI)[[2]]
+    bCovs <- dimnames(parmList$probB)[[2]]
+    covNames <- c(rCovs, iCovs, bCovs)
+    nrcovs <- length(rCovs)
+    nicovs <- length(iCovs)
+    nbcovs <- length(bCovs)
+    ##
+    q <- parmList$q
+    nclusters <- ncol(q)
+    if(is.numeric(nfsamples)){
+        fsubsamples <- round(seq(1, nrow(q), length.out=nfsamples))
+    }else{
+        nfsamples <- nrow(q)
+        fsubsamples <- seq_len(nfsamples)
+    }
+    ##
+    XX <- foreach(asample=fsubsamples, .combine=rbind, .inorder=inorder)%dorng%{
+        acluster <- rcat(n=nperf, prob=q[asample,])
+        ##
+        rX <- matrix(rnorm(n=nperf*nrcovs, mean=t(parmList$meanR[asample,,acluster]), sd=1/sqrt(t(parmList$tauR[asample,,acluster]))),
+                     nrow=nperf, dimnames=list(NULL,rCovs))
+        ##        
+        iX <- matrix(rbinom(n=nperf*nicovs, prob=t(parmList$probI[asample,,acluster]), size=t(parmList$sizeI[asample,,acluster])),
+                     nrow=nperf, dimnames=list(NULL, iCovs))
+        ##
+        bX <- sapply(bCovs, function(acov){sapply(acluster,function(clus){
+            sample(x=0:1, size=1, prob=c(1-parmList$probB[asample,acov,clus], parmList$probB[asample,acov,clus]))
+        })})
+        ##
+        cbind(rX, iX, bX)
+    }
+    XX
+}
 ##
 ## Function to draw 2D plot of two variates
 plot2dF <- function(xygrid, fsamples, grid=FALSE, labs=TRUE, ticks=TRUE, mar=NULL){

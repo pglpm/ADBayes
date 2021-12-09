@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-08T20:57:41+0100
+## Last-Updated: 2021-12-09T09:57:36+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -55,7 +55,7 @@ dbernoulli <- function(x, prob, log=FALSE){
 maincov <- 'Subgroup_num_'
 source('functions_mcmc.R')
 dirname <- 'newposteriorRdIndO_-V13-D539-K64-I1024'
-frequenciesfile <- paste0(dirname,'/','_frequencies-RnewposteriorRdIndO_1-V13-D539-K64-I1024.rds')
+frequenciesfile <- paste0(dirname,'/','_frequencies-RnewposteriorRdIndO_2-V13-D539-K64-I1024.rds')
 parmList <- readRDS(frequenciesfile)
 nclusters <- ncol(parmList$q)
 nFsamples <- nrow(parmList$q)
@@ -85,14 +85,14 @@ datafile <- 'data_transformed_shuffled.csv'
 alldata <- fread(datafile, sep=',')
 alldata <- alldata[Usage_ == 'train']
 
-probc0 <- samplesF(Y=matrix(0,nrow=1,dimnames=list(NULL,maincov)), X=data.matrix(alldata[2,..otherCovs]), parmList=parmList, inorder=T)
-##
-probc1 <- samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)), X=data.matrix(alldata[2,..otherCovs]), parmList=parmList, inorder=T)
-##
-probj0 <- samplesF(X=NULL, Y=cbind(matrix(0,nrow=1,dimnames=list(NULL,maincov)),data.matrix(alldata[2,..otherCovs])), parmList=parmList, inorder=T)
-probj1 <- samplesF(X=NULL, Y=cbind(matrix(1,nrow=1,dimnames=list(NULL,maincov)),data.matrix(alldata[2,..otherCovs])), parmList=parmList, inorder=T)
-##
-probx <- samplesF(X=NULL, Y=data.matrix(alldata[2,..otherCovs]), parmList=parmList, inorder=T)
+## probc0 <- samplesF(Y=matrix(0,nrow=1,dimnames=list(NULL,maincov)), X=data.matrix(alldata[2,..otherCovs]), parmList=parmList, inorder=T)
+## ##
+## probc1 <- samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)), X=data.matrix(alldata[2,..otherCovs]), parmList=parmList, inorder=T)
+## ##
+## probj0 <- samplesF(X=NULL, Y=cbind(matrix(0,nrow=1,dimnames=list(NULL,maincov)),data.matrix(alldata[2,..otherCovs])), parmList=parmList, inorder=T)
+## probj1 <- samplesF(X=NULL, Y=cbind(matrix(1,nrow=1,dimnames=list(NULL,maincov)),data.matrix(alldata[2,..otherCovs])), parmList=parmList, inorder=T)
+## ##
+## probx <- samplesF(X=NULL, Y=data.matrix(alldata[2,..otherCovs]), parmList=parmList, inorder=T)
 
 grids <- foreach(acov=covNames)%do%{
     rg <- range(alldata[[acov]])
@@ -342,7 +342,7 @@ legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability')
 dev.off()
 
 ## plot of samples of frequencies of AD state given features, f(AD|F)
-pdff('plotssamples_predictAD_direct2')
+pdff(paste0(dirname,'/','plotssamples_predictAD_direct2'))
 for(acov in otherCovs){
     agrid <- grids[[acov]]
     tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
@@ -598,8 +598,84 @@ for(adatum in 1:nrow(testdata)){
 dev.off()
 
 
+#########################################################
+## Mutual info for next prediction
+#########################################################
+
+YX <- samplesX(parmList=parmList)
+attr(YX, 'rng') <- NULL
+probYX <- rowMeans(samplesF(Y=YX, parmList=parmList),na.rm=T)
+probY <- rowMeans(samplesF(Y=YX[,maincov,drop=F], parmList=parmList), na.rm=T)
+probX <- rowMeans(samplesF(Y=YX[,otherCovs,drop=F], parmList=parmList), na.rm=T)
+mutualinfo <- mean(log2(probYX/(probY*probX)), na.rm=T)
+
+signif(mutualinfo,2)
+## 0.25 bit
+
+dropmis <- sapply(otherCovs, function(acov){
+    probj <- rowMeans(samplesF(Y=YX[,setdiff(colnames(YX),acov),drop=F], parmList=parmList),na.rm=T)
+    probm <- rowMeans(samplesF(Y=YX[,setdiff(otherCovs,acov),drop=F], parmList=parmList), na.rm=T)
+    mean(log2(probj/(probY*probm)), na.rm=T)
+})
+
+signif(cbind(sort(dropmis,decreasing=T)),2)
+## AGE_log_          0.25
+## LRHHC_n_long_log_ 0.25
+## Apoe4_            0.25
+## Gender_num_       0.25
+## GDTOTAL_gds       0.25
+## AVDELTOT_neuro    0.25
+## CATANIMSC_neuro   0.25
+## TRAASCOR_neuro    0.25
+## RAVLT_immediate   0.24
+## AVDEL30MIN_neuro  0.24
+## ANARTERR_neuro    0.23
+## TRABSCOR_neuro    0.21
 
 
+## relative difference in mutual information without the variate
+round(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100)
+## TRABSCOR_neuro      14 %
+## ANARTERR_neuro       8
+## AVDEL30MIN_neuro     3
+## RAVLT_immediate      2
+## TRAASCOR_neuro       1
+## CATANIMSC_neuro      1
+## AVDELTOT_neuro       0
+## GDTOTAL_gds          0
+## Gender_num_          0
+## Apoe4_               0
+## LRHHC_n_long_log_    0
+## AGE_log_            -1
+
+
+signif(cbind(sort(mutualinfo-dropmis,decreasing=T)),2)
+## TRABSCOR_neuro     0.03400 bit
+## ANARTERR_neuro     0.01900
+## AVDEL30MIN_neuro   0.00690
+## RAVLT_immediate    0.00400
+## TRAASCOR_neuro     0.00290
+## CATANIMSC_neuro    0.00180
+## AVDELTOT_neuro     0.00110
+## GDTOTAL_gds        0.00089
+## Gender_num_       -0.00078
+## Apoe4_            -0.00095
+## LRHHC_n_long_log_ -0.00120
+## AGE_log_          -0.00210
+
+signif(cbind(sort(dropmis/mutualinfo,decreasing=F)),2)
+## TRABSCOR_neuro    0.86
+## ANARTERR_neuro    0.92
+## AVDEL30MIN_neuro  0.97
+## RAVLT_immediate   0.98
+## TRAASCOR_neuro    0.99
+## CATANIMSC_neuro   0.99
+## AVDELTOT_neuro    1.00
+## GDTOTAL_gds       1.00
+## Gender_num_       1.00
+## Apoe4_            1.00
+## LRHHC_n_long_log_ 1.00
+## AGE_log_          1.00
 
 
 #########################################################
