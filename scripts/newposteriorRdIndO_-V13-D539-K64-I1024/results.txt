@@ -1,0 +1,53 @@
+Average uncertainty in test-set predictions, direct:
+ 0.4280301 bit
+SD of uncertainty in test-set predictions, direct:
+ 0.1316479 bit
+
+Average uncertainty in test-set predictions, via Bayes:
+ 0.4189156 bit
+SD of uncertainty in test-set predictions, via Bayes:
+ 0.1076791 bit
+
+
+Confusion matrix test-set, threshold 0.5, direct prediction:
+TP FP TN FN
+41 30 44 24
+
+Confusion matrix test-set, threshold 0.5, via Bayes:
+TP FP TN FN
+44 32 42 21
+
+
+Mutual information between Subgroup_num_ and all other features:
+ 0.2221401 bit
+
+Mutual information between Subgroup_num_ and all other features minus one (negative values are due to roundoff):
+                       [,1]
+TRABSCOR_neuro    0.1998286
+ANARTERR_neuro    0.2046221
+TRAASCOR_neuro    0.2102317
+AVDEL30MIN_neuro  0.2140265
+RAVLT_immediate   0.2147593
+GDTOTAL_gds       0.2186407
+AVDELTOT_neuro    0.2187049
+Gender_num_       0.2201655
+AGE_log_          0.2207689
+LRHHC_n_long_log_ 0.2207983
+CATANIMSC_neuro   0.2215882
+Apoe4_            0.2230148
+
+
+Relative differences between mutual information using all features and those using all features minus one, in %:
+                        [,1]
+TRABSCOR_neuro    10.0438726
+ANARTERR_neuro     7.8859880
+TRAASCOR_neuro     5.3607688
+AVDEL30MIN_neuro   3.6524650
+RAVLT_immediate    3.3225867
+GDTOTAL_gds        1.5753192
+AVDELTOT_neuro     1.5464030
+Gender_num_        0.8888841
+AGE_log_           0.6172484
+LRHHC_n_long_log_  0.6040217
+CATANIMSC_neuro    0.2484552
+Apoe4_            -0.3937805

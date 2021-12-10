@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-09T09:57:36+0100
+## Last-Updated: 2021-12-10T18:24:15+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -38,7 +38,7 @@ if(file.exists("/cluster/home/pglpm/R")){
 ## options(bitmapType='cairo')
 ## pdff <- function(filename){pdf(file=paste0(filename,'.pdf'),paper='a4r',height=11.7,width=16.5)} # to output in pdf format
 ## pngf <- function(filename,res=300){png(file=paste0(filename,'.png'),height=11.7*1.2,width=16.5,units='in',res=res,pointsize=36)} # to output in pdf format
-## library('nimble')
+library('nimble')
 #### End custom setup ####
 
 ## Bernoulli distribution
@@ -54,8 +54,9 @@ dbernoulli <- function(x, prob, log=FALSE){
 
 maincov <- 'Subgroup_num_'
 source('functions_mcmc.R')
-dirname <- 'newposteriorRdIndO_-V13-D539-K64-I1024'
-frequenciesfile <- paste0(dirname,'/','_frequencies-RnewposteriorRdIndO_2-V13-D539-K64-I1024.rds')
+dirname <- 'newposteriorRd_-V13-D539-K64-I1024'
+outfile <- paste0(dirname,'/','results.txt')
+frequenciesfile <- paste0(dirname,'/','_frequencies-RnewposteriorRd_3-V13-D539-K64-I1024.rds')
 parmList <- readRDS(frequenciesfile)
 nclusters <- ncol(parmList$q)
 nFsamples <- nrow(parmList$q)
@@ -128,24 +129,24 @@ names(qdistsFA) <- otherCovs
 
 
 
-distsFAG <- foreach(acov=setdiff(covNames, c(maincov, 'Gender_num_')))%do%{
-    dists <- rbind(
-        samplesF(Y=grids[[acov]], X=matrix(c(0,0),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
-        samplesF(Y=grids[[acov]], X=matrix(c(1,0),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
-        samplesF(Y=grids[[acov]], X=matrix(c(0,1),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
-        samplesF(Y=grids[[acov]], X=matrix(c(1,1),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T)
-        )
-    dim(dists) <- c(length(grids[[acov]]), 2, 2, ncol(dists))
-    dimnames(dists) <- list(NULL, diseasenames, gendernames, NULL)
-    aperm(dists, c(4,1,2,3))
-}
-names(distsFAG) <- setdiff(covNames, c(maincov, 'Gender_num_'))
+## distsFAG <- foreach(acov=setdiff(covNames, c(maincov, 'Gender_num_')))%do%{
+##     dists <- rbind(
+##         samplesF(Y=grids[[acov]], X=matrix(c(0,0),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
+##         samplesF(Y=grids[[acov]], X=matrix(c(1,0),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
+##         samplesF(Y=grids[[acov]], X=matrix(c(0,1),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
+##         samplesF(Y=grids[[acov]], X=matrix(c(1,1),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T)
+##         )
+##     dim(dists) <- c(length(grids[[acov]]), 2, 2, ncol(dists))
+##     dimnames(dists) <- list(NULL, diseasenames, gendernames, NULL)
+##     aperm(dists, c(4,1,2,3))
+## }
+## names(distsFAG) <- setdiff(covNames, c(maincov, 'Gender_num_'))
 
-## quantiles
-qdistsFAG <- foreach(acov=names(distsFAG))%do%{
-    apply(distsFAG[[acov]],c(2,3,4),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
-}
-names(qdistsFAG) <- names(distsFAG)
+## ## quantiles
+## qdistsFAG <- foreach(acov=names(distsFAG))%do%{
+##     apply(distsFAG[[acov]],c(2,3,4),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
+## }
+## names(qdistsFAG) <- names(distsFAG)
 
 
 
@@ -247,39 +248,39 @@ for(acov in otherCovs){
 }
 dev.off()
 
-## plot of frequencies of features given AD state and gender f(F|AD&G)
-pdff('plots_features_given_ADG2')
-for(acov in names(distsFAG)){
-    agrid <- grids[[acov]]
-   ymax <- quant(apply(qdistsFAG[[acov]],2,function(x){quant(x,99/100)}),99/100)
-##    ymax <- max(qdistsFAG[[acov]])
-    ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
-    xlim <- c(NA,NA)
-    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
-    if(!any(is.na(tpar))){
-        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
-        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
-    }else{xticks <- NULL
-        xlabels <- TRUE}
-    if(acov %in% binaryCovs){
-        xticks <- 0:1
-        xlim <- c(-0.25,1.25)
-    }
-    tcols <- matrix(c(1,6,5,2),nrow=2)
-    for(i in 1:2){
-        for(j in 1:2){
-        tplot(x=agrid, y=qdistsFAG[[acov]][1,,i,j], yticks=NULL, xlim=xlim,
-              col=tcols[i,j], lty=i, lwd=4, alpha=0.25, ylim=ylim, xticks=xticks, xlabels=xlabels,
-              xlab=acov, ylab='frequency of feature given AD/MCI & gender', add=(i+j>2))
-        polygon(x=c(agrid,rev(agrid)), y=c(qdistsFAG[[acov]][2,,i,j], rev(qdistsFAG[[acov]][3,,i,j])), col=paste0(palette()[tcols[i,j]],'40'), border=NA)
-    }
-    }
-    legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',diseasenames), '87.5% uncertainty'),
-           col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
-           )
-    legend(x=agrid[length(agrid)*4/5], y=ylim[2]*1.2, legend=c('darker: male','lighter: female'), bty='n', xpd=T, cex=1.25)
-}
-dev.off()
+## ## plot of frequencies of features given AD state and gender f(F|AD&G)
+## pdff('plots_features_given_ADG2')
+## for(acov in names(distsFAG)){
+##     agrid <- grids[[acov]]
+##    ymax <- quant(apply(qdistsFAG[[acov]],2,function(x){quant(x,99/100)}),99/100)
+## ##    ymax <- max(qdistsFAG[[acov]])
+##     ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
+##     xlim <- c(NA,NA)
+##     tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+##     if(!any(is.na(tpar))){
+##         xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+##         xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+##     }else{xticks <- NULL
+##         xlabels <- TRUE}
+##     if(acov %in% binaryCovs){
+##         xticks <- 0:1
+##         xlim <- c(-0.25,1.25)
+##     }
+##     tcols <- matrix(c(1,6,5,2),nrow=2)
+##     for(i in 1:2){
+##         for(j in 1:2){
+##         tplot(x=agrid, y=qdistsFAG[[acov]][1,,i,j], yticks=NULL, xlim=xlim,
+##               col=tcols[i,j], lty=i, lwd=4, alpha=0.25, ylim=ylim, xticks=xticks, xlabels=xlabels,
+##               xlab=acov, ylab='frequency of feature given AD/MCI & gender', add=(i+j>2))
+##         polygon(x=c(agrid,rev(agrid)), y=c(qdistsFAG[[acov]][2,,i,j], rev(qdistsFAG[[acov]][3,,i,j])), col=paste0(palette()[tcols[i,j]],'40'), border=NA)
+##     }
+##     }
+##     legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients with ',diseasenames), '87.5% uncertainty'),
+##            col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
+##            )
+##     legend(x=agrid[length(agrid)*4/5], y=ylim[2]*1.2, legend=c('darker: male','lighter: female'), bty='n', xpd=T, cex=1.25)
+## }
+## dev.off()
 
 
 ## plot of frequencies of AD state given features, using bayes f(F|AD)
@@ -365,65 +366,65 @@ ylim <- c(0,1)
           col=6, lty=1, lwd=4, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
           xlab=acov, ylab='probability of AD', add=T)
     abline(h=0.5, lty=2, lwd=1, col=2)
-legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability'),
-       col=palette()[c(2)], lty=c(1), lwd=c(15), cex=1.5, bty='n'
-                       )
+## legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability'),
+##        col=palette()[c(2)], lty=c(1), lwd=c(15), cex=1.5, bty='n'
+##                        )
 }
 dev.off()
 
 
-## Sample of features of future datapoints
-datasamples <- foreach(asample=1:nrow(parmList$q), .combine=rbind, .packages='nimble', .inorder=F)%dorng%{
-    acluster <- rcat(n=1,prob=parmList$q[asample,])
-    sapply(covNames,function(acov){
-        if(acov %in% realCovs){
-            rnorm(n=1,mean=parmList$meanR[asample,acov,acluster],sd=1/sqrt(parmList$tauR[asample,acov,acluster]))
-        }else if(acov %in% integerCovs){
-            rbinom(n=1,prob=parmList$probI[asample,acov,acluster],size=parmList$sizeI[asample,acov,acluster])
-        }else{
-            nimble::rcat(n=1,prob=c(1-parmList$probB[asample,acov,acluster],parmList$probB[asample,acov,acluster]))-1
-        }
-    })
-}
+## ## Sample of features of future datapoints
+## datasamples <- foreach(asample=1:nrow(parmList$q), .combine=rbind, .packages='nimble', .inorder=F)%dorng%{
+##     acluster <- rcat(n=1,prob=parmList$q[asample,])
+##     sapply(covNames,function(acov){
+##         if(acov %in% realCovs){
+##             rnorm(n=1,mean=parmList$meanR[asample,acov,acluster],sd=1/sqrt(parmList$tauR[asample,acov,acluster]))
+##         }else if(acov %in% integerCovs){
+##             rbinom(n=1,prob=parmList$probI[asample,acov,acluster],size=parmList$sizeI[asample,acov,acluster])
+##         }else{
+##             nimble::rcat(n=1,prob=c(1-parmList$probB[asample,acov,acluster],parmList$probB[asample,acov,acluster]))-1
+##         }
+##     })
+## }
 
-pADdatasamples <- samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)),
-                           X=datasamples[,otherCovs], parmList=parmList, inorder=F)
+## pADdatasamples <- samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)),
+##                            X=datasamples[,otherCovs], parmList=parmList, inorder=F)
 
-pADdata <- rowMeans(pADdatasamples)
-pADdata <- abs(pADdata-0.5)+0.5
-## > summary(pADdata)
-##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  0.5004  0.5431  0.5784  0.5863  0.6151  0.7269 
+## pADdata <- rowMeans(pADdatasamples)
+## pADdata <- abs(pADdata-0.5)+0.5
+## ## > summary(pADdata)
+## ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## ##  0.5004  0.5431  0.5784  0.5863  0.6151  0.7269 
 
-pADdatasamplestest <- samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)),
-                           X=testdata[,..otherCovs], parmList=parmList, inorder=F)
+## pADdatasamplestest <- samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)),
+##                            X=testdata[,..otherCovs], parmList=parmList, inorder=F)
 
-pADdatatest <- rowMeans(pADdatasamplestest)
-pADdatatest <- abs(pADdatatest-0.5)+0.5
-## > summary(pADdatatest)
-##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  0.5027  0.5469  0.5836  0.5900  0.6109  0.7221 
+## pADdatatest <- rowMeans(pADdatasamplestest)
+## pADdatatest <- abs(pADdatatest-0.5)+0.5
+## ## > summary(pADdatatest)
+## ##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## ##  0.5027  0.5469  0.5836  0.5900  0.6109  0.7221 
 
-psinglefeatures <- sapply(otherCovs,function(acov){
-    rowMeans(samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)),
-             X=datasamples[,acov,drop=F], parmList=parmList, inorder=F))})
+## psinglefeatures <- sapply(otherCovs,function(acov){
+##     rowMeans(samplesF(Y=matrix(1,nrow=1,dimnames=list(NULL,maincov)),
+##              X=datasamples[,acov,drop=F], parmList=parmList, inorder=F))})
 
-sort(colMeans(abs(psinglefeatures-0.5)+0.5), decreasing=T)
-## >   RAVLT_immediate  AVDEL30MIN_neuro    AVDELTOT_neuro LRHHC_n_long_log_ 
-##         0.6580801         0.6536124         0.6254173         0.5931097 
-##    TRABSCOR_neuro   CATANIMSC_neuro    TRAASCOR_neuro            Apoe4_ 
-##         0.5889707         0.5838083         0.5706103         0.5447360 
-##          AGE_log_    ANARTERR_neuro       Gender_num_       GDTOTAL_gds 
-##         0.5421207         0.5364131         0.5274789         0.5243736 
+## sort(colMeans(abs(psinglefeatures-0.5)+0.5), decreasing=T)
+## ## >   RAVLT_immediate  AVDEL30MIN_neuro    AVDELTOT_neuro LRHHC_n_long_log_ 
+## ##         0.6580801         0.6536124         0.6254173         0.5931097 
+## ##    TRABSCOR_neuro   CATANIMSC_neuro    TRAASCOR_neuro            Apoe4_ 
+## ##         0.5889707         0.5838083         0.5706103         0.5447360 
+## ##          AGE_log_    ANARTERR_neuro       Gender_num_       GDTOTAL_gds 
+## ##         0.5421207         0.5364131         0.5274789         0.5243736 
 
-entropysort <- sort(colMeans(psinglefeatures*log2(1/psinglefeatures)+(1-psinglefeatures)*log2(1/(1-psinglefeatures))), decreasing=F)
-  ## RAVLT_immediate  AVDEL30MIN_neuro    AVDELTOT_neuro    TRABSCOR_neuro 
-  ##       0.8883023         0.8934159         0.9291837         0.9536632 
-  ##  TRAASCOR_neuro LRHHC_n_long_log_   CATANIMSC_neuro          AGE_log_ 
-  ##       0.9636331         0.9658517         0.9660364         0.9915779 
-  ##          Apoe4_    ANARTERR_neuro       Gender_num_       GDTOTAL_gds 
-  ##       0.9920768         0.9939879         0.9951186         0.9978416 
-message(paste0(names(entropysort),collapse='\n'))
+## entropysort <- sort(colMeans(psinglefeatures*log2(1/psinglefeatures)+(1-psinglefeatures)*log2(1/(1-psinglefeatures))), decreasing=F)
+##   ## RAVLT_immediate  AVDEL30MIN_neuro    AVDELTOT_neuro    TRABSCOR_neuro 
+##   ##       0.8883023         0.8934159         0.9291837         0.9536632 
+##   ##  TRAASCOR_neuro LRHHC_n_long_log_   CATANIMSC_neuro          AGE_log_ 
+##   ##       0.9636331         0.9658517         0.9660364         0.9915779 
+##   ##          Apoe4_    ANARTERR_neuro       Gender_num_       GDTOTAL_gds 
+##   ##       0.9920768         0.9939879         0.9951186         0.9978416 
+## message(paste0(names(entropysort),collapse='\n'))
 
 
 
@@ -448,33 +449,41 @@ ipredictions1 <- samplesF(X=rbind(xcond[,2]), Y=as.matrix(testdata[,..otherCovs]
 bpredictions <- foreach(adatum=1:nrow(ipredictions0), .combine=rbind)%do%{
     dist <- ipredictions1[adatum,]/(ipredictions0[adatum,]+ipredictions1[adatum,])
 }
+
+
+## direct predictive probabilities 
+predictions <- samplesF(Y=rbind(xcond[,2]), X=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
+## predictionsj <- samplesF(Y=cbind(rbind(xcond[,2]),as.matrix(testdata[,..otherCovs])), parmList=parmList, inorder=T)
+## predictionsx <- samplesF(Y=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
+## predictions <- predictionsj/predictionsx
 ##
-mean(rowMeans(bpredictions,na.rm=T)*log2(1/rowMeans(bpredictions,na.rm=T)),na.rm=T)
-sd(rowMeans(bpredictions,na.rm=T)*log2(1/rowMeans(bpredictions,na.rm=T)),na.rm=T)
-## > [1] 0.4790849
-## > [1] 0.04316858
-mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(bpredictions,na.rm=T), log=TRUE))
-## > [1] -0.6636109
 
-predictionsc <- samplesF(Y=rbind(xcond[,2]), X=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
-predictionsj <- samplesF(Y=cbind(rbind(xcond[,2]),as.matrix(testdata[,..otherCovs])), parmList=parmList, inorder=T)
-predictionsx <- samplesF(Y=as.matrix(testdata[,..otherCovs]), parmList=parmList, inorder=T)
-predictions <- predictionsj/predictionsx
+
 ##
-mean(rowMeans(predictions,na.rm=T)*log2(1/rowMeans(predictions,na.rm=T)))
-sd(rowMeans(predictions,na.rm=T)*log2(1/rowMeans(predictions,na.rm=T)),na.rm=T)
-## > [1] 0.4889011
-## > [1] 0.03585186
-mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(predictions,na.rm=T), log=TRUE))
-## > [1] -0.6607607
+sink(outfile)
 
+cat('Average uncertainty in test-set predictions, direct:\n',
+    mean(rowMeans(predictions,na.rm=T)*log2(1/rowMeans(predictions,na.rm=T))),
+    'bit\n')
+## > [1] 0.428 bit
+cat('SD of uncertainty in test-set predictions, direct:\n',
+    sd(rowMeans(predictions,na.rm=T)*log2(1/rowMeans(predictions,na.rm=T)),na.rm=T),
+    'bit\n')
+## > [1] 0.132 bit
+## mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(predictions,na.rm=T), log=TRUE))
+##
+cat('\n')
+cat('Average uncertainty in test-set predictions, via Bayes:\n',
+    mean(rowMeans(bpredictions,na.rm=T)*log2(1/rowMeans(bpredictions,na.rm=T)),na.rm=T),
+    'bit\n')
+## > [1] 0.420 bit
+cat('SD of uncertainty in test-set predictions, via Bayes:\n',
+    sd(rowMeans(bpredictions,na.rm=T)*log2(1/rowMeans(bpredictions,na.rm=T)),na.rm=T),
+    'bit\n')
+## > [1] 0.108 bit
+##mean(dbernoulli(x=testdata[[maincov]], prob=rowMeans(bpredictions,na.rm=T), log=TRUE))
 
-##@@@@@@@@@@@@@@@@@@
-## X <- data.matrix(testdata[59,..otherCovs])
-## Y <- matrix(1, nrow=1, dimnames=list(NULL,maincov))
-## asample <- 1024
-## inorder <- TRUE
-
+sink()
 
 
 
@@ -486,34 +495,47 @@ c( TP=sum(rowMeans(preds,na.rm=T)>=thr & testdata[[maincov]]==1),
   )
 }
 
-tplot(x=agrid <- seq(0,1,length.out=128),
-      y=t(sapply(agrid,confm)))
-legend('top',legend=names(confm()),lty=1:4,col=palette(),bty='n')
+sink(outfile,append=T)
 
-tplot(x=agrid <- seq(0,1,length.out=256),
-      y=colSums(sapply(agrid,confm)[c('FP','FN'),]))
+cat('\n\nConfusion matrix test-set, threshold 0.5, direct prediction:\n')
+confm(predictions)
+## TP FP TN FN 
+## 41 27 47 24 
+cat('\nConfusion matrix test-set, threshold 0.5, via Bayes:\n')
+confm(bpredictions)
+## TP FP TN FN 
+## 44 32 42 21 
+
+sink()
+
+## tplot(x=agrid <- seq(0,1,length.out=128),
+##       y=t(sapply(agrid,confm)))
+## legend('top',legend=names(confm()),lty=1:4,col=palette(),bty='n')
+
+## tplot(x=agrid <- seq(0,1,length.out=256),
+##       y=colSums(sapply(agrid,confm)[c('FP','FN'),]))
 
 
-tplot(x=agrid <- seq(0,1,length.out=256),
-      y=colSums(sapply(agrid,confm)[c('TP','TN'),]))
+## tplot(x=agrid <- seq(0,1,length.out=256),
+##       y=colSums(sapply(agrid,confm)[c('TP','TN'),]))
 
 
-tplot(x=agrid <- seq(0,1,length.out=128),
-      y=t(sapply(agrid,bconfm)))
-legend('top',legend=names(bconfm()),lty=1:4,col=palette(),bty='n')
+## tplot(x=agrid <- seq(0,1,length.out=128),
+##       y=t(sapply(agrid,bconfm)))
+## legend('top',legend=names(bconfm()),lty=1:4,col=palette(),bty='n')
 
-tplot(x=agrid <- seq(0,1,length.out=256),
-      y=colSums(sapply(agrid,bconfm)[c('FP','FN'),]))
+## tplot(x=agrid <- seq(0,1,length.out=256),
+##       y=colSums(sapply(agrid,bconfm)[c('FP','FN'),]))
 
-tplot(x=agrid <- seq(0,1,length.out=256),
-      y=colSums(sapply(agrid,bconfm)[c('TP','TN'),]))
+## tplot(x=agrid <- seq(0,1,length.out=256),
+##       y=colSums(sapply(agrid,bconfm)[c('TP','TN'),]))
 
 ## plot of predictive probabilities for test data
-pdff('predictions_testset2')
+pdff(paste0(dirname,'/','predictions_testset2'))
 for(adatum in 1:nrow(testdata)){
     truev <- testdata[[maincov]][adatum]+1
     aprob <- predictions[adatum,]
-    meanprob <- mean(aprob)
+    meanprob <- mean(aprob, na.rm=T)
     tcol <- 2
     if((meanprob>=0.5 && truev==2) || (meanprob<=0.5 && truev==1)){tcol <- 1}
     uncprob <- quant(aprob, c(1,15)/16)
@@ -537,39 +559,39 @@ for(adatum in 1:nrow(testdata)){
 dev.off()
 
 ## plot of predictive probabilities for test data using Bayes's theorem
-pdff('predictions_bayes_testset2')
-for(adatum in 1:nrow(testdata)){
-    truev <- testdata[[maincov]][adatum]+1
-    aprob <- bpredictions[adatum,]
-    meanprob <- mean(aprob)
-    tcol <- 2
-    if((meanprob>=0.5 && truev==2) || (meanprob<=0.5 && truev==1)){tcol <- 1}
-    uncprob <- quant(aprob, c(1,15)/16)
-    histo <- thist(aprob)
-    tplot(x=histo$breaks, y=histo$density,
-          xlim=c(0,1), ylim=c(0,NA), col=7, 
-          xlab='uncertainty over the probability of AD', ylab='density')
-    abline(v=mean(aprob), lty=1, lwd=3, col=tcol)
-    abline(v=0.5, lty=3, lwd=2, col=3)
-    legend('topleft', legend=c(
-                          paste0('true outcome: ',diseasenames[truev]),
-                          paste0('probability of AD: ',signif(meanprob*100,2),'%'),
-                          paste0('87.5% uncertainty:\n[',signif(uncprob[1],2),', ',signif(uncprob[2],2),']')
-                          ),
-           cex=1.5, bty='n')
-}
-dev.off()
+## pdff('predictions_bayes_testset2')
+## for(adatum in 1:nrow(testdata)){
+##     truev <- testdata[[maincov]][adatum]+1
+##     aprob <- bpredictions[adatum,]
+##     meanprob <- mean(aprob)
+##     tcol <- 2
+##     if((meanprob>=0.5 && truev==2) || (meanprob<=0.5 && truev==1)){tcol <- 1}
+##     uncprob <- quant(aprob, c(1,15)/16)
+##     histo <- thist(aprob)
+##     tplot(x=histo$breaks, y=histo$density,
+##           xlim=c(0,1), ylim=c(0,NA), col=7, 
+##           xlab='uncertainty over the probability of AD', ylab='density')
+##     abline(v=mean(aprob), lty=1, lwd=3, col=tcol)
+##     abline(v=0.5, lty=3, lwd=2, col=3)
+##     legend('topleft', legend=c(
+##                           paste0('true outcome: ',diseasenames[truev]),
+##                           paste0('probability of AD: ',signif(meanprob*100,2),'%'),
+##                           paste0('87.5% uncertainty:\n[',signif(uncprob[1],2),', ',signif(uncprob[2],2),']')
+##                           ),
+##            cex=1.5, bty='n')
+## }
+## dev.off()
 
 ## Comparison of direct and indirect predictive probabilities
-pdff('predictions_testset_compbayes2')
+pdff(paste0(dirname,'/','predictions_testset_compbayes2'))
 for(adatum in 1:nrow(testdata)){
     truev <- testdata[[maincov]][adatum]+1
     aprob1 <- predictions[adatum,]
-    meanprob1 <- mean(aprob)
+    meanprob1 <- mean(aprob, na.rm=T)
     uncprob1 <- quant(aprob, c(1,15)/16)
     histo1 <- thist(aprob)
     aprob <- bpredictions[adatum,]
-    meanprob2 <- mean(aprob)
+    meanprob2 <- mean(aprob, na.rm=T)
     uncprob2 <- quant(aprob, c(1,15)/16)
     histo2 <- thist(aprob)
     ymax <- max(histo1$density,histo2$density)
@@ -609,8 +631,15 @@ probY <- rowMeans(samplesF(Y=YX[,maincov,drop=F], parmList=parmList), na.rm=T)
 probX <- rowMeans(samplesF(Y=YX[,otherCovs,drop=F], parmList=parmList), na.rm=T)
 mutualinfo <- mean(log2(probYX/(probY*probX)), na.rm=T)
 
-signif(mutualinfo,2)
-## 0.25 bit
+probD <- rowMeans(samplesF(Y=YX[,c(integerCovs,binaryCovs),drop=F], parmList=parmList), na.rm=T)
+
+entropy <- mean(log2(1/probD))
+
+sink(outfile,append=T)
+cat('\n\nMutual information between', maincov, 'and all other features:\n',
+mutualinfo, 'bit')
+## 0.222 bit
+sink()
 
 dropmis <- sapply(otherCovs, function(acov){
     probj <- rowMeans(samplesF(Y=YX[,setdiff(colnames(YX),acov),drop=F], parmList=parmList),na.rm=T)
@@ -618,142 +647,115 @@ dropmis <- sapply(otherCovs, function(acov){
     mean(log2(probj/(probY*probm)), na.rm=T)
 })
 
-signif(cbind(sort(dropmis,decreasing=T)),2)
-## AGE_log_          0.25
-## LRHHC_n_long_log_ 0.25
-## Apoe4_            0.25
-## Gender_num_       0.25
-## GDTOTAL_gds       0.25
-## AVDELTOT_neuro    0.25
-## CATANIMSC_neuro   0.25
-## TRAASCOR_neuro    0.25
-## RAVLT_immediate   0.24
-## AVDEL30MIN_neuro  0.24
-## ANARTERR_neuro    0.23
-## TRABSCOR_neuro    0.21
+sink(outfile,append=T)
+cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+print(cbind(sort(dropmis,decreasing=F)))
+## TRABSCOR_neuro    0.200 bit
+## ANARTERR_neuro    0.205
+## TRAASCOR_neuro    0.210
+## AVDEL30MIN_neuro  0.214
+## RAVLT_immediate   0.215
+## GDTOTAL_gds       0.219
+## AVDELTOT_neuro    0.219
+## Gender_num_       0.220
+## AGE_log_          0.221
+## LRHHC_n_long_log_ 0.221
+## CATANIMSC_neuro   0.222
+## Apoe4_            0.223
 
-
+cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
 ## relative difference in mutual information without the variate
-round(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100)
-## TRABSCOR_neuro      14 %
+print(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100)
+## TRABSCOR_neuro      10 %
 ## ANARTERR_neuro       8
-## AVDEL30MIN_neuro     3
-## RAVLT_immediate      2
-## TRAASCOR_neuro       1
-## CATANIMSC_neuro      1
-## AVDELTOT_neuro       0
-## GDTOTAL_gds          0
-## Gender_num_          0
+## TRAASCOR_neuro       5
+## AVDEL30MIN_neuro     4
+## RAVLT_immediate      3
+## GDTOTAL_gds          2
+## AVDELTOT_neuro       2
+## Gender_num_          1
+## AGE_log_             1
+## LRHHC_n_long_log_    1
+## CATANIMSC_neuro      0
 ## Apoe4_               0
-## LRHHC_n_long_log_    0
-## AGE_log_            -1
+sink()
 
+## #########################################################
+## ## 2D plots
+## #########################################################
 
-signif(cbind(sort(mutualinfo-dropmis,decreasing=T)),2)
-## TRABSCOR_neuro     0.03400 bit
-## ANARTERR_neuro     0.01900
-## AVDEL30MIN_neuro   0.00690
-## RAVLT_immediate    0.00400
-## TRAASCOR_neuro     0.00290
-## CATANIMSC_neuro    0.00180
-## AVDELTOT_neuro     0.00110
-## GDTOTAL_gds        0.00089
-## Gender_num_       -0.00078
-## Apoe4_            -0.00095
-## LRHHC_n_long_log_ -0.00120
-## AGE_log_          -0.00210
+## buildgrid <- function(X, lgrid=128){
+##         if(X %in% realCovs){
+##             rgx <- range(alldata[[X]])
+##             rgx <- rgx + c(-1,1) * diff(rgx)/4
+##             lgrid <- seq(rgx[1], rgx[2], length.out=lgrid)
+##         }else if(X %in% integerCovs){
+##             rgx <- range(alldata[[X]])
+##             rgx <- round(rgx + c(-1,1) * diff(rgx)/4)
+##             rgx[1] <- max(rgx[1], variateinfo[variate==X,min])
+##             rgx[2] <- min(rgx[2], variateinfo[variate==X,max])
+##             if(diff(rgx)<lgrid){lgrid <- rgx[1]:rgx[2]}
+##             else{lgrid <- round(seq(rgx[1], rgx[2], length.out=lgrid))}
+##         }else{
+##             lgrid <- 0:1
+##         }
+##         lgrid
+## }
 
-signif(cbind(sort(dropmis/mutualinfo,decreasing=F)),2)
-## TRABSCOR_neuro    0.86
-## ANARTERR_neuro    0.92
-## AVDEL30MIN_neuro  0.97
-## RAVLT_immediate   0.98
-## TRAASCOR_neuro    0.99
-## CATANIMSC_neuro   0.99
-## AVDELTOT_neuro    1.00
-## GDTOTAL_gds       1.00
-## Gender_num_       1.00
-## Apoe4_            1.00
-## LRHHC_n_long_log_ 1.00
-## AGE_log_          1.00
-
-
-#########################################################
-## 2D plots
-#########################################################
-
-buildgrid <- function(X, lgrid=128){
-        if(X %in% realCovs){
-            rgx <- range(alldata[[X]])
-            rgx <- rgx + c(-1,1) * diff(rgx)/4
-            lgrid <- seq(rgx[1], rgx[2], length.out=lgrid)
-        }else if(X %in% integerCovs){
-            rgx <- range(alldata[[X]])
-            rgx <- round(rgx + c(-1,1) * diff(rgx)/4)
-            rgx[1] <- max(rgx[1], variateinfo[variate==X,min])
-            rgx[2] <- min(rgx[2], variateinfo[variate==X,max])
-            if(diff(rgx)<lgrid){lgrid <- rgx[1]:rgx[2]}
-            else{lgrid <- round(seq(rgx[1], rgx[2], length.out=lgrid))}
-        }else{
-            lgrid <- 0:1
-        }
-        lgrid
-}
-
-acov2 <- 'AVDEL30MIN_neuro'#integerCovs[1]
-acov1 <- maincov
-##
-xgrid <- buildgrid(acov1, 128)
-ygrid <- buildgrid(acov2, 128)
-##
-grid2d <- cbind(rep(xgrid,length(ygrid)), rep(ygrid, each=length(xgrid)))
-colnames(grid2d) <- c(acov1, acov2)
-##
-nfsamples <- 32
-fsamples2d <- samplesF(Y=grid2d, parmList=parmList, nfsamples=nfsamples, inorder=F)
-##
-##dim(fsamples2d) <- c(length(xgrid), length(ygrid), nfsamples)
-##
-asample <- 1
-## ax <- min(diff(xgrid)[1], diff(ygrid)[1])/2
-## ay <- min(diff(xgrid)[1], diff(ygrid)[1])/2
-ax <- diff(xgrid)[1]/2
-if(acov1 %in% realCovs){ xticks <- NULL }else{ xticks <- xgrid }
-ay <- diff(ygrid)[1]/2
-if(acov2 %in% realCovs){ yticks <- NULL }else{ yticks <- ygrid }
-pmax <- max(fsamples2d[,asample])
-##
-pdff('_test2dplot')
-plot2dF(xygrid=grid2d, fsamples=rowMeans(fsamples2d,na.rm=T))
-#plot2dF(xygrid=grid2d, fsamples=apply(fsamples2d,1,function(x)diff(quant(x,c(1,15)/16,na.rm=T))))
-plot2dF(xygrid=grid2d, fsamples=apply(fsamples2d,1,function(x)IQR(x,type=8,na.rm=T)))
-dev.off()
+## acov2 <- 'AVDEL30MIN_neuro'#integerCovs[1]
+## acov1 <- maincov
+## ##
+## xgrid <- buildgrid(acov1, 128)
+## ygrid <- buildgrid(acov2, 128)
+## ##
+## grid2d <- cbind(rep(xgrid,length(ygrid)), rep(ygrid, each=length(xgrid)))
+## colnames(grid2d) <- c(acov1, acov2)
+## ##
+## nfsamples <- 32
+## fsamples2d <- samplesF(Y=grid2d, parmList=parmList, nfsamples=nfsamples, inorder=F)
+## ##
+## ##dim(fsamples2d) <- c(length(xgrid), length(ygrid), nfsamples)
+## ##
+## asample <- 1
+## ## ax <- min(diff(xgrid)[1], diff(ygrid)[1])/2
+## ## ay <- min(diff(xgrid)[1], diff(ygrid)[1])/2
+## ax <- diff(xgrid)[1]/2
+## if(acov1 %in% realCovs){ xticks <- NULL }else{ xticks <- xgrid }
+## ay <- diff(ygrid)[1]/2
+## if(acov2 %in% realCovs){ yticks <- NULL }else{ yticks <- ygrid }
+## pmax <- max(fsamples2d[,asample])
+## ##
+## pdff('_test2dplot')
+## plot2dF(xygrid=grid2d, fsamples=rowMeans(fsamples2d,na.rm=T))
+## #plot2dF(xygrid=grid2d, fsamples=apply(fsamples2d,1,function(x)diff(quant(x,c(1,15)/16,na.rm=T))))
+## plot2dF(xygrid=grid2d, fsamples=apply(fsamples2d,1,function(x)IQR(x,type=8,na.rm=T)))
+## dev.off()
 
 
 
 
-pdff('_test2dplot')
-par(mfrow=c(4,8))
-for(asample in 1:nfsamples){
-plot2dF(xygrid=grid2d, fsamples=fsamples2d[,asample], ticks=F, labs=F, mar=c(0,0,0,0))
-    }
-dev.off()
+## pdff('_test2dplot')
+## par(mfrow=c(4,8))
+## for(asample in 1:nfsamples){
+## plot2dF(xygrid=grid2d, fsamples=fsamples2d[,asample], ticks=F, labs=F, mar=c(0,0,0,0))
+##     }
+## dev.off()
 
 
 
-pdff('_test2dplot')
-plot2dF(xygrid=grid2d, fsamples=fsamples2d[,1])
-dev.off()
+## pdff('_test2dplot')
+## plot2dF(xygrid=grid2d, fsamples=fsamples2d[,1])
+## dev.off()
 
-tplot(x=NA, y=NA, xlim=extendrange(xgrid), ylim=extendrange(ygrid), xlab=acov1, ylab=acov2, xticks=xticks, yticks=yticks)
-for(i in 1:nrow(grid2d)){
-    rat <- fsamples2d[i,asample]/pmax
-    polygon(x=grid2d[i,1]+c(-1,1,1,-1)*ax,
-            y=grid2d[i,2]+c(-1,-1,1,1)*ay,
-            border=gray(1-rat), col=gray(1-rat))
-}
-#tplot(x=NA, y=NA, xlim=extendrange(xgrid), ylim=extendrange(ygrid), xlab=acov1, ylab=acov2,add=T)
-dev.off()
+## tplot(x=NA, y=NA, xlim=extendrange(xgrid), ylim=extendrange(ygrid), xlab=acov1, ylab=acov2, xticks=xticks, yticks=yticks)
+## for(i in 1:nrow(grid2d)){
+##     rat <- fsamples2d[i,asample]/pmax
+##     polygon(x=grid2d[i,1]+c(-1,1,1,-1)*ax,
+##             y=grid2d[i,2]+c(-1,-1,1,1)*ay,
+##             border=gray(1-rat), col=gray(1-rat))
+## }
+## #tplot(x=NA, y=NA, xlim=extendrange(xgrid), ylim=extendrange(ygrid), xlab=acov1, ylab=acov2,add=T)
+## dev.off()
 
 
 
@@ -761,57 +763,57 @@ dev.off()
 
 
 
-##
-pdff('_test2dplot')
-tplot(x=NA, y=NA, xlim=extendrange(xgrid), ylim=extendrange(ygrid), xlab=acov1, ylab=acov2)
-for(i in 1:nrow(grid2d)){
-    rat <- sqrt(fsamples2d[i,asample]/pmax)
-    polygon(x=grid2d[i,1]+c(-1,1,1,-1)*ax*rat,
-            y=grid2d[i,2]+c(-1,-1,1,1)*ay*rat,
-            border='white', col='black')
-}
-dev.off()
+## ##
+## pdff('_test2dplot')
+## tplot(x=NA, y=NA, xlim=extendrange(xgrid), ylim=extendrange(ygrid), xlab=acov1, ylab=acov2)
+## for(i in 1:nrow(grid2d)){
+##     rat <- sqrt(fsamples2d[i,asample]/pmax)
+##     polygon(x=grid2d[i,1]+c(-1,1,1,-1)*ax*rat,
+##             y=grid2d[i,2]+c(-1,-1,1,1)*ay*rat,
+##             border='white', col='black')
+## }
+## dev.off()
 
 
-plot2DsamplesF <- function(X, Y, parmList, xgrid=128, ygrid=128){
-    if(length(xgrid)==1){
-        if(X %in% realCovs){
-            rgx <- range(alldata[[X]])
-            rgx <- rgx + c(-1,1) * diff(rgx)/4
-            xgrid <- seq(rgx[1], rgx[2], length.out=xgrid)
-        }else if(X %in% integerCovs){
-            rgx <- range(alldata[[X]])
-            rgx <- round(rgx + c(-1,1) * diff(rgx)/4)
-            rgx[1] <- max(rgx[1], thminicovs[X])
-            rgx[2] <- min(rgx[2], thmaxicovs[X])
-            if(diff(rgx)<xgrid){xgrid <- rgx[1]:rgx[2]}
-            else{xgrid <- round(seq(rgx[1], rgx[2], length.out=xgrid))}
-        }else{
-            xgrid <- 0:1
-        }
-        ##
-        if(Y %in% realCovs){
-            rgy <- range(alldata[[Y]])
-            rgy <- rgy + c(-1,1) * diff(rgy)/4
-            ygrid <- seq(rgy[1], rgy[2], length.out=ygrid)
-        }else if(Y %in% integerCovs){
-            rgy <- range(alldata[[Y]])
-            rgy <- round(rgy + c(-1,1) * diff(rgy)/4)
-            rgy[1] <- max(rgy[1], thminicovs[Y])
-            rgy[2] <- min(rgy[2], thmaxicovs[Y])
-            if(diff(rgy)<ygrid){ygrid <- rgy[1]:rgy[2]}
-            else{ygrid <- round(seq(rgy[1], rgy[2], length.out=ygrid))}
-        }else{
-            ygrid <- 0:1
-        }
-        ##
+## plot2DsamplesF <- function(X, Y, parmList, xgrid=128, ygrid=128){
+##     if(length(xgrid)==1){
+##         if(X %in% realCovs){
+##             rgx <- range(alldata[[X]])
+##             rgx <- rgx + c(-1,1) * diff(rgx)/4
+##             xgrid <- seq(rgx[1], rgx[2], length.out=xgrid)
+##         }else if(X %in% integerCovs){
+##             rgx <- range(alldata[[X]])
+##             rgx <- round(rgx + c(-1,1) * diff(rgx)/4)
+##             rgx[1] <- max(rgx[1], thminicovs[X])
+##             rgx[2] <- min(rgx[2], thmaxicovs[X])
+##             if(diff(rgx)<xgrid){xgrid <- rgx[1]:rgx[2]}
+##             else{xgrid <- round(seq(rgx[1], rgx[2], length.out=xgrid))}
+##         }else{
+##             xgrid <- 0:1
+##         }
+##         ##
+##         if(Y %in% realCovs){
+##             rgy <- range(alldata[[Y]])
+##             rgy <- rgy + c(-1,1) * diff(rgy)/4
+##             ygrid <- seq(rgy[1], rgy[2], length.out=ygrid)
+##         }else if(Y %in% integerCovs){
+##             rgy <- range(alldata[[Y]])
+##             rgy <- round(rgy + c(-1,1) * diff(rgy)/4)
+##             rgy[1] <- max(rgy[1], thminicovs[Y])
+##             rgy[2] <- min(rgy[2], thmaxicovs[Y])
+##             if(diff(rgy)<ygrid){ygrid <- rgy[1]:rgy[2]}
+##             else{ygrid <- round(seq(rgy[1], rgy[2], length.out=ygrid))}
+##         }else{
+##             ygrid <- 0:1
+##         }
+##         ##
         
 
 
         
-        if(length(ygrid)==1){
-            rgx <- range(alldata[[X]])
-            rgx <- rgx + c(-1,1) * diff(rgx)/4
-            xgrid <- seq(rgx[1], rgx[2], length.out=xgrid)
-        }
-}
+##         if(length(ygrid)==1){
+##             rgx <- range(alldata[[X]])
+##             rgx <- rgx + c(-1,1) * diff(rgx)/4
+##             xgrid <- seq(rgx[1], rgx[2], length.out=xgrid)
+##         }
+## }
