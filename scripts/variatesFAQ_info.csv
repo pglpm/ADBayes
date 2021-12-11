@@ -1,0 +1,14 @@
+variate,type,min,max,transfM,transfW,origvariate
+Subgroup_num_,binary,0,1,,,Subgroup_num_
+AGE_log,double,-Inf,Inf,4.3,0.11,AGE
+RAVLT_immediate,integer,0,75,,,RAVLT_immediate
+Gender_num_,binary,0,1,,,Gender_num_
+AVDEL30MIN_neuro,integer,0,15,,,AVDEL30MIN_neuro
+AVDELTOT_neuro,integer,0,15,,,AVDELTOT_neuro
+TRAASCOR_neuro,integer,0,150,,,TRAASCOR_neuro
+TRABSCOR_neuro,integer,0,300,,,TRABSCOR_neuro
+CATANIMSC_neuro,integer,0,60,,,CATANIMSC_neuro
+GDTOTAL_gds,integer,0,6,,,GDTOTAL_gds
+LRHHC_n_long_log,double,-Inf,Inf,-5.5,0.18,LRHHC_n_long
+LRLV_n_long_log,double,-Inf,Inf,-3.7,0.49,LRLV_n_long
+FAQ,integer,0,22,,,FAQ
