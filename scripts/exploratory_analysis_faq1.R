@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-03-20T10:07:17+0100
-## Last-Updated: 2021-12-12T00:00:03+0100
+## Last-Updated: 2021-12-13T13:14:45+0100
 ################
 ## Data preparation for Alzheimer study - FAQ version
 ################
@@ -80,7 +80,7 @@ list('CATANIMSC_neuro', NA, 0, 60),
 list('GDTOTAL_gds', NA, 0, 6),
 list('LRHHC_n_long', 'double', 0, +Inf),
 list('LRLV_n_long', 'double', 0, +Inf),
-list('FAQ', NA, 0, 22),
+list('FAQ', NA, 0, 30),
 fill=T)
 covNames <- variateinfo$variate
 variateinfo$origvariate <- covNames
@@ -185,20 +185,34 @@ for(acov in covNames){
 }
     
 ##
-selectdata <- selectdata[get(covSelect)=='train', .SD, .SDcols=variateinfo$variate]
-message('\nSaving original order in "orig_id" and shuffling')
-selectdata$orig_id <- as.integer(1:nrow(selectdata))
-set.seed(123)
-selectdata[1:nrow(selectdata)] <- selectdata[sample(nrow(selectdata))]
-##
-savefile <- 'dataFAQ_transformed_shuffled.csv'
-message(paste0('\nSaving data in "', savefile, '"'))
-fwrite(selectdata, savefile, sep=',')
-##
 ## Safe the information about the variates
 saveinfofile <- 'variatesFAQ_info.csv'
 message(paste0('\nSaving variate info in "', savefile, '"'))
 fwrite(variateinfo, saveinfofile, sep=',')
+##
+message('\nSaving original order in "orig_id" and shuffling')
+selectdata$orig_id <- as.integer(1:nrow(selectdata))
+##
+traindata <- selectdata[get(covSelect)=='train', .SD, .SDcols=variateinfo$variate]
+set.seed(123)
+traindata[1:nrow(traindata)] <- traindata[sample(nrow(traindata))]
+savefile <- 'traindataFAQ_transformed_shuffled.csv'
+message(paste0('\nSaving training data in "', savefile, '"'))
+fwrite(traindata, savefile, sep=',')
+##
+testdata <- selectdata[get(covSelect)=='test', .SD, .SDcols=variateinfo$variate]
+set.seed(123)
+testdata[1:nrow(testdata)] <- testdata[sample(nrow(testdata))]
+savefile <- 'testdataFAQ_transformed_shuffled.csv'
+message(paste0('\nSaving test data in "', savefile, '"'))
+fwrite(testdata, savefile, sep=',')
+##
+alldata <- selectdata[, .SD, .SDcols=variateinfo$variate]
+set.seed(123)
+alldata[1:nrow(alldata)] <- alldata[sample(nrow(alldata))]
+savefile <- 'alldataFAQ_transformed_shuffled.csv'
+message(paste0('\nSaving all data in "', savefile, '"'))
+fwrite(alldata, savefile, sep=',')
 
 
 

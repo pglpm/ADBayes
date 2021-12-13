@@ -11,4 +11,4 @@ CATANIMSC_neuro,integer,0,60,,,CATANIMSC_neuro
 GDTOTAL_gds,integer,0,6,,,GDTOTAL_gds
 LRHHC_n_long_log,double,-Inf,Inf,-5.5,0.18,LRHHC_n_long
 LRLV_n_long_log,double,-Inf,Inf,-3.7,0.49,LRLV_n_long
-FAQ,integer,0,22,,,FAQ
+FAQ,integer,0,30,,,FAQ
