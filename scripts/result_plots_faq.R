@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-14T16:40:25+0100
+## Last-Updated: 2021-12-14T18:22:29+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -212,6 +212,19 @@ for(acov in otherCovs){
            )
 }
 dev.off()
+
+## ## Data histogram plots for LRHHC
+## tpar <- unlist(variateinfo[variate=='LRHHC_n_long_log',c('transfM','transfW')])
+##         xlabels <- signif(pretty(exp(tpar['transfW']*hgrid + tpar['transfM']),n=10),2)
+##         xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+## ## tplot(x=hgrid, y=lhist1$density/(lhist1$density+lhist0$density), ylim=c(0,NA),xticks=xticks,xlabels=xlabels)
+## tplot(x=hgrid, y=lhist0$density, ylim=c(-1,NA),xticks=xticks,xlabels=xlabels,
+##       xlab='LRHHC_n_long_log', ylab='P(AD)                                                                  frequencies')
+## tplot(x=hgrid, y=lhist1$density, col=2, ylim=c(0,NA),xticks=xticks,xlabels=xlabels,add=T)
+## tplot(x=hgrid, y=-lhist1$density/(lhist1$density+lhist0$density), col=3, ylim=c(0,NA),xticks=xticks,xlabels=xlabels,add=T)
+
+
+
 
 ## plot of samples of frequencies of features given AD state f(F|AD)
 pdff(paste0(dirname,'/','plotssamples_features_given_AD'))
