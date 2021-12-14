@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-14T07:56:18+0100
+## Last-Updated: 2021-12-14T07:57:56+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -497,7 +497,7 @@ sink()
 ## Exploration on test data
 ###########################
 ## Load test file
-datafile <- 'testdata_transformed_shuffled.csv'
+datafile <- 'testdataFAQ_transformed_shuffled.csv'
 testdata <- fread(datafile, sep=',')
 testdata <- testdata[Usage_ == 'test']
 
