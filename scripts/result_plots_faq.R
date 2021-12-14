@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-14T07:57:56+0100
+## Last-Updated: 2021-12-14T16:40:25+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -302,11 +302,11 @@ for(acov in otherCovs){
     tplot(x=agrid, y=qbayesAF[[acov]][1,,'AD'],
           col=7, lty=1, lwd=4, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
           xlab=acov, ylab='probability of AD')
-    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
-    if(!any(is.na(tpar))){
-        Ogrid <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
-        axis(3,at=(log(Ogrid)-tpar['transfM'])/tpar['transfW'],labels=Ogrid,lwd=0,lwd.ticks=1,col.ticks='#bbbbbb80')
-    }
+    ## tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    ## if(!any(is.na(tpar))){
+    ##     Ogrid <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+    ##     axis(3,at=(log(Ogrid)-tpar['transfM'])/tpar['transfW'],labels=Ogrid,lwd=0,lwd.ticks=1,col.ticks='#bbbbbb80')
+    ## }
     polygon(x=c(agrid,rev(agrid)), y=c(qbayesAF[[acov]][2,,'AD'], rev(qbayesAF[[acov]][3,,'AD'])), col=paste0(palette()[7],'80'), border=NA)
     abline(h=0.5, lty=2, lwd=1, col=2)
 legend('topleft', legend=c('87.5% uncertainty on the probability'),
@@ -440,11 +440,33 @@ probY <- rowMeans(samplesF(Y=YX[,maincov,drop=F], parmList=parmList), na.rm=T)
 probX <- rowMeans(samplesF(Y=YX[,otherCovs,drop=F], parmList=parmList), na.rm=T)
 mutualinfo <- mean(log2(probYX/(probY*probX)), na.rm=T)
 
-probD <- rowMeans(samplesF(Y=YX[,c(integerCovs,binaryCovs),drop=F], parmList=parmList), na.rm=T)
+## probD <- rowMeans(samplesF(Y=YX[,c(integerCovs,binaryCovs),drop=F], parmList=parmList), na.rm=T)
 
-entropy <- mean(log2(1/probD))
+## entropy <- mean(log2(1/probD))
+
+singlemi <- sapply(otherCovs, function(acov){
+    probm <- rowMeans(samplesF(Y=YX[,acov,drop=F], parmList=parmList), na.rm=T)
+    probj <- rowMeans(samplesF(Y=YX[,c(maincov,acov),drop=F], parmList=parmList), na.rm=T)
+    mean(log2(probj/(probY*probm)), na.rm=T)
+})
 
 sink(outfile)
+cat('Mutual information between', maincov, 'and SINGLE features:\n')
+print(cbind(sort(singlemi,decreasing=T)))
+sink()
+
+singlemi2 <- sapply(otherCovs, function(acov){
+    probcondacov <- rowMeans(samplesF(Y=xcond[,2,drop=F], X=YX[,acov,drop=F], parmList=parmList), na.rm=T)
+mean(probcondacov*log2(probcondacov/mean(probcondacov,na.rm=T)) + (1-probcondacov)*log2((1-probcondacov)/mean(1-probcondacov,na.rm=T)), na.rm=T)
+})
+
+sink(outfile,append=T)
+cat('Mutual information between', maincov, 'and SINGLE features, second method:\n')
+print(cbind(sort(singlemi2,decreasing=T)))
+sink()
+
+
+sink(outfile,append=T)
 cat('\n\nMutual information between', maincov, 'and all other features:\n',
 mutualinfo, 'bit')
 ## 0.222 bit
@@ -459,34 +481,11 @@ dropmis <- sapply(otherCovs, function(acov){
 sink(outfile,append=T)
 cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
 print(cbind(sort(dropmis,decreasing=F)))
-## TRABSCOR_neuro    0.200 bit
-## ANARTERR_neuro    0.205
-## TRAASCOR_neuro    0.210
-## AVDEL30MIN_neuro  0.214
-## RAVLT_immediate   0.215
-## GDTOTAL_gds       0.219
-## AVDELTOT_neuro    0.219
-## Gender_num_       0.220
-## AGE_log_          0.221
-## LRHHC_n_long_log_ 0.221
-## CATANIMSC_neuro   0.222
-## Apoe4_            0.223
 ##
 cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
 ## relative difference in mutual information without the variate
 print(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100)
-## TRABSCOR_neuro      10 %
-## ANARTERR_neuro       8
-## TRAASCOR_neuro       5
-## AVDEL30MIN_neuro     4
-## RAVLT_immediate      3
-## GDTOTAL_gds          2
-## AVDELTOT_neuro       2
-## Gender_num_          1
-## AGE_log_             1
-## LRHHC_n_long_log_    1
-## CATANIMSC_neuro      0
-## Apoe4_               0
+##
 sink()
 
 ##print(round(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100))
@@ -527,7 +526,7 @@ predictions <- samplesF(Y=rbind(xcond[,2]), X=as.matrix(testdata[,..otherCovs]),
 ##
 sink(outfile, append=T)
 
-cat('Average uncertainty in test-set predictions, direct:\n',
+cat('\n\nAverage uncertainty in test-set predictions, direct:\n',
     mean(rowMeans(predictions,na.rm=T)*log2(1/rowMeans(predictions,na.rm=T))),
     'bit\n')
 ## > [1] 0.428 bit
