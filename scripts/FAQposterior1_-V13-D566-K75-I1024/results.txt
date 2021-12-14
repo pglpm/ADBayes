@@ -1,35 +1,35 @@
 
 
 Mutual information between Subgroup_num_ and all other features:
- 0.1831745 bit
+ 0.2051896 bit
 
 Mutual information between Subgroup_num_ and all other features minus one (negative values are due to roundoff):
                       [,1]
-TRABSCOR_neuro   0.1625954
-FAQ              0.1651381
-AVDEL30MIN_neuro 0.1775694
-RAVLT_immediate  0.1782945
-TRAASCOR_neuro   0.1787049
-AVDELTOT_neuro   0.1807614
-CATANIMSC_neuro  0.1821448
-AGE_log          0.1824086
-GDTOTAL_gds      0.1824191
-LRLV_n_long_log  0.1829898
-Gender_num_      0.1829911
-LRHHC_n_long_log 0.1831007
+FAQ              0.1797907
+TRABSCOR_neuro   0.1822291
+TRAASCOR_neuro   0.1947900
+RAVLT_immediate  0.1985325
+AVDEL30MIN_neuro 0.2018353
+LRLV_n_long_log  0.2026373
+CATANIMSC_neuro  0.2037217
+GDTOTAL_gds      0.2041229
+AVDELTOT_neuro   0.2044351
+AGE_log          0.2045374
+Gender_num_      0.2055737
+LRHHC_n_long_log 0.2062252
 
 
 Relative differences between mutual information using all features and those using all features minus one, in %:
                        [,1]
-TRABSCOR_neuro   11.2347159
-FAQ               9.8465672
-AVDEL30MIN_neuro  3.0599886
-RAVLT_immediate   2.6641532
-TRAASCOR_neuro    2.4400705
-AVDELTOT_neuro    1.3173755
-CATANIMSC_neuro   0.5621402
-AGE_log           0.4181179
-GDTOTAL_gds       0.4123882
-LRLV_n_long_log   0.1008383
-Gender_num_       0.1001350
-LRHHC_n_long_log  0.0403084
+FAQ              12.3782240
+TRABSCOR_neuro   11.1898773
+TRAASCOR_neuro    5.0682572
+RAVLT_immediate   3.2443518
+AVDEL30MIN_neuro  1.6347052
+LRLV_n_long_log   1.2438625
+CATANIMSC_neuro   0.7153770
+GDTOTAL_gds       0.5198442
+AVDELTOT_neuro    0.3676997
+AGE_log           0.3178399
+Gender_num_      -0.1872172
+LRHHC_n_long_log -0.5047026

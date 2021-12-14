@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-13T14:39:25+0100
+## Last-Updated: 2021-12-14T07:56:18+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -56,7 +56,7 @@ maincov <- 'Subgroup_num_'
 source('functions_mcmc.R')
 dirname <- 'FAQposterior1_-V13-D566-K75-I1024'
 outfile <- paste0(dirname,'/','results.txt')
-frequenciesfile <- paste0(dirname,'/','_frequencies-RFAQposterior1_1-V13-D566-K75-I1024.rds')
+frequenciesfile <- paste0(dirname,'/','_frequencies-RFAQposterior1_2-V13-D566-K75-I1024.rds')
 parmList <- readRDS(frequenciesfile)
 nclusters <- ncol(parmList$q)
 nFsamples <- nrow(parmList$q)
@@ -489,6 +489,7 @@ print(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100)
 ## Apoe4_               0
 sink()
 
+##print(round(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100))
 
 
 
