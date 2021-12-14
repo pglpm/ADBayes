@@ -33,6 +33,8 @@ AVDELTOT_neuro    0.3676997
 AGE_log           0.3178399
 Gender_num_      -0.1872172
 LRHHC_n_long_log -0.5047026
+
+
 Average uncertainty in test-set predictions, direct:
  0.43298 bit
 SD of uncertainty in test-set predictions, direct:
@@ -45,9 +47,9 @@ SD of uncertainty in test-set predictions, via Bayes:
 
 
 Confusion matrix test-set, threshold 0.5, direct prediction:
-TP FP TN FN 
-41 19 57 25 
+TP FP TN FN
+41 19 57 25
 
 Confusion matrix test-set, threshold 0.5, via Bayes:
-TP FP TN FN 
-44 21 55 22 
+TP FP TN FN
+44 21 55 22
