@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-15T07:42:36+0100
+## Last-Updated: 2021-12-15T07:44:28+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -44,13 +44,13 @@ library('nimble')
 
 
 seed <- 149
-baseversion <- '_justtest_'
-nclusters <- 4L #as.integer(2^6)
-niter <- 32L #as.integer(2^11)
-niter0 <- 32L #as.integer(2^10)
-thin <- 2L
-nstages <- 1L
-ncheckpoints <- 2L
+baseversion <- 'FAQng_posterior1_'
+nclusters <- 75L
+niter <- 1024L
+niter0 <- 1024L
+thin <- 8L
+nstages <- 3L
+ncheckpoints <- 4L
 maincov <- 'Subgroup_num_'
 family <- 'Palatino'
 ##ndata

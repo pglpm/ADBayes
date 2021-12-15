@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-14T18:22:29+0100
+## Last-Updated: 2021-12-15T10:04:32+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -185,6 +185,91 @@ qdistsAF <- foreach(acov=otherCovs)%do%{
 names(qdistsAF) <- otherCovs
 
 ## plot of frequencies of features given AD state f(F|AD)
+pdff(paste0(dirname,'/','data_histograms_given_AD'))
+for(acov in otherCovs){
+    agrid <- grids[[acov]]
+    histo <- list()
+    ymax <- -Inf
+    for(i in 1:2){
+        histo[[i]] <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=if(acov %in% realCovs){seq(min(agrid),max(agrid),length.out=32)}else{'i'})
+        ymax <- max(ymax, histo[[i]]$counts)
+            }
+    ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
+    xlim <- c(NA,NA)
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+        xlabels <- TRUE}
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
+    freqs <- histo[[2]]$counts/(histo[[1]]$counts+histo[[2]]$counts)
+    maxf <- max(freqs,na.rm=T)
+    for(i in 1:2){
+        ## histo <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=if(acov %in% realCovs){seq(min(agrid),max(agrid),length.out=32)}else{'i'})
+        tplot(x=histo[[i]]$breaks,y=histo[[i]]$counts,col=i,alpha=0.75,
+              yticks=NULL, xlim=xlim,
+               ylim=ylim, xticks=xticks, xlabels=xlabels,
+              xlab=acov, ylab='data counts', add=(i==2))
+        ## polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
+        tplot(x=histo[[i]]$mids,y=-freqs/maxf*ymax,col=i)
+    }
+    legend(x='topright', legend=c(paste0('',diseasenames)),
+           col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
+           )
+}
+dev.off()
+
+## plot of frequencies of features given AD state f(F|AD)
+pdff(paste0(dirname,'/','data_histogramsprobs_given_AD'),paper='a4')
+for(acov in otherCovs){
+    agrid <- grids[[acov]]
+    histo <- list()
+    breaks <- if(acov %in% realCovs){pretty(c(agrid),n=40)}else{seq(min(agrid)-0.5,max(agrid)+0.5,by=1)}
+    ymax <- -Inf
+    for(i in 1:2){
+        histo[[i]] <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=breaks)
+        ymax <- max(ymax, histo[[i]]$counts)
+            }
+    ylim <- c(-ymax,ymax)#max(qdistsFA[[acov]]))
+    xlim <- c(NA,NA)
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+        xlabels <- TRUE}
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
+    freqs <- c(histo[[2]]$counts/(histo[[1]]$counts+histo[[2]]$counts))
+    maxf <- 1#max(freqs,na.rm=T)
+    freqs <- freqs/maxf*ymax
+    yticks <- pretty(ylim,10)
+    ylabels <- sprintf('%.2g',c(-yticks[yticks<0]*maxf/ymax, yticks[yticks>=0]))
+    for(i in 1:2){
+        ## histo <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=if(acov %in% realCovs){seq(min(agrid),max(agrid),length.out=32)}else{'i'})
+        tplot(x=histo[[i]]$breaks,y=histo[[i]]$counts,col=i,alpha=0.75,
+              xlim=xlim,
+              ylim=ylim, xticks=xticks, xlabels=xlabels,
+              yticks=yticks, ylabels=ylabels,
+              xlab=acov, ylab='data counts', add=(i==2))
+        ## polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
+    }
+    tplot(x=histo[[1]]$mids[!is.na(freqs)],y=-freqs[!is.na(freqs)],col=1,xgrid=F,ygrid=F,add=T)
+    abline(***)
+    legend(x='topright', legend=c(paste0('',diseasenames)),
+           col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
+           )
+}
+dev.off()
+
+
+## plot of frequencies of features given AD state f(F|AD)
 pdff(paste0(dirname,'/','plots_features_given_AD'))
 for(acov in otherCovs){
     agrid <- grids[[acov]]
@@ -210,6 +295,10 @@ for(acov in otherCovs){
     legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients who will have ',diseasenames), '87.5% uncertainty'),
            col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
            )
+    ## for(i in 1:2){
+    ##     histo <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=32)
+    ##     tplot(x=histo$breaks,y=histo$density,col=i,border=NA,alpha=0.75,xgrid=F,ygrid=F,add=T)
+    ## }
 }
 dev.off()
 
