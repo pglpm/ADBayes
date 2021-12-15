@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-15T10:04:32+0100
+## Last-Updated: 2021-12-15T10:16:43+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -249,7 +249,7 @@ for(acov in otherCovs){
     freqs <- c(histo[[2]]$counts/(histo[[1]]$counts+histo[[2]]$counts))
     maxf <- 1#max(freqs,na.rm=T)
     freqs <- freqs/maxf*ymax
-    yticks <- pretty(ylim,10)
+    yticks <- c(pretty(c(-1,0),10)/maxf*ymax,pretty(c(0,ymax),10))
     ylabels <- sprintf('%.2g',c(-yticks[yticks<0]*maxf/ymax, yticks[yticks>=0]))
     for(i in 1:2){
         ## histo <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=if(acov %in% realCovs){seq(min(agrid),max(agrid),length.out=32)}else{'i'})
@@ -261,7 +261,7 @@ for(acov in otherCovs){
         ## polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
     }
     tplot(x=histo[[1]]$mids[!is.na(freqs)],y=-freqs[!is.na(freqs)],col=1,xgrid=F,ygrid=F,add=T)
-    abline(***)
+    abline(h=-0.5/maxf*ymax,lty=3,lwd=3,col=4)
     legend(x='topright', legend=c(paste0('',diseasenames)),
            col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
            )
