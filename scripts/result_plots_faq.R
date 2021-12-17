@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-15T10:16:43+0100
+## Last-Updated: 2021-12-16T07:36:43+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -228,7 +228,7 @@ pdff(paste0(dirname,'/','data_histogramsprobs_given_AD'),paper='a4')
 for(acov in otherCovs){
     agrid <- grids[[acov]]
     histo <- list()
-    breaks <- if(acov %in% realCovs){pretty(c(agrid),n=40)}else{seq(min(agrid)-0.5,max(agrid)+0.5,by=1)}
+    breaks <- if(acov %in% realCovs){seq(min(agrid),max(agrid),length.out=24)}else{seq(min(agrid)-0.5,max(agrid)+0.5,by=1)}
     ymax <- -Inf
     for(i in 1:2){
         histo[[i]] <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=breaks)
@@ -246,11 +246,13 @@ for(acov in otherCovs){
         xticks <- 0:1
         xlim <- c(-0.25,1.25)
     }
-    freqs <- c(histo[[2]]$counts/(histo[[1]]$counts+histo[[2]]$counts))
+    freqs <- histo[[2]]$counts/(histo[[1]]$counts+histo[[2]]$counts)
+    print(c(acov,freqs))
+    print(rbind(histo[[1]]$counts,histo[[2]]$counts))
     maxf <- 1#max(freqs,na.rm=T)
     freqs <- freqs/maxf*ymax
     yticks <- c(pretty(c(-1,0),10)/maxf*ymax,pretty(c(0,ymax),10))
-    ylabels <- sprintf('%.2g',c(-yticks[yticks<0]*maxf/ymax, yticks[yticks>=0]))
+    ylabels <- sprintf('%.7g',c(-yticks[yticks<0]*maxf/ymax, yticks[yticks>=0]))
     for(i in 1:2){
         ## histo <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=if(acov %in% realCovs){seq(min(agrid),max(agrid),length.out=32)}else{'i'})
         tplot(x=histo[[i]]$breaks,y=histo[[i]]$counts,col=i,alpha=0.75,
@@ -260,8 +262,33 @@ for(acov in otherCovs){
               xlab=acov, ylab='data counts', add=(i==2))
         ## polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
     }
-    tplot(x=histo[[1]]$mids[!is.na(freqs)],y=-freqs[!is.na(freqs)],col=1,xgrid=F,ygrid=F,add=T)
+    tplot(x=histo[[1]]$mids[!is.na(freqs)],y=-freqs[!is.na(freqs)],col=3,xgrid=F,ygrid=F,add=T)
     abline(h=-0.5/maxf*ymax,lty=3,lwd=3,col=4)
+    ##
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+    xlabels <- TRUE}
+    ylim <- c(0,1)
+    xlim <- c(NA,NA)
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
+    tplot(x=agrid, y=-qdistsAF[[acov]][1,,'AD']/maxf*ymax,
+          col=7, lty=1, lwd=4, ylim=ylim, xlim=xlim, xticks=F,yticks=F,xgrid=F,ygrid=F,add=T)
+    ## tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    ## if(!any(is.na(tpar))){
+    ##     Ogrid <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+    ##     axis(3,at=(log(Ogrid)-tpar['transfM'])/tpar['transfW'],labels=Ogrid,lwd=0,lwd.ticks=1,col.ticks='#bbbbbb80')
+    ## }
+    polygon(x=c(agrid,rev(agrid)), y=-c(qdistsAF[[acov]][2,,'AD'], rev(qdistsAF[[acov]][3,,'AD']))/maxf*ymax, col=paste0(palette()[7],'80'), border=NA)
+## legend('topleft', legend=c('87.5% uncertainty on the probability'),
+##        col=palette()[c(7)], lty=c(1), lwd=c(15), cex=1.5, bty='n'
+    ##                        )
+    tplot(x=c(data.matrix(alldata[[acov]])),y=rep(-0.02,nrow(alldata))/maxf*ymax,type='p',pch=15,cex=0.75,alpha=1-1/16,col='#000000',add=T,xgrid=F,ygrid=F,xticks=F,yticks=F)
     legend(x='topright', legend=c(paste0('',diseasenames)),
            col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
            )
@@ -535,12 +562,14 @@ dev.off()
 ## Mutual info for next prediction
 #########################################################
 
-YX <- samplesX(parmList=parmList)
+YX <- samplesX(nperf=8,parmList=parmList)
 attr(YX, 'rng') <- NULL
 probYX <- rowMeans(samplesF(Y=YX, parmList=parmList),na.rm=T)
 probY <- rowMeans(samplesF(Y=YX[,maincov,drop=F], parmList=parmList), na.rm=T)
 probX <- rowMeans(samplesF(Y=YX[,otherCovs,drop=F], parmList=parmList), na.rm=T)
 mutualinfo <- mean(log2(probYX/(probY*probX)), na.rm=T)
+## > mutualinfo
+## [1] 0.2073521
 
 ## probD <- rowMeans(samplesF(Y=YX[,c(integerCovs,binaryCovs),drop=F], parmList=parmList), na.rm=T)
 
@@ -551,36 +580,75 @@ singlemi <- sapply(otherCovs, function(acov){
     probj <- rowMeans(samplesF(Y=YX[,c(maincov,acov),drop=F], parmList=parmList), na.rm=T)
     mean(log2(probj/(probY*probm)), na.rm=T)
 })
+## > cbind(sort(singlemi,decreasing=T))
+##                         [,1]
+## AVDEL30MIN_neuro 0.102515427
+## RAVLT_immediate  0.094834522
+## FAQ              0.084784968
+## AVDELTOT_neuro   0.058414123
+## TRABSCOR_neuro   0.035608569
+## LRHHC_n_long_log 0.031327181
+## CATANIMSC_neuro  0.028329753
+## TRAASCOR_neuro   0.027374218
+## LRLV_n_long_log  0.006005771
+## AGE_log          0.004534418
+## GDTOTAL_gds      0.003293993
+## Gender_num_      0.001216298
 
-sink(outfile)
-cat('Mutual information between', maincov, 'and SINGLE features:\n')
-print(cbind(sort(singlemi,decreasing=T)))
-sink()
+## singlemi2 <- sapply(otherCovs, function(acov){
+##     probcondacov <- rowMeans(samplesF(Y=xcond[,2,drop=F], X=YX[,acov,drop=F], parmList=parmList), na.rm=T)
+## mean(probcondacov*log2(probcondacov/mean(probcondacov,na.rm=T)) + (1-probcondacov)*log2((1-probcondacov)/mean(1-probcondacov,na.rm=T)), na.rm=T)
+## })
 
-singlemi2 <- sapply(otherCovs, function(acov){
-    probcondacov <- rowMeans(samplesF(Y=xcond[,2,drop=F], X=YX[,acov,drop=F], parmList=parmList), na.rm=T)
-mean(probcondacov*log2(probcondacov/mean(probcondacov,na.rm=T)) + (1-probcondacov)*log2((1-probcondacov)/mean(1-probcondacov,na.rm=T)), na.rm=T)
-})
-
-sink(outfile,append=T)
-cat('Mutual information between', maincov, 'and SINGLE features, second method:\n')
-print(cbind(sort(singlemi2,decreasing=T)))
-sink()
-
-
-sink(outfile,append=T)
-cat('\n\nMutual information between', maincov, 'and all other features:\n',
-mutualinfo, 'bit')
-## 0.222 bit
-sink()
+## sink(outfile,append=T)
+## cat('Mutual information between', maincov, 'and SINGLE features, second method:\n')
+## print(cbind(sort(singlemi2,decreasing=T)))
+## sink()
 
 dropmis <- sapply(otherCovs, function(acov){
-    probj <- rowMeans(samplesF(Y=YX[,setdiff(colnames(YX),acov),drop=F], parmList=parmList),na.rm=T)
-    probm <- rowMeans(samplesF(Y=YX[,setdiff(otherCovs,acov),drop=F], parmList=parmList), na.rm=T)
-    mean(log2(probj/(probY*probm)), na.rm=T)
+    probjoint <- rowMeans(samplesF(Y=YX[,setdiff(colnames(YX),acov),drop=F], parmList=parmList),na.rm=T)
+    probsingle <- rowMeans(samplesF(Y=YX[,setdiff(otherCovs,acov),drop=F], parmList=parmList), na.rm=T)
+    mean(log2(probjoint/(probY*probsingle)), na.rm=T)
 })
 
-sink(outfile,append=T)
+## cbind(sort(dropmis,decreasing=F))
+## >                       [,1]
+## FAQ              0.1827049
+## TRABSCOR_neuro   0.1885598
+## TRAASCOR_neuro   0.1988626
+## RAVLT_immediate  0.2049027
+## AVDEL30MIN_neuro 0.2050292
+## AVDELTOT_neuro   0.2053379
+## LRHHC_n_long_log 0.2057986
+## CATANIMSC_neuro  0.2061171
+## LRLV_n_long_log  0.2065904
+## Gender_num_      0.2068082
+## GDTOTAL_gds      0.2073682
+## AGE_log          0.2074283
+
+
+## cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100
+## FAQ              11.886637654
+## TRABSCOR_neuro    9.062990024
+## TRAASCOR_neuro    4.094235113
+## RAVLT_immediate   1.181263659
+## AVDEL30MIN_neuro  1.120273793
+## AVDELTOT_neuro    0.971391568
+## LRHHC_n_long_log  0.749197462
+## CATANIMSC_neuro   0.595605535
+## LRLV_n_long_log   0.367346966
+## Gender_num_       0.262317809
+## GDTOTAL_gds      -0.007732331
+## AGE_log          -0.036716825
+
+sink(outfile)
+cat('Mutual information between', maincov, 'and all other features:\n',
+mutualinfo, 'bit')
+## 0.222 bit
+
+cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
+print(cbind(sort(singlemi,decreasing=T)))
+
 cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
 print(cbind(sort(dropmis,decreasing=F)))
 ##
@@ -600,7 +668,7 @@ sink()
 ## Load test file
 datafile <- 'testdataFAQ_transformed_shuffled.csv'
 testdata <- fread(datafile, sep=',')
-testdata <- testdata[Usage_ == 'test']
+testdata <- testdata[,..covNames]
 
 xcond <- matrix(0:1,ncol=2,dimnames=list(NULL,rep(maincov,2)))
 diseasenames <- c('MCI', 'AD')

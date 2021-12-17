@@ -1,35 +1,69 @@
-
-
 Mutual information between Subgroup_num_ and all other features:
- 0.1550069 bit
+ 0.1771699 bit
+
+Mutual information between Subgroup_num_ and SINGLE features:
+                         [,1]
+AVDEL30MIN_neuro 0.0885505932
+RAVLT_immediate  0.0773705834
+FAQ              0.0620206811
+AVDELTOT_neuro   0.0567194859
+LRHHC_n_long_log 0.0279167005
+TRABSCOR_neuro   0.0259134543
+CATANIMSC_neuro  0.0207091650
+TRAASCOR_neuro   0.0125913158
+LRLV_n_long_log  0.0053647578
+AGE_log          0.0026912016
+Gender_num_      0.0017258544
+GDTOTAL_gds      0.0003817167
+
 
 Mutual information between Subgroup_num_ and all other features minus one (negative values are due to roundoff):
                       [,1]
-FAQ              0.1406475
-TRABSCOR_neuro   0.1412190
-TRAASCOR_neuro   0.1481115
-AVDEL30MIN_neuro 0.1482699
-AVDELTOT_neuro   0.1507266
-GDTOTAL_gds      0.1528509
-RAVLT_immediate  0.1534406
-LRLV_n_long_log  0.1536232
-LRHHC_n_long_log 0.1545364
-AGE_log          0.1546694
-CATANIMSC_neuro  0.1549204
-Gender_num_      0.1561257
+TRABSCOR_neuro   0.1549135
+FAQ              0.1615034
+TRAASCOR_neuro   0.1700983
+AVDEL30MIN_neuro 0.1701100
+RAVLT_immediate  0.1719238
+AVDELTOT_neuro   0.1742387
+LRHHC_n_long_log 0.1758374
+CATANIMSC_neuro  0.1758896
+GDTOTAL_gds      0.1763250
+Gender_num_      0.1764543
+LRLV_n_long_log  0.1765896
+AGE_log          0.1766726
 
 
 Relative differences between mutual information using all features and those using all features minus one, in %:
-                        [,1]
-FAQ               9.26375505
-TRABSCOR_neuro    8.89506438
-TRAASCOR_neuro    4.44843122
-AVDEL30MIN_neuro  4.34624769
-AVDELTOT_neuro    2.76137547
-GDTOTAL_gds       1.39092283
-RAVLT_immediate   1.01048296
-LRLV_n_long_log   0.89269154
-LRHHC_n_long_log  0.30352385
-AGE_log           0.21774472
-CATANIMSC_neuro   0.05581331
-Gender_num_      -0.72179431
+                       [,1]
+TRABSCOR_neuro   12.5621958
+FAQ               8.8426802
+TRAASCOR_neuro    3.9914620
+AVDEL30MIN_neuro  3.9848044
+RAVLT_immediate   2.9610605
+AVDELTOT_neuro    1.6544490
+LRHHC_n_long_log  0.7521193
+CATANIMSC_neuro   0.7226619
+GDTOTAL_gds       0.4769025
+Gender_num_       0.4039124
+LRLV_n_long_log   0.3275321
+AGE_log           0.2807101
+
+
+Average uncertainty in test-set predictions, direct:
+ 0.43744 bit
+SD of uncertainty in test-set predictions, direct:
+ 0.09353142 bit
+
+Average uncertainty in test-set predictions, via Bayes:
+ 0.4309539 bit
+SD of uncertainty in test-set predictions, via Bayes:
+ 0.1008874 bit
+
+
+Confusion matrix test-set, threshold 0.5, direct prediction:
+TP FP TN FN 
+41 13 63 25 
+
+Confusion matrix test-set, threshold 0.5, via Bayes:
+TP FP TN FN 
+45 16 60 21 
