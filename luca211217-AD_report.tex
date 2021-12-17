@@ -1,7 +1,7 @@
 \pdfoutput=1
 %% Author: PGL  Porta Mana
 %% Created: 2015-05-01T20:53:34+0200
-%% Last-Updated: 2021-12-17T10:50:50+0100
+%% Last-Updated: 2021-12-17T13:07:42+0100
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newif\ifarxiv
 \arxivfalse
@@ -305,7 +305,7 @@ citestyle=authoryear-comp,bibstyle=pglpm-authoryear,autopunct=false,sorting=ny,s
 \texttt{mp\_arc:\urlalt{http://www.ma.utexas.edu/mp_arc-bin/mpa?yn=#1}{\doiurl{#1}}}%
 }
 \newcommand*{\haleprint}[1]{%
-\texttt{HAL:\urlalt{https://hal.archives-ouvertes.fr/#1}{\doiurrl{#1}}}%
+\texttt{HAL:\urlalt{https://hal.archives-ouvertes.fr/#1}{\doiurl{#1}}}%
 }
 \newcommand*{\philscieprint}[1]{%
 \texttt{PhilSci:\urlalt{http://philsci-archive.pitt.edu/archive/#1}{\doiurl{#1}}}%
@@ -741,6 +741,9 @@ The technical details of the inference and method are explained in
 Here I report the results for Alexandra's FAQ-based features. I'll report
 the results for Ingrid's study soon (some calculations are still ongoing).
 
+All material is available at
+\url{https://github.com/pglpm/ADBayes}.
+
 \section{Main results}
 \label{sec:main_res}
 
@@ -762,16 +765,17 @@ coin to make our prognoses); to $1\;\bit$, representing perfect,
 deterministic prediction.
 
 The operational meaning of mutual
-information is explained in \sect{***}.
+information is explained in \sects~\ref{sec:joint} and~\ref{sec:mutualionfo}.
 
 The results are reported for three different calculation set-ups, denoted
 \narrow, \broad, \all. The first two use only the training dataset and have
 different prior smoothness preferences for the inference: \narrow\ and
 \broad. The third uses \all\ datapoints, with a broad prior smoothness
-preference. More details are given in \sect{***}. It should be noted that
-the probability calculation should always use all data, and no division
-between training and test set is necessary (probability theory is
-implicitly already doing all such possible divisions).
+preference. More details are given in
+\sects~\ref{sec:understand}--\ref{sec:maths}. It should be noted that the
+probability calculation should always use all data, and no division between
+training and test set is necessary (probability theory is implicitly
+already doing all such possible divisions).
 
 
 \subsection{Results for individual features}
@@ -907,30 +911,59 @@ million prognoses.
 \subsection{Further remarks}
 \label{sec:remarks}
 
-The mutual informations estimated above are calculated assuming that \emph{we
+\textbullet\ The mutual informations estimated above are calculated assuming that \emph{we
 will not receive further training data}. It is also possible to calculate
 an estimate of what the mutual informations would be if we had a very large
 number of training data. I'm currently setting up the code to calculate
 this estimate.
 
-Regarding \enquote{explanation}, I categorically refuse to say that the
+\medskip
+
+\noindent\textbullet\ As shown in the enclosed plots (all coming from the \all\ setup), many
+features have two clearly different population distributions for the future
+AD or MCI patients. This means that something is already at work affecting
+those features. However, the two population distributions have very large
+overlaps, so the feature does not help very much in making predictions for
+a single individual, as clear also from the mutual informations for the
+individual features.
+
+\medskip
+
+\noindent\textbullet\ A further analysis of direct and inverse conditional
+frequencies in the population suggest that the dataset might have some
+biases for some features. These biases, however, could be overcome by
+appropriately combining inverse and direct predictions from the features.
+This point and topic would require a very extensive discussion, so I won't
+write any further details here.
+
+\medskip
+
+\noindent\textbullet\ As discussed in \sect~\ref{sec:maths}, the calculation also allows us to
+count the number of peaks in the joint distribution of predictand and
+features, possibly hinting at the presence of subpopulations. A very rough
+estimate gives around 10 main peaks. If this is of interest, a more exact
+calculation can be done.
+
+\medskip
+
+
+\noindent\textbullet\ Regarding \enquote{explanation}, I categorically refuse to say that the
 mutual info or some other score of a feature \enquote{explains} anything.
-Statistical and probabilistic analyses and metrics do not
-\enquote{explain}, they only \emph{fit}. Using \enquote{explanation} in
-this context is an intentional or unintentional way of making it sound as
-if we have discovered more than we actually have (the deceiving use of the
-word \enquote{explanation} for what's just a \emph{fit} has been a very bad
-habit of statisticians since the 1960s or 70s). Explanations can only be
-given by hardcore physics, chemistry, biology; but different levels of fit
-can of course suggest, or be evidence for, different explanations
-formulated within those disciplines.
+For me, statistical and probabilistic analyses and metrics do not
+\enquote{explain}, they only \emph{fit} or correlate. Using
+\enquote{explanation} in this context is an intentional or unintentional
+way of making it sound as if we have discovered more than we actually have
+(the deceiving use of the word \enquote{explanation} for what's just a
+\emph{fit} has been a very bad habit of statisticians since the 1960s or
+70s). Explanations can only be given by hardcore physics, chemistry,
+biology; but different levels of fit can of course suggest, or be evidence
+for, different explanations formulated within those disciplines.
 
 
 \section{Technical details}
 \label{sec:techdet}
 
-\subsection{Technical terminology, intuitive understanding, and
-  mathematical characteristics of the method}
+\subsection{Technical terminology}
 \label{sec:terminology}
 
 In the literature, the probabilistic calculations made here are usually
@@ -1017,7 +1050,22 @@ words, how their \enquote{true} population distribution look like.
 
 The second result is a probability for the next new patient we observe:
 given his/her features, the probability is an average over all candidate
-frequency distributions, weighted by their posteriors.
+frequency distributions, weighted by their posteriors. This is summarized
+in the following (slightly informal) formula:
+\begin{subequations}  \label{eq:definetti}
+  \begin{gather}
+    \p(Y \|X) =    \int f(Y \| X) \ \p(f \| \textrm{\small data})\ \di f
+    \\
+    \shortintertext{with}
+    \p(f \| \textrm{\small data}) \propto
+    f(\textrm{\small data})\ \p(f \| H)
+  \end{gather}
+\end{subequations}
+where $f(Y\|X)$ is the frequency of predictand value $Y$ among patients
+with features $X$; the probability of our data given such frequency is
+$f(\textrm{\small data})$; and $\p(f \| H)$ is the prior weight of such
+frequency.
+
 
 In summary, the probability calculation is guessing what the true
 distribution of predictand and features is, for the full population, and it
@@ -1030,7 +1078,146 @@ all possible divisions of the data into \enquote{training} and
 \enquote{test} sets \citep{portamana2019b}. This gives an idea of why
 probability calculations are so enormously computationally expensive.
 
+\subsection{Brief overview of mathematical aspects}
+\label{sec:maths}
 
+From a mathematical point of view the main problem is how to represent a
+generic frequency distribution $f$ presented in the intuitive explanation
+above. There are an infinity of mathematically equivalent representations.
+Here we use the representation as an \emph{infinite mixture of product
+  kernels}: a generic joint frequency distribution $f(Y, X, Z, \dotsc)$ is
+represented as
+\begin{equation}
+  \label{eq:freq_repr}
+  f(Y, X_{1}, X_{2}, \dotsc) =
+  \sum_{k=1}^{\infty} w_{k}\ Q_{s_{k}}(Y)\ Q_{a_{k}}(X)\ Q_{b_{k}}(Z) \dotsm
+\end{equation}
+with an infinite set of coefficients
+$\set{w_{k},s_{k},a_{k},b_{k},\dotsc}$. These coefficients effectively are
+a coordinate system on the infinite-dimensional manifold of frequency
+distributions \citep[esp.\ Part~VII]{choquetbruhatetal1977_r1996}. The
+various $Q$ distributions are gaussian for continuous variates, binomial
+for integer variates, and Bernoulli for binary variates.
+
+This representation allows for quick calculations of conditional and
+marginal frequencies. For more precise mathematical details see
+\textcite{dunsonetal2011} and \textcite{rasmussen1999} (who only consider
+gaussian kernels though).
+
+This mathematical representation also allows, in principle, an
+interpretation of the frequency distribution in terms of clusters, and an
+interpretation of the population in terms of subpopulations. Such
+interpretations, however, are arbitrary and contentious if we do not first
+justify why the subpopulations should have distributions like the $Q$s and
+not some other distributions -- say, why gaussian and not Cauchy or Gumbel.
+I therefore do not trust any such subpopulation interpretation of the
+formula above; its meaning is only in the final sum.
+
+However, the number of clusters with high weights $w_{k}$ does give us a
+very rough idea of the number of major and minor peaks of the frequency
+distribution, and therefore a vague idea of the number of possible
+subpopulations.
+
+In the representation above, the prior probability over the frequencies is
+represented by a probability density over the coefficients
+$\set{w_{k},s_{k},a_{k},b_{k},\dotsc}$. This probability density determines
+our initial guess about the smoothness of the true frequency
+distribution.
+
+The \narrow\ and \broad\ setup roughly correspond to two the following
+guesses:
+\begin{itemize}[wide]
+\item[\narrow]\!: with 97\% probability, the widths of individual peaks can
+  be two orders of magnitude broader or narrower than the average width
+\item[\broad]\!: with 61\% probability, the widths of individual peaks can
+  be two orders of magnitude broader or narrower than the average width
+\end{itemize}
+The general probability distribution for such peaks is a compound gamma
+distribution. The $\narrow$ setup therefore favours a frequency
+distribution that does not have too narrow or too broad peaks; the $\broad$
+setup gives much more freedom. The results show that the data overwhelm
+either choice, so our conclusions are robust to variation in this kind of
+preference.
+
+\bigskip
+
+The computation of the probability for the different frequencies is done by
+Markov-chain Monte Carlo sampling, with Gibbs sampling; see again
+\textcite{dunsonetal2011} and \textcite{rasmussen1999} and references
+therein for details, and \textcite[\chap~29]{mackay1995_r2005} for an
+overview. The computation has converged when the Markov chain has become
+stationary; stationarity has been checked for various quantities derived
+from the frequency distribution, such as the joint probability of the data,
+the means and variances, joint covariances, and full-dimensional
+covariance. Convergence required roughly 48--60 hours of computation.
+
+
+
+\subsection{Entropy and mutual information}
+\label{sec:mutualionfo}
+
+For a comprehensive discussion of the following concepts see the first
+chapters of \textcite{mackay1995_r2005} and also his
+lectures\footnote{\href{https://www.youtube.com/watch?v=BCiZc0n6COY\&list=PLruBu5BI5n4aFpG32iMbdWoRVAA-Vcso6}{\texttt{\doiurl{https://www.youtube.com/watch?v=BCiZc0n6COY&list=PLruBu5BI5n4aFpG32iMbdWoRVAA-Vcso6}}}},
+besides \textcite{shannon1948}.
+
+The \emph{entropy} of the distribution for a variate $Y$, here denoted
+$H(Y)$, represents our uncertainty about future occurrences of that
+variate. For a binary variate it assumes a value between $0\;\bit$
+(complete certainty and exact prediction) and $1\;\bit$ (complete
+uncertainty). A value of $H$ (in bits) means that we are on average certain
+about a fraction $(1-H)\,N$ of the values of future occurrences, and completely
+uncertain about the rest. This also means that we will correctly predict an
+average of $(2-H)\,N/2$ future values, with a 95\% variability of
+$\sqrt{H\,N}$. The entropy is also related to the size of the typical
+set of different sequences of values we can see in $N$ occurrences: the
+size is $2^{H}$.
+
+When we know the \emph{specific} value of a feature (or features) $X$, we
+can usually make better predictions about $Y$, reflected by a sharper
+probability distribution for $Y$ given the specific value $x$. The entropy
+of this distribution is denoted $H(Y\|x)$. The meaning is as before.
+
+In considering the \emph{general} predictive power of the feature $X$, some
+important considerations are necessary. For example, it can happen that our
+predictions are almost perfect (entropy of 1\;\bit) when the value of $X$
+is in some range $R_{\text{good}}$; whereas their are very bad (entropy of
+0\;\bit) when the value is in the complementary range $R_{\text{bad}}$. Is
+then the feature $X$ a good or a bad predictor? The answer heavily depends
+\emph{on which values of $X$ we'll encounter in our future applications}.
+If all future applications typically have values of $X$ in
+$R_{\text{good}}$, then $X$ is a good predictor; if they have values in
+$R_{\text{bad}}$, then $X$ is a bad predictor; for intermediate cases we
+have intermediate predictive power. Clearly this depends on the
+\emph{probability distribution of future occurrences of $X$}, $p(X)$.
+
+The \emph{conditional entropy} of $Y$ given features $X$ is exactly the
+weighted combination of the entropies given each value of $X$, weighted by
+their frequency of occurrence:
+\begin{equation}
+  \label{eq:cond_entr}
+  H(Y|X) \defd \sum_{x} H(Y\|x)\ p(X)
+\end{equation}
+Note that any kind of metric of predictive performance that neglects $p(X)$
+is therefore missing a very important point; its results will be very
+hit-or-miss. Conditional entropy correctly keeps this factor into account,
+instead; this is the reason why its values can be given immediate
+operational meaning in terms of prediction.
+
+
+Finally, the \emph{mutual information}  between $Y$ and $X$ is simply the
+difference between our uncertainty when we do not know $X$ and when we do:
+\begin{equation}
+  \label{eq:mutualinfo}
+  I(Y,X) \defd H(Y) - H(Y\|X).
+\end{equation}
+From this definition and the operational meaning of the entropy we also
+obtain a concrete operational meaning for the mutual information. In
+particular, if we are completely uncertain about $Y$ in absence of
+features, $H(Y)=1\;\bit$, then a mutual information $I$ means that the
+features $X$ allow us to make on average $(1-I)\;N \pm \sqrt{(1-I)\,N}$
+correct predictions out of $N$ cases, as discussed in
+\sect~\ref{sec:joint}.
 
 
 % \[ \color{mypurpleblue}\bm{a} \color{myredpurple}\mathbin{\bm{\land}}\color{mypurpleblue} \bm{b} \]
