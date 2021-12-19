@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-03-20T10:07:17+0100
-## Last-Updated: 2021-12-13T13:14:45+0100
+## Last-Updated: 2021-12-17T18:39:38+0100
 ################
 ## Data preparation for Alzheimer study - FAQ version
 ################
@@ -187,7 +187,7 @@ for(acov in covNames){
 ##
 ## Safe the information about the variates
 saveinfofile <- 'variatesFAQ_info.csv'
-message(paste0('\nSaving variate info in "', savefile, '"'))
+message(paste0('\nSaving variate info in "', saveinfofile, '"'))
 fwrite(variateinfo, saveinfofile, sep=',')
 ##
 message('\nSaving original order in "orig_id" and shuffling')

@@ -1,7 +1,7 @@
 \pdfoutput=1
 %% Author: PGL  Porta Mana
 %% Created: 2015-05-01T20:53:34+0200
-%% Last-Updated: 2021-12-17T13:07:42+0100
+%% Last-Updated: 2021-12-18T10:44:49+0100
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newif\ifarxiv
 \arxivfalse
@@ -789,12 +789,12 @@ from highest to lowest:
     feature &\multicolumn{3}{c}{mutual information/bit} \\
     & \narrow & \broad & \all \\
 \hline
-    \texttt{AVDEL30MIN} & 0.13 & 0.09 & 0.09\\
+    \texttt{AVDEL30MIN} & 0.13 & 0.1 & 0.09\\
     \texttt{RAVLT} & 0.12 & 0.09 & 0.08\\
-    \texttt{FAQ} & 0.10 & 0.07 & 0.06\\
+    \texttt{FAQ} & 0.10 & 0.08 & 0.06\\
     \texttt{AVDELTOT} & 0.07 & 0.05 & 0.06\\
     \texttt{LRHHC} & 0.04 & 0.03 & 0.03\\
-    \texttt{TRABSCOR} & 0.04 & 0.03 & 0.03\\
+    \texttt{TRABSCOR} & 0.03 & 0.03 & 0.03\\
     \texttt{CATANIMSC} & 0.03 & 0.02 & 0.02\\
     \texttt{TRAASCOR} & 0.03 & 0.02 & 0.01\\
     \texttt{LRLV} & 0.01 & 0.01 & 0.01\\
@@ -812,15 +812,22 @@ This is the mutual information for the set of features, used \emph{jointly}:
 \begin{center}
   \begin{tabular}[c]{ccc}
     \narrow & \broad & \all \\
-    0.30\;\bit & 0.19\;\bit & 0.18\;bit
+    0.31\;\bit & 0.20\;\bit & 0.18\;bit
   \end{tabular}
 \end{center}
-These values indicate a low predictive power. A mutual information of
-$0.2\;\bit$ means that in a set of $N$ new prognoses $(1+0.2)\,N/2$ will be
-correct (true positives~+ true negatives) on average, with a 95\%
-variability of $\pm \sqrt{(1-0.2)\,N}$. So in 100 new prognoses $60\pm 9$
+These values do not only give us a ranking, but also an estimate of the
+predictive power. A mutual information $I=0.2\;\bit$ gives us a rough lower
+bound: in a set of $N$ new prognoses $(1+I)\,N/2$ will be correct (true
+positives~+ true negatives) on average. A more precise estimate is that
+$C\,N \pm 2\sqrt{(1-C)\,C\,N}$ will be correct (the interval is for a 95\%
+certainty), with $C$ given by the formula
+\begin{equation}
+  \label{eq:mutualinfo_est}
+ C = \Bigl[1+\sqrt{1-(1-I)^{4/3}}\Bigr]\frac{N}{2} \ .
+\end{equation}
+So, with a mutual information of 0.2\;\bit, in 100 new prognoses $75\pm 9$
 will be correct. Analogously, a mutual information of $0.3\;\bit$ means
-$65\pm 8$ correct prognoses in 100 new cases.
+$81\pm 8$ correct prognoses in 100 new cases.
 
 Note that this value is an implicit characteristic of this set of
 features: no predictive algorithm can do better than this by using these
@@ -885,28 +892,28 @@ ranked from highest to lowest according to the \all\ setup:
     & \narrow & \broad & \all \\
 \hline
 \texttt{TRABSCOR} & 14\% & 12\% & 13\%\\
-\texttt{FAQ} & 11\% & 11\% & 9\%\\
-\texttt{TRAASCOR} & 6\% & 3\% & 4\%\\
-\texttt{AVDEL30MIN} & 4\% & 5\% & 4\%\\
-\texttt{RAVLT} & 2\% & 2\% & 3\%\\
+\texttt{FAQ} & 13\% & 10\% & 9\%\\
+\texttt{TRAASCOR} & 7\% & 4\% & 4\%\\
+\texttt{AVDEL30MIN} & 4\% & 4\% & 4\%\\
+\texttt{RAVLT} & 3\% & 1\% & 3\%\\
 \texttt{AVDELTOT} & 2\% & 2\% & 2\%\\
 \texttt{LRHHC} & 1\% & 1\% & 1\%\\
-\texttt{CATANIMSC} & 1.0\% & 1.1\% & 0.7\%\\
-\texttt{GDTOTAL} & 0.7\% & 0.4\% & 0.5\%\\
-\texttt{LRLV} & 0.1\% & 0.4\% & 0.3\%\\
-\texttt{AGE} & 0.3\% & 0.4\% & 0.3\%
+\texttt{CATANIMSC} & 1\% & 1\% & 0.7\%\\
+\texttt{GDTOTAL} & 0.7\% & 0.1\% & 0.5\%\\
+\texttt{LRLV} & 0.0\% & 0.3\% & 0.3\%\\
+\texttt{AGE} & 0.4\% & 0.5\% & 0.3\%
   \end{tabular}
 \end{center}
 Note that the percentages do not add up to 100\%, nor should they, owing to
 the reasons given above.
 
 We see that omitting either \texttt{TRABSCOR\_neuro} or \texttt{FAQ} from
-the twelve features would reduce the mutual information by around
-10\%; that is, from a value of $0.2\;\bit$ to $0.18\;\bit$. This also
-means that in 100 new prognoses we would drop from $60\pm 9$ correct ones
-to around $59\pm 9$. In clinical-importance terms this difference is not
-small: it means on average 10\,000 additional incorrect predictions every
-million prognoses.
+the twelve features would reduce the mutual information by roughly 10\%;
+that is, from a value of $0.2\;\bit$ to $0.18\;\bit$. This also means that
+in 100 new prognoses we would drop from $75\pm 9$ correct ones to around
+$74\pm 9$. In clinical-importance terms this difference is not small: it
+means on average more than 10\,000 additional incorrect predictions (more
+exactly around 12\,500) every million prognoses.
 
 \subsection{Further remarks}
 \label{sec:remarks}
@@ -1166,12 +1173,18 @@ $H(Y)$, represents our uncertainty about future occurrences of that
 variate. For a binary variate it assumes a value between $0\;\bit$
 (complete certainty and exact prediction) and $1\;\bit$ (complete
 uncertainty). A value of $H$ (in bits) means that we are on average certain
-about a fraction $(1-H)\,N$ of the values of future occurrences, and completely
-uncertain about the rest. This also means that we will correctly predict an
-average of $(2-H)\,N/2$ future values, with a 95\% variability of
-$\sqrt{H\,N}$. The entropy is also related to the size of the typical
-set of different sequences of values we can see in $N$ occurrences: the
-size is $2^{H}$.
+about a fraction $(1-H)\,N$ of the values of future occurrences. A more
+precise formula gives
+\begin{equation}
+  \label{eq:entropy_est}
+  \begin{gathered}
+    \text{\# correct predictions } = C\,N \pm 2\sqrt{(1-C)\,C\,N}
+    \\[1\jot]
+    \text{\small with}\quad C = \Bigl[1+\sqrt{1-H^{4/3}}\Bigr]\frac{N}{2} \ .
+\end{gathered}
+\end{equation}
+The entropy is also related to the size of the typical set of different
+sequences of values we can see in $N$ occurrences: the size is $2^{H}$.
 
 When we know the \emph{specific} value of a feature (or features) $X$, we
 can usually make better predictions about $Y$, reflected by a sharper
@@ -1180,9 +1193,9 @@ of this distribution is denoted $H(Y\|x)$. The meaning is as before.
 
 In considering the \emph{general} predictive power of the feature $X$, some
 important considerations are necessary. For example, it can happen that our
-predictions are almost perfect (entropy of 1\;\bit) when the value of $X$
+predictions are almost perfect (entropy of 0\;\bit) when the value of $X$
 is in some range $R_{\text{good}}$; whereas their are very bad (entropy of
-0\;\bit) when the value is in the complementary range $R_{\text{bad}}$. Is
+1\;\bit) when the value is in the complementary range $R_{\text{bad}}$. Is
 then the feature $X$ a good or a bad predictor? The answer heavily depends
 \emph{on which values of $X$ we'll encounter in our future applications}.
 If all future applications typically have values of $X$ in
@@ -1215,9 +1228,16 @@ From this definition and the operational meaning of the entropy we also
 obtain a concrete operational meaning for the mutual information. In
 particular, if we are completely uncertain about $Y$ in absence of
 features, $H(Y)=1\;\bit$, then a mutual information $I$ means that the
-features $X$ allow us to make on average $(1-I)\;N \pm \sqrt{(1-I)\,N}$
-correct predictions out of $N$ cases, as discussed in
-\sect~\ref{sec:joint}.
+features $X$ allow us to make on average
+\begin{equation}
+  \label{eq:entropy_est}
+  \begin{gathered}
+    \text{\# correct predictions } = C\,N \pm 2\sqrt{(1-C)\,C\,N}
+    \\[1\jot]
+    \text{\small with}\quad C = \Bigl[1+\sqrt{1-(1-I)^{4/3}}\Bigr]\frac{N}{2} \ .
+\end{gathered}
+\end{equation}
+out of $N$ cases, as discussed in \sect~\ref{sec:joint}.
 
 
 % \[ \color{mypurpleblue}\bm{a} \color{myredpurple}\mathbin{\bm{\land}}\color{mypurpleblue} \bm{b} \]
