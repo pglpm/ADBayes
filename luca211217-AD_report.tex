@@ -1,7 +1,7 @@
 \pdfoutput=1
 %% Author: PGL  Porta Mana
 %% Created: 2015-05-01T20:53:34+0200
-%% Last-Updated: 2021-12-18T10:44:49+0100
+%% Last-Updated: 2021-12-20T11:52:27+0100
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newif\ifarxiv
 \arxivfalse
@@ -765,7 +765,8 @@ coin to make our prognoses); to $1\;\bit$, representing perfect,
 deterministic prediction.
 
 The operational meaning of mutual
-information is explained in \sects~\ref{sec:joint} and~\ref{sec:mutualionfo}.
+information is quickly explained in \sect~\ref{sec:joint} and somewhat
+more extensively and with references in \sect~\ref{sec:mutualionfo}.
 
 The results are reported for three different calculation set-ups, denoted
 \narrow, \broad, \all. The first two use only the training dataset and have
@@ -803,7 +804,9 @@ from highest to lowest:
   \end{tabular}                            
 \end{center}
 The rank is the same in all computations set-ups; the values agree within
-the first significant digit.
+the first significant digit. These values do not only give us a ranking,
+but also an estimate of the predictive power. See the next section for what these
+numbers actually mean.
 
 \subsection{Results for joint feature set}
 \label{sec:joint}
@@ -815,19 +818,26 @@ This is the mutual information for the set of features, used \emph{jointly}:
     0.31\;\bit & 0.20\;\bit & 0.18\;bit
   \end{tabular}
 \end{center}
-These values do not only give us a ranking, but also an estimate of the
-predictive power. A mutual information $I=0.2\;\bit$ gives us a rough lower
-bound: in a set of $N$ new prognoses $(1+I)\,N/2$ will be correct (true
-positives~+ true negatives) on average. A more precise estimate is that
-$C\,N \pm 2\sqrt{(1-C)\,C\,N}$ will be correct (the interval is for a 95\%
-certainty), with $C$ given by the formula
+
+What does a value such as \enquote{0.2\;\bit} actually mean?
+
+A mutual information $I=0.2\;\bit$ between the predictand and a set of
+features gives us a range of the number of correct prognoses we can
+expect to do about the predictand by using that set of features.
+
+In a set of $N$ new prognoses, we have an approximate lower bound of
+$(1+I)\,N/2 \pm \sqrt{(1-I)\,N}$ correct ones (true positives~+ true
+negatives) on average, and an upper bound of $C\,N \pm 2\sqrt{(1-C)\,C\,N}$
+correct ones (the interval is for a 95\% certainty) on average, with $C$
+given by the formula
 \begin{equation}
   \label{eq:mutualinfo_est}
  C = \Bigl[1+\sqrt{1-(1-I)^{4/3}}\Bigr]\frac{N}{2} \ .
 \end{equation}
-So, with a mutual information of 0.2\;\bit, in 100 new prognoses $75\pm 9$
+So, with a mutual information of 0.2\;\bit, in 100 new prognoses we can
+expect  that between $60\pm 9$ and $75\pm 9$
 will be correct. Analogously, a mutual information of $0.3\;\bit$ means
-$81\pm 8$ correct prognoses in 100 new cases.
+from $65 \pm 8$ to $81\pm 8$ correct prognoses in 100 new cases.
 
 Note that this value is an implicit characteristic of this set of
 features: no predictive algorithm can do better than this by using these
@@ -910,19 +920,26 @@ the reasons given above.
 We see that omitting either \texttt{TRABSCOR\_neuro} or \texttt{FAQ} from
 the twelve features would reduce the mutual information by roughly 10\%;
 that is, from a value of $0.2\;\bit$ to $0.18\;\bit$. This also means that
-in 100 new prognoses we would drop from $75\pm 9$ correct ones to around
-$74\pm 9$. In clinical-importance terms this difference is not small: it
-means on average more than 10\,000 additional incorrect predictions (more
-exactly around 12\,500) every million prognoses.
+in 100 new prognoses we would drop from a best case of $75\pm 9$ correct
+ones to a best case of around $74\pm 9$. In clinical-importance terms this
+difference is not small: it means on average more than 10\,000 additional
+incorrect predictions (more exactly around 12\,500) every million
+prognoses.
 
 \subsection{Further remarks}
 \label{sec:remarks}
 
-\textbullet\ The mutual informations estimated above are calculated assuming that \emph{we
-will not receive further training data}. It is also possible to calculate
-an estimate of what the mutual informations would be if we had a very large
-number of training data. I'm currently setting up the code to calculate
-this estimate.
+\textbullet\ The mutual informations estimated above are calculated
+assuming that \emph{we will not receive further training data}. It is also
+possible to calculate an estimate of what the mutual informations would be
+if we had a very large number of training data. I'm currently setting up
+the code to calculate this estimate.
+
+\medskip
+
+\noindent\textbullet\ It is possible to calculate a more precise forecast
+of how many correct predictions are possible in new prognoses. Let me know
+if this is of interest.
 
 \medskip
 
@@ -1164,17 +1181,19 @@ covariance. Convergence required roughly 48--60 hours of computation.
 \label{sec:mutualionfo}
 
 For a comprehensive discussion of the following concepts see the first
-chapters of \textcite{mackay1995_r2005} and also his
+chapters of \textcite{mackay1995_r2005}, especially \chap~4, and also his
 lectures\footnote{\href{https://www.youtube.com/watch?v=BCiZc0n6COY\&list=PLruBu5BI5n4aFpG32iMbdWoRVAA-Vcso6}{\texttt{\doiurl{https://www.youtube.com/watch?v=BCiZc0n6COY&list=PLruBu5BI5n4aFpG32iMbdWoRVAA-Vcso6}}}},
-besides \textcite{shannon1948}.
+besides \textcite{shannon1948}. Other references about its predictive
+meaning and practical use are for example
+\textcite{lindley1956,kullback1959_r1978,woodward1953_r1964}.
 
 The \emph{entropy} of the distribution for a variate $Y$, here denoted
 $H(Y)$, represents our uncertainty about future occurrences of that
 variate. For a binary variate it assumes a value between $0\;\bit$
 (complete certainty and exact prediction) and $1\;\bit$ (complete
-uncertainty). A value of $H$ (in bits) means that we are on average certain
-about a fraction $(1-H)\,N$ of the values of future occurrences. A more
-precise formula gives
+uncertainty). A value of $H$ (in bits) means that we are on average
+uncertain about  $H\,N$ future outcomes. This means that we will on average make
+from $(1-H/2)\,N \pm \sqrt{H\,N}$ to
 \begin{equation}
   \label{eq:entropy_est}
   \begin{gathered}
@@ -1183,8 +1202,9 @@ precise formula gives
     \text{\small with}\quad C = \Bigl[1+\sqrt{1-H^{4/3}}\Bigr]\frac{N}{2} \ .
 \end{gathered}
 \end{equation}
-The entropy is also related to the size of the typical set of different
-sequences of values we can see in $N$ occurrences: the size is $2^{H}$.
+correct predictions. The entropy is also related to the size of the typical
+set of different sequences of values we can see in $N$ occurrences: the
+size is $2^{H}$.
 
 When we know the \emph{specific} value of a feature (or features) $X$, we
 can usually make better predictions about $Y$, reflected by a sharper
@@ -1228,7 +1248,8 @@ From this definition and the operational meaning of the entropy we also
 obtain a concrete operational meaning for the mutual information. In
 particular, if we are completely uncertain about $Y$ in absence of
 features, $H(Y)=1\;\bit$, then a mutual information $I$ means that the
-features $X$ allow us to make on average
+features $X$ allow us to make on average from $(1+I)\,N/2 \pm
+\sqrt{(1-I)\,N}$ to
 \begin{equation}
   \label{eq:entropy_est}
   \begin{gathered}
@@ -1237,7 +1258,9 @@ features $X$ allow us to make on average
     \text{\small with}\quad C = \Bigl[1+\sqrt{1-(1-I)^{4/3}}\Bigr]\frac{N}{2} \ .
 \end{gathered}
 \end{equation}
-out of $N$ cases, as discussed in \sect~\ref{sec:joint}.
+correct predictions out of $N$ cases, as discussed in
+\sect~\ref{sec:joint}. The exact number depends on the distribution of
+features (which can be calculated from the probabilistic analysis).
 
 
 % \[ \color{mypurpleblue}\bm{a} \color{myredpurple}\mathbin{\bm{\land}}\color{mypurpleblue} \bm{b} \]
