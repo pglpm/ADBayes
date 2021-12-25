@@ -1,7 +1,7 @@
 \pdfoutput=1
 %% Author: PGL  Porta Mana
 %% Created: 2015-05-01T20:53:34+0200
-%% Last-Updated: 2021-12-20T11:52:27+0100
+%% Last-Updated: 2021-12-25T12:50:01+0100
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newif\ifarxiv
 \arxivfalse
@@ -297,21 +297,26 @@ citestyle=authoryear-comp,bibstyle=pglpm-authoryear,autopunct=false,sorting=ny,s
 \newcommand*{\subtitleproc}[1]{}
 \newcommand*{\chapb}{ch.}
 %
-\DeclareUrlCommand\doiurl{\urlstyle{rm}}
+%\def\UrlOrds{\do\*\do\-\do\~\do\'\do\"\do\-}%
+\def\myUrlOrds{\do\0\do\1\do\2\do\3\do\4\do\5\do\6\do\7\do\8\do\9\do\a\do\b\do\c\do\d\do\e\do\f\do\g\do\h\do\i\do\j\do\k\do\l\do\m\do\n\do\o\do\p\do\q\do\r\do\s\do\t\do\u\do\v\do\w\do\x\do\y\do\z\do\A\do\B\do\C\do\D\do\E\do\F\do\G\do\H\do\I\do\J\do\K\do\L\do\M\do\N\do\O\do\P\do\Q\do\R\do\S\do\T\do\U\do\V\do\W\do\X\do\Y\do\Z}%
+\makeatletter
+%\g@addto@macro\UrlSpecials{\do={\newline}}
+\g@addto@macro{\UrlBreaks}{\myUrlOrds}
+\makeatother
 \newcommand*{\arxiveprint}[1]{%
-\texttt{arXiv:\urlalt{https://arxiv.org/abs/#1}{\doiurl{#1}}}%
+\href{https://arxiv.org/abs/#1}{arXiv:\allowbreak\nolinkurl{#1}}%
 }
 \newcommand*{\mparceprint}[1]{%
-\texttt{mp\_arc:\urlalt{http://www.ma.utexas.edu/mp_arc-bin/mpa?yn=#1}{\doiurl{#1}}}%
+\href{http://www.ma.utexas.edu/mp_arc-bin/mpa?yn=#1}{mp\_arc:\allowbreak\nolinkurl{#1}}%
 }
 \newcommand*{\haleprint}[1]{%
-\texttt{HAL:\urlalt{https://hal.archives-ouvertes.fr/#1}{\doiurl{#1}}}%
+\href{https://hal.archives-ouvertes.fr/#1}{\textsc{hal}:\allowbreak\nolinkurl{#1}}%
 }
 \newcommand*{\philscieprint}[1]{%
-\texttt{PhilSci:\urlalt{http://philsci-archive.pitt.edu/archive/#1}{\doiurl{#1}}}%
+\href{http://philsci-archive.pitt.edu/archive/#1}{PhilSci:\allowbreak\nolinkurl{#1}}%
 }
 \newcommand*{\doi}[1]{%
-\href{https://doi.org/#1}{\textsc{doi}:\allowbreak\texttt{\doiurl{#1}}}%
+\href{https://doi.org/#1}{\textsc{doi}:\allowbreak\nolinkurl{#1}}%
 }
 \newcommand*{\biorxiveprint}[1]{%
 bioRxiv \doi{10.1101/#1}%
@@ -832,7 +837,7 @@ correct ones (the interval is for a 95\% certainty) on average, with $C$
 given by the formula
 \begin{equation}
   \label{eq:mutualinfo_est}
- C = \Bigl[1+\sqrt{1-(1-I)^{4/3}}\Bigr]\frac{N}{2} \ .
+ C = \frac{1}{2}\Bigl[1+\sqrt{1-(1-I)^{4/3}}\Bigr] \ .
 \end{equation}
 So, with a mutual information of 0.2\;\bit, in 100 new prognoses we can
 expect  that between $60\pm 9$ and $75\pm 9$
@@ -1182,10 +1187,15 @@ covariance. Convergence required roughly 48--60 hours of computation.
 
 For a comprehensive discussion of the following concepts see the first
 chapters of \textcite{mackay1995_r2005}, especially \chap~4, and also his
-lectures\footnote{\href{https://www.youtube.com/watch?v=BCiZc0n6COY\&list=PLruBu5BI5n4aFpG32iMbdWoRVAA-Vcso6}{\texttt{\doiurl{https://www.youtube.com/watch?v=BCiZc0n6COY&list=PLruBu5BI5n4aFpG32iMbdWoRVAA-Vcso6}}}},
-besides \textcite{shannon1948}. Other references about its predictive
-meaning and practical use are for example
-\textcite{lindley1956,kullback1959_r1978,woodward1953_r1964}.
+lectures
+% \footnote{\href{https://www.youtube.com/watch?v=BCiZc0n6COY\&list=PLruBu5BI5n4aFpG32iMbdWoRVAA-Vcso6}{\texttt{\doiurl{https://www.youtube.com/watch?v=BCiZc0n6COY&list=PLruBu5BI5n4aFpG32iMbdWoRVAA-Vcso6}}}}
+\footnote{\url{https://www.youtube.com/watch?v=BCiZc0n6COY&list=PLruBu5BI5n4aFpG32iMbdWoRVAA-Vcso6}},
+besides \textcite{shannon1948} and the very accessible summary in
+\sect~14.7 of \textcite{pressetal1986_r2007}. Other references about its
+predictive meaning and practical use are for example
+\textcite{lindley1956,kullback1959_r1978,woodward1953_r1964}. These notions
+are their units are also international standards: see \textcite{iso2008c},
+items 13-23--13-42.
 
 The \emph{entropy} of the distribution for a variate $Y$, here denoted
 $H(Y)$, represents our uncertainty about future occurrences of that
@@ -1193,16 +1203,18 @@ variate. For a binary variate it assumes a value between $0\;\bit$
 (complete certainty and exact prediction) and $1\;\bit$ (complete
 uncertainty). A value of $H$ (in bits) means that we are on average
 uncertain about  $H\,N$ future outcomes. This means that we will on average make
-from $(1-H/2)\,N \pm \sqrt{H\,N}$ to
-\begin{equation}
+\begin{multline}
   \label{eq:entropy_est}
-  \begin{gathered}
-    \text{\# correct predictions } = C\,N \pm 2\sqrt{(1-C)\,C\,N}
+    \text{from}\quad
+    (1-H/2)\,N \pm \sqrt{H\,N}\\
+    \shoveleft{
+    \text{to}\quad    C\,N \pm 2\sqrt{(1-C)\,C\,N}
+      \quad\text{correct predictions,}
+      }
     \\[1\jot]
-    \text{\small with}\quad C = \Bigl[1+\sqrt{1-H^{4/3}}\Bigr]\frac{N}{2} \ .
-\end{gathered}
-\end{equation}
-correct predictions. The entropy is also related to the size of the typical
+    \text{\small with}\quad C = \frac{1}{2}\Bigl[1+\sqrt{1-H^{4/3}}\Bigr] \ .
+\end{multline}
+The entropy is also related to the size of the typical
 set of different sequences of values we can see in $N$ occurrences: the
 size is $2^{H}$.
 
@@ -1248,19 +1260,18 @@ From this definition and the operational meaning of the entropy we also
 obtain a concrete operational meaning for the mutual information. In
 particular, if we are completely uncertain about $Y$ in absence of
 features, $H(Y)=1\;\bit$, then a mutual information $I$ means that the
-features $X$ allow us to make on average from $(1+I)\,N/2 \pm
-\sqrt{(1-I)\,N}$ to
-\begin{equation}
+features $X$ allow us to make on average 
+\begin{multline}
   \label{eq:entropy_est}
-  \begin{gathered}
-    \text{\# correct predictions } = C\,N \pm 2\sqrt{(1-C)\,C\,N}
+    \text{from}\quad (1+I)\,N/2 \pm \sqrt{(1-I)\,N} \\
+    \text{to}\quad   C\,N \pm 2\sqrt{(1-C)\,C\,N}
+    \quad \text{correct predictions,}
     \\[1\jot]
-    \text{\small with}\quad C = \Bigl[1+\sqrt{1-(1-I)^{4/3}}\Bigr]\frac{N}{2} \ .
-\end{gathered}
-\end{equation}
-correct predictions out of $N$ cases, as discussed in
-\sect~\ref{sec:joint}. The exact number depends on the distribution of
-features (which can be calculated from the probabilistic analysis).
+    \text{\small with}\quad C = \frac{1}{2}\Bigl[1+\sqrt{1-(1-I)^{4/3}}\Bigr] \ .
+\end{multline}
+out of $N$ cases, as discussed in \sect~\ref{sec:joint}. The exact number
+depends on the distribution of features (which can be calculated from the
+probabilistic analysis).
 
 
 % \[ \color{mypurpleblue}\bm{a} \color{myredpurple}\mathbin{\bm{\land}}\color{mypurpleblue} \bm{b} \]

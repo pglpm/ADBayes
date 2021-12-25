@@ -1,7 +1,7 @@
 \pdfoutput=1
 %% Author: PGL  Porta Mana
 %% Created: 2015-05-01T20:53:34+0200
-%% Last-Updated: 2021-12-21T11:07:12+0100
+%% Last-Updated: 2021-12-23T14:29:55+0100
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newif\ifarxiv
 \arxivfalse
@@ -297,21 +297,26 @@ citestyle=authoryear-comp,bibstyle=pglpm-authoryear,autopunct=false,sorting=ny,s
 \newcommand*{\subtitleproc}[1]{}
 \newcommand*{\chapb}{ch.}
 %
-\DeclareUrlCommand\doiurl{\urlstyle{rm}}
+%\def\UrlOrds{\do\*\do\-\do\~\do\'\do\"\do\-}%
+\def\myUrlOrds{\do\0\do\1\do\2\do\3\do\4\do\5\do\6\do\7\do\8\do\9\do\a\do\b\do\c\do\d\do\e\do\f\do\g\do\h\do\i\do\j\do\k\do\l\do\m\do\n\do\o\do\p\do\q\do\r\do\s\do\t\do\u\do\v\do\w\do\x\do\y\do\z\do\A\do\B\do\C\do\D\do\E\do\F\do\G\do\H\do\I\do\J\do\K\do\L\do\M\do\N\do\O\do\P\do\Q\do\R\do\S\do\T\do\U\do\V\do\W\do\X\do\Y\do\Z}%
+\makeatletter
+%\g@addto@macro\UrlSpecials{\do={\newline}}
+\g@addto@macro{\UrlBreaks}{\myUrlOrds}
+\makeatother
 \newcommand*{\arxiveprint}[1]{%
-\texttt{arXiv:\urlalt{https://arxiv.org/abs/#1}{\doiurl{#1}}}%
+\href{https://arxiv.org/abs/#1}{arXiv:\allowbreak\nolinkurl{#1}}%
 }
 \newcommand*{\mparceprint}[1]{%
-\texttt{mp\_arc:\urlalt{http://www.ma.utexas.edu/mp_arc-bin/mpa?yn=#1}{\doiurl{#1}}}%
+\href{http://www.ma.utexas.edu/mp_arc-bin/mpa?yn=#1}{mp\_arc:\allowbreak\nolinkurl{#1}}%
 }
 \newcommand*{\haleprint}[1]{%
-\texttt{HAL:\urlalt{https://hal.archives-ouvertes.fr/#1}{\doiurl{#1}}}%
+\href{https://hal.archives-ouvertes.fr/#1}{\textsc{hal}:\allowbreak\nolinkurl{#1}}%
 }
 \newcommand*{\philscieprint}[1]{%
-\texttt{PhilSci:\urlalt{http://philsci-archive.pitt.edu/archive/#1}{\doiurl{#1}}}%
+\href{http://philsci-archive.pitt.edu/archive/#1}{PhilSci:\allowbreak\nolinkurl{#1}}%
 }
 \newcommand*{\doi}[1]{%
-\href{https://doi.org/#1}{\textsc{doi}:\allowbreak\texttt{\doiurl{#1}}}%
+\href{https://doi.org/#1}{\textsc{doi}:\allowbreak\nolinkurl{#1}}%
 }
 \newcommand*{\biorxiveprint}[1]{%
 bioRxiv \doi{10.1101/#1}%
