@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2021-12-30T09:57:29+0100
+## Last-Updated: 2021-12-30T15:34:20+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -44,13 +44,14 @@ library('nimble')
 
 
 seed <- 707
-baseversion <- 'testFAQposteriorA2_'
+baseversion <- 'FAQposteriorA2_'
 nclusters <- 75L
 niter <- 1024L
 niter0 <- 1024L
 thin <- 8L
 nstages <- 3L
-ncheckprobs <- 16L
+ncheckprobs1 <- 16L
+ncheckprobs2 <- 8L
 maincov <- 'Subgroup_num_'
 family <- 'Palatino'
 ##ndata <- 128L
@@ -133,7 +134,7 @@ if(nbcovs>0){
 ##
 ##
 print('Creating and saving checkpoints')
-checkprobsFile <- paste0(dirname,'/_checkprobs-',ncheckprobs,'-R',baseversion,'-V',length(covNames),'-D',ndata,'-K',nclusters,'.rds')
+checkprobsFile <- paste0(dirname,'/_checkprobs-R',baseversion,'-V',length(covNames),'-D',ndata,'-K',nclusters,'.rds')
 if(exists('continue') && is.character(continue)){
     checkprobs <- readRDS(checkprobsFile)
 }else{
@@ -141,25 +142,32 @@ if(exists('continue') && is.character(continue)){
     nvalues <- nrow(valuelist)
     ncheckprobs1 <- min(ncheckprobs1, nvalues)
     ncheckprobs2 <- min(ncheckprobs2, nvalues)
+    psamples0 <- sample(1:nvalues, ncheckprobs1)
     psamples1 <- sample(1:nvalues, ncheckprobs2)
     csamples1 <- sample(setdiff(covNames,maincov), ncheckprobs2, replace=(ncheckprobs2>ncovs-1))
     psamples2 <- sample(1:nvalues, ncheckprobs2)
     csamples2 <- sample(setdiff(covNames,maincov), ncheckprobs2, replace=(ncheckprobs2>ncovs-1))
     checkprobs <- c( list(
-        list(y=valuelist[sample(1:nvalues,ncheckprobs1),,drop=F], x=NULL),
-        list(y=valuelist[sample(1:nvalues,ncheckprobs1), maincov, drop=F], x=valuelist[, setdiff(covNames,maincov), drop=F]),
-        list(y=valuelist[sample(1:nvalues,ncheckprobs1), setdiff(covNames,maincov), drop=F], x=valuelist[, maincov, drop=F])
+        list(y=valuelist[psamples0,,drop=F], x=NULL,
+             names=c(
+    paste0('joint_',psamples0),
+    paste0(maincov,'|rest_',psamples0),
+    paste0('rest|',maincov,'_',psamples0),
+    paste0(csamples1,'|rest_',psamples1),
+    paste0('rest|',csamples2,'_',psamples2) )
+    ),
+        list(y=valuelist[psamples0, maincov, drop=F], x=valuelist[psamples0, setdiff(covNames,maincov), drop=F]),
+        list(y=valuelist[psamples0, setdiff(covNames,maincov), drop=F], x=valuelist[psamples0, maincov, drop=F])
     ),
     lapply(1:ncheckprobs2,
            function(apoint){list(y=valuelist[psamples1[apoint], csamples1[apoint], drop=F],
                                  x=valuelist[psamples1[apoint], setdiff(covNames,csamples1[apoint]), drop=F] )}),
     lapply(1:ncheckprobs2,
-           function(apoint){list(y=valuelist[psamples1[apoint], setdiff(covNames,csamples2[apoint]), drop=F],
-                                 x=valuelist[psamples1[apoint], csamples2[apoint], drop=F] )})
+           function(apoint){list(y=valuelist[psamples2[apoint], setdiff(covNames,csamples2[apoint]), drop=F],
+                                 x=valuelist[psamples2[apoint], csamples2[apoint], drop=F] )})
     )
     saveRDS(checkprobs,file=checkprobsFile)
 }
-
 ##
 ##
 constants <- list(nClusters=nclusters)
@@ -382,7 +390,10 @@ for(stage in 0:nstages){
         flagll <- TRUE
         ll <- rep(0, length(ll))}
     ##momentstraces <- moments12Samples(parmList)
-    probCheckprobs <- samplesF(Y=checkprobs, parmList=parmList, inorder=TRUE)
+    probCheckprobs <- foreach(apoint=checkprobs, .combine=rbind)%do%{
+        samplesF(Y=apoint$y, X=apoint$x, parmList=parmList, inorder=TRUE)
+    }
+    rownames(probCheckprobs) <- checkprobs[[1]]$names
     ## miqrtraces <- calcSampleMQ(parmList)
     ## medians <- miqrtraces[,,1]
     ## colnames(medians) <- paste0('MEDIAN_', colnames(miqrtraces))
@@ -392,11 +403,11 @@ for(stage in 0:nstages){
     ## colnames(Q3s) <- paste0('Q3_', colnames(miqrtraces))
     ## iqrs <- Q3s - Q1s
     ## colnames(iqrs) <- paste0('IQR_', colnames(miqrtraces))
-    traces <- cbind(LL=ll, t(log(probCheckprobs)), #medians, iqrs, Q1s, Q3s,
-                    do.call(cbind, momentstraces))
+    traces <- cbind(loglikelihood=ll, t(log(probCheckprobs))) #medians, iqrs, Q1s, Q3s,
+                    ##do.call(cbind, momentstraces))
     badcols <- foreach(i=1:ncol(traces), .combine=c)%do%{if(all(is.na(traces[,i]))){i}else{NULL}}
     if(!is.null(badcols)){traces <- traces[,-badcols]}
-    saveRDS(traces,file=paste0(dirname,'/_traces-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
+    saveRDS(traces,file=paste0(dirname,'/_probtraces-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples),'.rds'))
     
     ##
     if(nrow(traces)>=1000){
@@ -405,31 +416,39 @@ for(stage in 0:nstages){
         funMCSE <- function(x){LaplacesDemon::MCSE(x)}
     }
     diagnESS <- LaplacesDemon::ESS(traces * (abs(traces) < Inf))
+    diagnIAT <- apply(traces, 2, function(x){LaplacesDemon::IAT(x[is.finite(x)])})
     diagnBMK <- LaplacesDemon::BMK.Diagnostic(traces, batches=2)[,1]
     diagnMCSE <- 100*apply(traces, 2, function(x){funMCSE(x)/sd(x)})
     diagnStat <- apply(traces, 2, function(x){LaplacesDemon::is.stationary(as.matrix(x,ncol=1))})
     diagnBurn <- apply(traces, 2, function(x){LaplacesDemon::burnin(matrix(x[1:(10*trunc(length(x)/10))], ncol=1))})
     ##
     ##
-    tracenames <- colnames(traces)
-    tracegroups <- list(
-        'maxD'=tracenames[grepl('^(Pdat|Dcov|LL)', tracenames)],
-        '1D'=tracenames[grepl('^(MEDIAN|Q1|Q3|IQR|MEAN|VAR)_', tracenames)],
-        '2D'=tracenames[grepl('^COV_', tracenames)]
-    )
+    ## tracenames <- colnames(traces)
+    tracegroups <- list(loglikelihood=1,
+                        'joint probs'=c(1:ncheckprobs1)+1,
+                        'single given rest'=c(ncheckprobs1+(1:ncheckprobs1),
+                                                ncheckprobs1*3+(1:ncheckprobs2))+1,
+                        'rest given single'=c(ncheckprobs1*2+(1:ncheckprobs1),
+                                              ncheckprobs1*3+ncheckprobs2+(1:ncheckprobs2))+1
+                        )
+    ##     'maxD'=tracenames[grepl('^(Pdat|Dcov|LL)', tracenames)],
+    ##     '1D'=tracenames[grepl('^(MEDIAN|Q1|Q3|IQR|MEAN|VAR)_', tracenames)],
+    ##     '2D'=tracenames[grepl('^COV_', tracenames)]
+    ## )
     grouplegends <- foreach(agroup=1:length(tracegroups))%do%{
         c( paste0('-- STATS ', names(tracegroups)[agroup], ' --'),
-          paste0('min ESS = ', min(diagnESS[tracegroups[[agroup]]])),
-          paste0('max BMK = ', max(diagnBMK[tracegroups[[agroup]]])),
-          paste0('max MCSE = ', max(diagnMCSE[tracegroups[[agroup]]])),
-          paste0('all stationary: ', all(diagnStat[tracegroups[[agroup]]])),
-          paste0('burn: ', max(diagnBurn[tracegroups[[agroup]]]))
+          paste0('min ESS = ', signif(min(diagnESS[tracegroups[[agroup]]]),6)),
+          paste0('max IAT = ', signif(max(diagnIAT[tracegroups[[agroup]]]),6)),
+          paste0('max BMK = ', signif(max(diagnBMK[tracegroups[[agroup]]]),6)),
+          paste0('max MCSE = ', signif(max(diagnMCSE[tracegroups[[agroup]]]),6)),
+          paste0('stationary: ', sum(diagnStat[tracegroups[[agroup]]]),'/',length(diagnStat[tracegroups[[agroup]]])),
+          paste0('burn: ', signif(max(diagnBurn[tracegroups[[agroup]]]),6))
           )
     }
-    colpalette <- sapply(tracenames, function(atrace){
-        c(2, 3, 1) %*%
-            sapply(tracegroups, function(agroup){atrace %in% agroup})
-    })
+    colpalette <- c(7,
+                    rep(2,ncheckprobs1), rep(1,ncheckprobs1), rep(3,ncheckprobs1),
+                    rep(1,ncheckprobs2), rep(3,ncheckprobs2))
+    names(colpalette) <- colnames(traces)
     ##
     ## samplesQuantiles <- calcSampleQuantiles(parmList)
     ##
@@ -440,20 +459,18 @@ for(stage in 0:nstages){
     ##
 
     ##
-    pdff(paste0(dirname,'/mcsummary-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples)))
+    pdff(paste0(dirname,'/mcsummary2-R',version,'-V',length(covNames),'-D',ndata,'-K',nclusters,'-I',nrow(mcsamples)))
     matplot(1:2, type='l', col='white', main=paste0('Stats stage ',stage), axes=FALSE, ann=FALSE)
-    legendpositions <- c('topleft','bottomleft','topright')
+    legendpositions <- c('topleft','topright','bottomleft','bottomright')
     for(alegend in 1:length(grouplegends)){
         legend(x=legendpositions[alegend], bty='n', cex=1.5,
                legend=grouplegends[[alegend]] )
     }
-    legend(x='bottomright', bty='n', cex=1.5,
+    legend(x='center', bty='n', cex=1,
            legend=c(
                paste0('Occupied clusters: ', usedclusters, ' of ', nclusters),
-               paste0('LL: ', signif(mean(ll),3), ' +- ', signif(sd(ll),3))
-           ))
-    legend(x='center', bty='n', cex=1,
-           legend=c('WARNINGS:',
+               paste0('LL: ', signif(mean(ll),3), ' +- ', signif(sd(ll),3)),
+               'WARNINGS:',
                     if(any(is.na(mcsamples))){'some NA MC outputs'},
                     if(any(!is.finite(mcsamples))){'some infinite MC outputs'},
                     if(usedclusters > nclusters-5){'too many clusters occupied'},
@@ -520,6 +537,7 @@ for(stage in 0:nstages){
         tplot(y=transf(traces[,acov]), type='l', lty=1, col=colpalette[acov],
                 main=paste0(acov,
                             '\nESS = ', signif(diagnESS[acov], 3),
+                            ' | IAT = ', signif(diagnIAT[acov], 3),
                             ' | BMK = ', signif(diagnBMK[acov], 3),
                             ' | MCSE(6.27) = ', signif(diagnMCSE[acov], 3),
                             ' | stat: ', diagnStat[acov],
