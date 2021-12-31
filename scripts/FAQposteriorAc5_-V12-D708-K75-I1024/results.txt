@@ -1,0 +1,99 @@
+Mutual information between Subgroup_num_ and all other features:
+ 0.1867028 0.01967232 bit
+
+Mutual information between Subgroup_num_ and SINGLE features:
+              [,1]
+ [1,] 0.0974956064
+ [2,] 0.0911011461
+ [3,] 0.0693672278
+ [4,] 0.0679095123
+ [5,] 0.0304245788
+ [6,] 0.0271077497
+ [7,] 0.0253682513
+ [8,] 0.0198768810
+ [9,] 0.0152342385
+[10,] 0.0145152265
+[11,] 0.0132573907
+[12,] 0.0128685602
+[13,] 0.0086626700
+[14,] 0.0081829587
+[15,] 0.0081081763
+[16,] 0.0070107126
+[17,] 0.0053648566
+[18,] 0.0040286580
+[19,] 0.0037930601
+[20,] 0.0031150706
+[21,] 0.0008113053
+[22,] 0.0003480250
+
+
+Mutual information between Subgroup_num_ and all other features minus one (negative values are due to roundoff):
+            [,1]
+ [1,] 0.01890542
+ [2,] 0.01896302
+ [3,] 0.01939099
+ [4,] 0.01948774
+ [5,] 0.01950084
+ [6,] 0.01959862
+ [7,] 0.01962675
+ [8,] 0.01962747
+ [9,] 0.01964458
+[10,] 0.01965540
+[11,] 0.01967397
+[12,] 0.16638459
+[13,] 0.16998219
+[14,] 0.17942761
+[15,] 0.18044851
+[16,] 0.18308782
+[17,] 0.18318965
+[18,] 0.18474434
+[19,] 0.18533765
+[20,] 0.18547094
+[21,] 0.18587709
+[22,] 0.18639755
+
+
+Relative differences between mutual information using all features and those using all features minus one, in %:
+               [,1]
+ [1,]   89.84320636
+ [2,]   89.56216179
+ [3,]   89.50277304
+ [4,]   89.48732026
+ [5,]   89.46241648
+ [6,]    8.95575267
+ [7,]    3.89838562
+ [8,]    3.89668295
+ [9,]    3.34988125
+[10,]    1.43006496
+[11,]    0.87171174
+[12,]    0.73120232
+[13,]    0.65981394
+[14,]    0.23164782
+[15,]    0.16350969
+[16,]    0.14103154
+[17,]    0.08599038
+[18,] -745.78019644
+[19,] -830.68744300
+[20,] -831.20507037
+[21,] -839.10801845
+[22,] -844.86609477
+
+
+Average uncertainty in test-set predictions, direct:
+ 0.4369956 bit
+SD of uncertainty in test-set predictions, direct:
+ 0.09932466 bit
+
+Average uncertainty in test-set predictions, via Bayes:
+ 0.4303846 bit
+SD of uncertainty in test-set predictions, via Bayes:
+ 0.1040926 bit
+
+
+Confusion matrix test-set, threshold 0.5, direct prediction:
+TP FP TN FN 
+39 14 62 27 
+
+Confusion matrix test-set, threshold 0.5, via Bayes:
+TP FP TN FN 
+42 17 59 24 
