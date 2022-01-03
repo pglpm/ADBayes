@@ -1,7 +1,7 @@
 \pdfoutput=1
 %% Author: PGL  Porta Mana
 %% Created: 2015-05-01T20:53:34+0200
-%% Last-Updated: 2021-12-25T12:50:01+0100
+%% Last-Updated: 2022-01-03T12:42:24+0100
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newif\ifarxiv
 \arxivfalse
@@ -844,11 +844,12 @@ expect  that between $60\pm 9$ and $75\pm 9$
 will be correct. Analogously, a mutual information of $0.3\;\bit$ means
 from $65 \pm 8$ to $81\pm 8$ correct prognoses in 100 new cases.
 
-Note that this value is an implicit characteristic of this set of
-features: no predictive algorithm can do better than this by using these
-features as predictors. Algorithms that do less are not fully using the
-information in the predictors; algorithms that happen to do more have only had a
-stroke of luck.
+Note that this value is an implicit characteristic of this set of features:
+it is a mathematical result from information theory that no predictive
+algorithm can do better than this by using these features as predictors.
+Algorithms that do less are not fully using the information in the
+predictors; algorithms that happen to do more have only had a stroke of
+luck.
 
 \subsection{\enquote{Importance} of individual features when used jointly}
 \label{sec:importance_features}
@@ -1035,17 +1036,17 @@ every possible frequency distribution of predictand given features, for
 \emph{all future} patients. Such frequency distribution also tells us what
 we can guess about our next patient, given his/her features.
 
-For example, suppose that by magic or some powerful technology we knew
-that, among \emph{all} -- or a billion of -- future patients that have
-feature $\texttt{FAQ}=8$, 68\% of them will develop AD and 32\% of them
-will stay MCI. If our next patient has $\texttt{FAQ}=8$, then he/she must
-be either one of the 680 millions who will develop AD, or one of of the 320
-millions who will not. So there's a 68\% probability that he/she will
-develop AD. This consideration is made not only for \texttt{FAQ} but for
-all 12 features jointly, and all their possible values. This simplified
+For example, suppose that by some powerful technology we knew that, among
+\emph{all} -- or a billion of -- future patients that have feature
+$\texttt{FAQ}=8$, a percentage of 68\% of them will develop AD and 32\% of
+them will stay MCI. If our next patient has $\texttt{FAQ}=8$, then he/she
+must be either one of the 680 millions who will develop AD, or one of of
+the 320 millions who will not. So there's a 68\% probability that he/she
+will develop AD. This consideration is made not only for \texttt{FAQ} but
+for all 12 features jointly, and all their possible values. This simplified
 understanding allows us to quickly interpret, for example, the solid red
 line in the plot of \texttt{FAQ} \vs\ \enquote{probability of AD} enclosed
-in this report.
+at the end of the present report.
 
 \smallskip
 
@@ -1063,9 +1064,9 @@ This weight, called \enquote{posterior}, comes from two contributions:
 In the present case we give a greater initial weight to distributions that
 are smooth, without lots of sudden jumps or a zigzag shape, although they
 may have as many large and small peaks as they like. This is biologically
-very plausible, owing to physical and chemical continuity. Note that we are
-not excluding discontinuities: we only saying that we at first we consider
-them less plausible.
+very plausible, owing to continuity of physical and chemical processes.
+Note that we are not excluding discontinuities: we only consider them less
+plausible at first.
 
 The total probability or weight is closer to the prior one when we have
 very few data; but as the number of data increases, the preferences
@@ -1130,8 +1131,8 @@ for integer variates, and Bernoulli for binary variates.
 
 This representation allows for quick calculations of conditional and
 marginal frequencies. For more precise mathematical details see
-\textcite{dunsonetal2011} and \textcite{rasmussen1999} (who only consider
-gaussian kernels though).
+\textcite{dunsonetal2011}, and \textcite{rasmussen1999} who only considers
+gaussian kernels though.
 
 This mathematical representation also allows, in principle, an
 interpretation of the frequency distribution in terms of clusters, and an
@@ -1171,14 +1172,15 @@ preference.
 \bigskip
 
 The computation of the probability for the different frequencies is done by
-Markov-chain Monte Carlo sampling, with Gibbs sampling; see again
-\textcite{dunsonetal2011} and \textcite{rasmussen1999} and references
-therein for details, and \textcite[\chap~29]{mackay1995_r2005} for an
-overview. The computation has converged when the Markov chain has become
-stationary; stationarity has been checked for various quantities derived
-from the frequency distribution, such as the joint probability of the data,
-the means and variances, joint covariances, and full-dimensional
-covariance. Convergence required roughly 48--60 hours of computation.
+Markov-chain Monte Carlo sampling, with Gibbs sampling; see
+\textcite{neal1993} for an exhaustive discussion, and again
+\textcite{dunsonetal2011}, \textcite{rasmussen1999} and references therein
+for details, and \textcite[\chap~29]{mackay1995_r2005} for an overview. The
+computation has converged when the Markov chain has become stationary;
+stationarity has been checked for various quantities derived from the
+frequency distribution, such as the joint probability of the data, the
+means and variances, joint covariances, and full-dimensional covariance.
+Convergence required roughly 48--60 hours of computation.
 
 
 
