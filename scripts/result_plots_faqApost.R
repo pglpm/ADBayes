@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-07T18:32:57+0100
+## Last-Updated: 2022-01-07T22:32:49+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -721,36 +721,44 @@ dirname1 <- 'FAQposteriorAc4_-V12-D708-K75-I1024'
 dirname2 <- 'FAQposteriorAc5_-V12-D708-K75-I1024'
 dirname <- '.'
 
-errcorr <- sqrt(16*64*2)
+errcorr <- sqrt(16*128*2)
 
 YX <- rbind(readRDS(paste0(dirname1,'/YX.rds')), readRDS(paste0(dirname2,'/YX.rds')))
 probYX <- c(readRDS(paste0(dirname1,'/probYX.rds')), readRDS(paste0(dirname2,'/probYX.rds')))
 probY <- c(readRDS(paste0(dirname1,'/probY.rds')), readRDS(paste0(dirname2,'/probY.rds')))
 probX <- c(readRDS(paste0(dirname1,'/probX.rds')), readRDS(paste0(dirname2,'/probX.rds')))
 ##mutualinfo <- mean(log2(probYX/(probY*probX)), na.rm=T)
-mutualinfo <- c(mean(log2(probYX/(probY*probX)), na.rm=T),
-                sd(log2(probYX/(probY*probX)), na.rm=T)/errcorr)
+sequ <- log2(probYX/(probY*probX))
+mutualinfo <- c(mean(sequ, na.rm=T),
+                sd(sequ, na.rm=T)/sqrt(LaplacesDemon::ESS(sequ)))
+
 
 singlemi <- t(sapply(otherCovs, function(acov){
     probsingle <- c(readRDS(paste0(dirname1,'/probsingle_',acov,'.rds')), readRDS(paste0(dirname2,'/probsingle_',acov,'.rds')))
     probjoint <- c(readRDS(paste0(dirname1,'/probjoint_',acov,'.rds')), readRDS(paste0(dirname2,'/probjoint_',acov,'.rds')))
     ##
-    c(mean(log2(probjoint/(probY*probsingle)), na.rm=T),
-      sd(log2(probjoint/(probY*probsingle)), na.rm=T)/errcorr)
+    sequ <- log2(probjoint/(probY*probsingle))
+    ## print(LaplacesDemon::ESS(sequ))
+    c(mean(sequ, na.rm=T),
+      sd(sequ, na.rm=T)/sqrt(LaplacesDemon::ESS(sequ)))
 }))
 
 
 dropmis <- t(sapply(otherCovs, function(acov){
     probjoint <- c(readRDS(paste0(dirname1,'/probjointminus_',acov,'.rds')), readRDS(paste0(dirname2,'/probjointminus_',acov,'.rds')))
     probsingle <- c(readRDS(paste0(dirname1,'/probsingleminus_',acov,'.rds')), readRDS(paste0(dirname2,'/probsingleminus_',acov,'.rds')))
-    ## 
-    c(mean(log2(probjoint/(probY*probsingle)), na.rm=T),
-      sd(log2(probjoint/(probY*probsingle)), na.rm=T)/errcorr)
-
+    ##
+    sequ <- log2(probjoint/(probY*probsingle))
+    ##print(LaplacesDemon::ESS(sequ))
+    c(mean(sequ, na.rm=T),
+      sd(sequ, na.rm=T)/sqrt(LaplacesDemon::ESS(sequ)),
+      cov(sequ,
+          log2(probYX/(probY*probX)), use='complete.obs')/(LaplacesDemon::ESS(sequ*log2(probYX/(probY*probX))))
+      )
 }))
 
 
-outfile2 <- paste0('results_FAQcombined_err.txt')
+outfile2 <- paste0('results_FAQcombined_err2.txt')
 printappr <- function(x){
     appr <- cbind(
         x,
@@ -776,6 +784,23 @@ printappr(
           abs(-dropmis[,2]/mutualinfo[1] +
           mutualinfo[2]*dropmis[,1]/(mutualinfo[1]*mutualinfo[1]))
 #          (dropmis[,2]/dropmis[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropmis[,1]/mutualinfo[1])
+          )*100
+)
+printappr(
+    cbind(1-dropmis[,1]/mutualinfo[1],
+          abs(dropmis[,1]/mutualinfo[1])*sqrt(
+                                       (dropmis[,2]/dropmis[,1])^2 +
+                                       (mutualinfo[2]/mutualinfo[1])^2 -
+                                       2*dropmis[,3]/(dropmis[,1]*mutualinfo[1])
+                               )
+          )*100
+)
+printappr(
+    cbind(1-dropmis[,1]/mutualinfo[1],
+          abs(dropmis[,1]/mutualinfo[1])*sqrt(
+                                       (dropmis[,2]/dropmis[,1])^2 +
+                                       (mutualinfo[2]/mutualinfo[1])^2 
+                               )
           )*100
 )
 ##
