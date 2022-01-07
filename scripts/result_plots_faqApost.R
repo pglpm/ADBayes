@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-07T13:23:46+0100
+## Last-Updated: 2022-01-07T18:32:57+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -661,6 +661,96 @@ dropmis <- t(sapply(otherCovs, function(acov){
 ## AGE_log          -0.036716825
 
 outfile2 <- paste0(dirname,'/','results_err.txt')
+printappr <- function(x){
+    appr <- cbind(
+        x,
+        signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
+        signif(x[,2],1))
+    print(appr[order(x[,1],decreasing=T),])
+}
+##
+sink(outfile2)
+cat('Mutual information/bit between', maincov, 'and all other features:\n')
+printappr(rbind(mutualinfo))
+##
+cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
+printappr(singlemi)
+##
+cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+printappr(dropmis)
+##
+cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
+## relative difference in mutual information without the variate
+printappr(
+    cbind(1-dropmis[,1]/mutualinfo[1],
+          abs(-dropmis[,2]/mutualinfo[1] +
+          mutualinfo[2]*dropmis[,1]/(mutualinfo[1]*mutualinfo[1]))
+#          (dropmis[,2]/dropmis[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropmis[,1]/mutualinfo[1])
+          )*100
+)
+##
+sink()
+
+
+
+
+sink(outfile)
+cat('Mutual information between', maincov, 'and all other features:\n',
+mutualinfo, 'bit')
+## 0.222 bit
+
+cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
+print(cbind(sort(singlemi,decreasing=T)))
+
+cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+print(cbind(sort(dropmis,decreasing=F)))
+##
+cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
+## relative difference in mutual information without the variate
+print(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100)
+##
+sink()
+
+##print(round(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100))
+
+
+#########################################################
+## Mutual info for next prediction - combined
+#########################################################
+dirname1 <- 'FAQposteriorAc4_-V12-D708-K75-I1024'
+dirname2 <- 'FAQposteriorAc5_-V12-D708-K75-I1024'
+dirname <- '.'
+
+errcorr <- sqrt(16*64*2)
+
+YX <- rbind(readRDS(paste0(dirname1,'/YX.rds')), readRDS(paste0(dirname2,'/YX.rds')))
+probYX <- c(readRDS(paste0(dirname1,'/probYX.rds')), readRDS(paste0(dirname2,'/probYX.rds')))
+probY <- c(readRDS(paste0(dirname1,'/probY.rds')), readRDS(paste0(dirname2,'/probY.rds')))
+probX <- c(readRDS(paste0(dirname1,'/probX.rds')), readRDS(paste0(dirname2,'/probX.rds')))
+##mutualinfo <- mean(log2(probYX/(probY*probX)), na.rm=T)
+mutualinfo <- c(mean(log2(probYX/(probY*probX)), na.rm=T),
+                sd(log2(probYX/(probY*probX)), na.rm=T)/errcorr)
+
+singlemi <- t(sapply(otherCovs, function(acov){
+    probsingle <- c(readRDS(paste0(dirname1,'/probsingle_',acov,'.rds')), readRDS(paste0(dirname2,'/probsingle_',acov,'.rds')))
+    probjoint <- c(readRDS(paste0(dirname1,'/probjoint_',acov,'.rds')), readRDS(paste0(dirname2,'/probjoint_',acov,'.rds')))
+    ##
+    c(mean(log2(probjoint/(probY*probsingle)), na.rm=T),
+      sd(log2(probjoint/(probY*probsingle)), na.rm=T)/errcorr)
+}))
+
+
+dropmis <- t(sapply(otherCovs, function(acov){
+    probjoint <- c(readRDS(paste0(dirname1,'/probjointminus_',acov,'.rds')), readRDS(paste0(dirname2,'/probjointminus_',acov,'.rds')))
+    probsingle <- c(readRDS(paste0(dirname1,'/probsingleminus_',acov,'.rds')), readRDS(paste0(dirname2,'/probsingleminus_',acov,'.rds')))
+    ## 
+    c(mean(log2(probjoint/(probY*probsingle)), na.rm=T),
+      sd(log2(probjoint/(probY*probsingle)), na.rm=T)/errcorr)
+
+}))
+
+
+outfile2 <- paste0('results_FAQcombined_err.txt')
 printappr <- function(x){
     appr <- cbind(
         x,
