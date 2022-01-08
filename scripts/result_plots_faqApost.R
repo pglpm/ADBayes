@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-07T22:32:49+0100
+## Last-Updated: 2022-01-08T18:31:25+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -54,31 +54,38 @@ dbernoulli <- function(x, prob, log=FALSE){
 
 maincov <- 'Subgroup_num_'
 source('functions_mcmc.R')
-dirname <- 'FAQposteriorAc4_-V12-D708-K75-I1024'
-frequenciesfile <- '_frequencies-RFAQposteriorAc4_3-V12-D708-K75-I1024.rds'
+dirname <- 'FAQposteriorAcommon_-V12-D708-K75-I1024'
+dirname1 <- 'FAQposteriorAc4_-V12-D708-K75-I1024'
+frequenciesfile1 <- '_mcsamples-RFAQposteriorAc4_3-V12-D708-K75-I1024.rds'
+dirname2 <- 'FAQposteriorAc5_-V12-D708-K75-I1024'
+frequenciesfile2 <- '_mcsamples-RFAQposteriorAc5_3-V12-D708-K75-I1024.rds'
+##
 datafile <- 'alldataFAQ_transformed_shuffled.csv'
 varinfofile <- 'variatesFAQng_info.csv'
 testdatafile <- 'testdataFAQ_transformed_shuffled.csv'
 ##
-frequenciesfile <- paste0(dirname,'/',frequenciesfile)
-outfile <- paste0(dirname,'/','results.txt')
-parmList <- readRDS(frequenciesfile)
-nclusters <- ncol(parmList$q)
-nFsamples <- nrow(parmList$q)
-realCovs <- dimnames(parmList$meanR)[[2]]
-integerCovs <- dimnames(parmList$probI)[[2]]
-binaryCovs <- dimnames(parmList$probB)[[2]]
+variateinfo <- fread(varinfofile, sep=',')
+covNames <- variateinfo$variate
+covTypes <- variateinfo$type
+covMins <- variateinfo$min
+covMaxs <- variateinfo$max
+names(covTypes) <- names(covMins) <- names(covMaxs) <- covNames
+realCovs <- covNames[covTypes=='double']
+integerCovs <- covNames[covTypes=='integer']
+binaryCovs <- covNames[covTypes=='binary']
 covNames <- c(realCovs, integerCovs, binaryCovs)
 nrcovs <- length(realCovs)
 nicovs <- length(integerCovs)
 nbcovs <- length(binaryCovs)
 ncovs <- length(covNames)
-variateinfo <- fread(varinfofile, sep=',')
-if(!all(sort(covNames)==sort(variateinfo$variate))){warning('mismatch in variate names')}
-covTypes <- variateinfo$type
-covMins <- variateinfo$min
-covMaxs <- variateinfo$max
-names(covTypes) <- names(covMins) <- names(covMaxs) <- variateinfo$variate
+##
+frequenciesfile1 <- paste0(dirname1,'/',frequenciesfile1)
+frequenciesfile2 <- paste0(dirname2,'/',frequenciesfile2)
+outfile <- paste0(dirname,'/','results.txt')
+parmList <- mcsamples2parmlist(rbind(readRDS(frequenciesfile1),readRDS(frequenciesfile2)))
+nclusters <- ncol(parmList$q)
+nFsamples <- nrow(parmList$q)
+##
 otherCovs <- setdiff(covNames, maincov)
 diseasenames <- c('MCI', 'AD')
 ## 0 is MCI
@@ -562,73 +569,146 @@ dev.off()
 
 
 #########################################################
-## Mutual info for next prediction
+## long-run mutual infos
 #########################################################
-errcorr <- sqrt(16*64)
 
-YX <- samplesX(nperf=16, parmList=parmList)
-attr(YX, 'rng') <- NULL
-saveRDS(YX, paste0(dirname,'/YX.rds'))
-probYX <- rowMeans(samplesF(Y=YX, parmList=parmList),na.rm=T)
-saveRDS(probYX, paste0(dirname,'/probYX.rds'))
-probY <- rowMeans(samplesF(Y=YX[,maincov,drop=F], parmList=parmList), na.rm=T)
-saveRDS(probY, paste0(dirname,'/probY.rds'))
-probX <- rowMeans(samplesF(Y=YX[,otherCovs,drop=F], parmList=parmList), na.rm=T)
-saveRDS(probX, paste0(dirname,'/probX.rds'))
-##mutualinfo <- mean(log2(probYX/(probY*probX)), na.rm=T)
-mutualinfo <- c(mean(log2(probYX/(probY*probX)), na.rm=T),
-                sd(log2(probYX/(probY*probX)), na.rm=T)/errcorr)
-## > mutualinfo
-## [1] 0.2073521
+Xlist <- c(
+    as.list(otherCovs),
+    list(otherCovs),
+    lapply(otherCovs,function(x){setdiff(otherCovs,x)})
+)
+names(Xlist) <- c(otherCovs, 'all', paste0('all_minus_',otherCovs))
 
-## probD <- rowMeans(samplesF(Y=YX[,c(integerCovs,binaryCovs),drop=F], parmList=parmList), na.rm=T)
+allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^13)
 
-## entropy <- mean(log2(1/probD))
+saveRDS(allMI, paste0(dirname,'/allMI.rds'))
+
+mutualinfo <- c(mean(allMI['all',], na.rm=T),
+                sd(allMI['all',])/sqrt(LaplacesDemon::ESS(allMI['all',])))
 
 singlemi <- t(sapply(otherCovs, function(acov){
-    probsingle <- rowMeans(samplesF(Y=YX[,acov,drop=F], parmList=parmList), na.rm=T)
-    saveRDS(probsingle,paste0(dirname,'/probsingle_',acov,'.rds'))
-    probjoint <- rowMeans(samplesF(Y=YX[,c(maincov,acov),drop=F], parmList=parmList), na.rm=T)
-    saveRDS(probjoint,paste0(dirname,'/probjoint_',acov,'.rds'))
-##    mean(log2(probjoint/(probY*probsingle)), na.rm=T)
-    c(mean(log2(probjoint/(probY*probsingle)), na.rm=T),
-      sd(log2(probjoint/(probY*probsingle)), na.rm=T)/errcorr)
+    aMI <- allMI[acov,]
+    c(mean(aMI, na.rm=T),
+      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
 }))
-## > cbind(sort(singlemi,decreasing=T))
-##                         [,1]
-## AVDEL30MIN_neuro 0.102515427
-## RAVLT_immediate  0.094834522
-## FAQ              0.084784968
-## AVDELTOT_neuro   0.058414123
-## TRABSCOR_neuro   0.035608569
-## LRHHC_n_long_log 0.031327181
-## CATANIMSC_neuro  0.028329753
-## TRAASCOR_neuro   0.027374218
-## LRLV_n_long_log  0.006005771
-## AGE_log          0.004534418
-## GDTOTAL_gds      0.003293993
-## Gender_num_      0.001216298
-
-## singlemi2 <- sapply(otherCovs, function(acov){
-##     probcondacov <- rowMeans(samplesF(Y=xcond[,2,drop=F], X=YX[,acov,drop=F], parmList=parmList), na.rm=T)
-## mean(probcondacov*log2(probcondacov/mean(probcondacov,na.rm=T)) + (1-probcondacov)*log2((1-probcondacov)/mean(1-probcondacov,na.rm=T)), na.rm=T)
-## })
-
-## sink(outfile,append=T)
-## cat('Mutual information between', maincov, 'and SINGLE features, second method:\n')
-## print(cbind(sort(singlemi2,decreasing=T)))
-## sink()
 
 dropmis <- t(sapply(otherCovs, function(acov){
-    probjoint <- rowMeans(samplesF(Y=YX[,setdiff(colnames(YX),acov),drop=F], parmList=parmList),na.rm=T)
-    saveRDS(probjoint,paste0(dirname,'/probjointminus_',acov,'.rds'))
-    probsingle <- rowMeans(samplesF(Y=YX[,setdiff(otherCovs,acov),drop=F], parmList=parmList), na.rm=T)
-    saveRDS(probsingle,paste0(dirname,'/probsingleminus_',acov,'.rds'))
-##    mean(log2(probjoint/(probY*probsingle)), na.rm=T)
-    c(mean(log2(probjoint/(probY*probsingle)), na.rm=T),
-      sd(log2(probjoint/(probY*probsingle)), na.rm=T)/errcorr)
-
+    aMI <- allMI[paste0('all_minus_',acov),]
+    c(mean(aMI, na.rm=T),
+      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
 }))
+
+jointmi <- allMI['all',]
+dropmisrel <- t(sapply(otherCovs, function(acov){
+    aMI <- allMI[paste0('all_minus_',acov),]
+    reldiff <- (1 - aMI/jointmi)*100
+    quantile(reldiff, c(1/2, c(1,7)/8))
+}))
+
+
+outfile2 <- paste0(dirname,'/','results.txt')
+printappr <- function(x){
+    appr <- cbind(
+        ## x,
+        signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
+        signif(x[,2],1))
+    print(appr[order(x[,1],decreasing=T),])
+}
+##
+sink(outfile2)
+cat('Mutual information/bit between', maincov, 'and all other features:\n')
+printappr(rbind(mutualinfo))
+##
+cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
+printappr(singlemi)
+##
+cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+printappr(dropmis)
+##
+cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
+## relative difference in mutual information without the variate
+## printappr(
+##     cbind(1-dropmis[,1]/mutualinfo[1],
+##           abs(-dropmis[,2]/mutualinfo[1] +
+##           mutualinfo[2]*dropmis[,1]/(mutualinfo[1]*mutualinfo[1]))
+## #          (dropmis[,2]/dropmis[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropmis[,1]/mutualinfo[1])
+##           )*100
+## )
+## ##
+## cat('\n\n')
+print(
+    signif(dropmisrel[order(dropmisrel[,2],decreasing=T),],2)
+)
+##
+sink()
+
+
+
+
+
+## YX <- samplesX(nperf=16, parmList=parmList)
+## attr(YX, 'rng') <- NULL
+## saveRDS(YX, paste0(dirname,'/YX.rds'))
+## probYX <- rowMeans(samplesF(Y=YX, parmList=parmList),na.rm=T)
+## saveRDS(probYX, paste0(dirname,'/probYX.rds'))
+## probY <- rowMeans(samplesF(Y=YX[,maincov,drop=F], parmList=parmList), na.rm=T)
+## saveRDS(probY, paste0(dirname,'/probY.rds'))
+## probX <- rowMeans(samplesF(Y=YX[,otherCovs,drop=F], parmList=parmList), na.rm=T)
+## saveRDS(probX, paste0(dirname,'/probX.rds'))
+## ##mutualinfo <- mean(log2(probYX/(probY*probX)), na.rm=T)
+## mutualinfo <- c(mean(log2(probYX/(probY*probX)), na.rm=T),
+##                 sd(log2(probYX/(probY*probX)), na.rm=T)/errcorr)
+## ## > mutualinfo
+## ## [1] 0.2073521
+
+## ## probD <- rowMeans(samplesF(Y=YX[,c(integerCovs,binaryCovs),drop=F], parmList=parmList), na.rm=T)
+
+## ## entropy <- mean(log2(1/probD))
+
+## singlemi <- t(sapply(otherCovs, function(acov){
+##     probsingle <- rowMeans(samplesF(Y=YX[,acov,drop=F], parmList=parmList), na.rm=T)
+##     saveRDS(probsingle,paste0(dirname,'/probsingle_',acov,'.rds'))
+##     probjoint <- rowMeans(samplesF(Y=YX[,c(maincov,acov),drop=F], parmList=parmList), na.rm=T)
+##     saveRDS(probjoint,paste0(dirname,'/probjoint_',acov,'.rds'))
+## ##    mean(log2(probjoint/(probY*probsingle)), na.rm=T)
+##     c(mean(log2(probjoint/(probY*probsingle)), na.rm=T),
+##       sd(log2(probjoint/(probY*probsingle)), na.rm=T)/errcorr)
+## }))
+## ## > cbind(sort(singlemi,decreasing=T))
+## ##                         [,1]
+## ## AVDEL30MIN_neuro 0.102515427
+## ## RAVLT_immediate  0.094834522
+## ## FAQ              0.084784968
+## ## AVDELTOT_neuro   0.058414123
+## ## TRABSCOR_neuro   0.035608569
+## ## LRHHC_n_long_log 0.031327181
+## ## CATANIMSC_neuro  0.028329753
+## ## TRAASCOR_neuro   0.027374218
+## ## LRLV_n_long_log  0.006005771
+## ## AGE_log          0.004534418
+## ## GDTOTAL_gds      0.003293993
+## ## Gender_num_      0.001216298
+
+## ## singlemi2 <- sapply(otherCovs, function(acov){
+## ##     probcondacov <- rowMeans(samplesF(Y=xcond[,2,drop=F], X=YX[,acov,drop=F], parmList=parmList), na.rm=T)
+## ## mean(probcondacov*log2(probcondacov/mean(probcondacov,na.rm=T)) + (1-probcondacov)*log2((1-probcondacov)/mean(1-probcondacov,na.rm=T)), na.rm=T)
+## ## })
+
+## ## sink(outfile,append=T)
+## ## cat('Mutual information between', maincov, 'and SINGLE features, second method:\n')
+## ## print(cbind(sort(singlemi2,decreasing=T)))
+## ## sink()
+
+## dropmis <- t(sapply(otherCovs, function(acov){
+##     probjoint <- rowMeans(samplesF(Y=YX[,setdiff(colnames(YX),acov),drop=F], parmList=parmList),na.rm=T)
+##     saveRDS(probjoint,paste0(dirname,'/probjointminus_',acov,'.rds'))
+##     probsingle <- rowMeans(samplesF(Y=YX[,setdiff(otherCovs,acov),drop=F], parmList=parmList), na.rm=T)
+##     saveRDS(probsingle,paste0(dirname,'/probsingleminus_',acov,'.rds'))
+## ##    mean(log2(probjoint/(probY*probsingle)), na.rm=T)
+##     c(mean(log2(probjoint/(probY*probsingle)), na.rm=T),
+##       sd(log2(probjoint/(probY*probsingle)), na.rm=T)/errcorr)
+
+## }))
 
 ## cbind(sort(dropmis,decreasing=F))
 ## >                       [,1]
@@ -660,173 +740,173 @@ dropmis <- t(sapply(otherCovs, function(acov){
 ## GDTOTAL_gds      -0.007732331
 ## AGE_log          -0.036716825
 
-outfile2 <- paste0(dirname,'/','results_err.txt')
-printappr <- function(x){
-    appr <- cbind(
-        x,
-        signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
-        signif(x[,2],1))
-    print(appr[order(x[,1],decreasing=T),])
-}
-##
-sink(outfile2)
-cat('Mutual information/bit between', maincov, 'and all other features:\n')
-printappr(rbind(mutualinfo))
-##
-cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
-printappr(singlemi)
-##
-cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
-printappr(dropmis)
-##
-cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
-## relative difference in mutual information without the variate
-printappr(
-    cbind(1-dropmis[,1]/mutualinfo[1],
-          abs(-dropmis[,2]/mutualinfo[1] +
-          mutualinfo[2]*dropmis[,1]/(mutualinfo[1]*mutualinfo[1]))
-#          (dropmis[,2]/dropmis[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropmis[,1]/mutualinfo[1])
-          )*100
-)
-##
-sink()
+## outfile2 <- paste0(dirname,'/','results_err.txt')
+## printappr <- function(x){
+##     appr <- cbind(
+##         x,
+##         signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
+##         signif(x[,2],1))
+##     print(appr[order(x[,1],decreasing=T),])
+## }
+## ##
+## sink(outfile2)
+## cat('Mutual information/bit between', maincov, 'and all other features:\n')
+## printappr(rbind(mutualinfo))
+## ##
+## cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
+## printappr(singlemi)
+## ##
+## cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+## printappr(dropmis)
+## ##
+## cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
+## ## relative difference in mutual information without the variate
+## printappr(
+##     cbind(1-dropmis[,1]/mutualinfo[1],
+##           abs(-dropmis[,2]/mutualinfo[1] +
+##           mutualinfo[2]*dropmis[,1]/(mutualinfo[1]*mutualinfo[1]))
+## #          (dropmis[,2]/dropmis[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropmis[,1]/mutualinfo[1])
+##           )*100
+## )
+## ##
+## sink()
 
 
 
 
-sink(outfile)
-cat('Mutual information between', maincov, 'and all other features:\n',
-mutualinfo, 'bit')
-## 0.222 bit
+## sink(outfile)
+## cat('Mutual information between', maincov, 'and all other features:\n',
+## mutualinfo, 'bit')
+## ## 0.222 bit
 
-cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
-print(cbind(sort(singlemi,decreasing=T)))
+## cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
+## print(cbind(sort(singlemi,decreasing=T)))
 
-cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
-print(cbind(sort(dropmis,decreasing=F)))
-##
-cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
-## relative difference in mutual information without the variate
-print(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100)
-##
-sink()
-
-##print(round(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100))
-
-
-#########################################################
-## Mutual info for next prediction - combined
-#########################################################
-dirname1 <- 'FAQposteriorAc4_-V12-D708-K75-I1024'
-dirname2 <- 'FAQposteriorAc5_-V12-D708-K75-I1024'
-dirname <- '.'
-
-errcorr <- sqrt(16*128*2)
-
-YX <- rbind(readRDS(paste0(dirname1,'/YX.rds')), readRDS(paste0(dirname2,'/YX.rds')))
-probYX <- c(readRDS(paste0(dirname1,'/probYX.rds')), readRDS(paste0(dirname2,'/probYX.rds')))
-probY <- c(readRDS(paste0(dirname1,'/probY.rds')), readRDS(paste0(dirname2,'/probY.rds')))
-probX <- c(readRDS(paste0(dirname1,'/probX.rds')), readRDS(paste0(dirname2,'/probX.rds')))
-##mutualinfo <- mean(log2(probYX/(probY*probX)), na.rm=T)
-sequ <- log2(probYX/(probY*probX))
-mutualinfo <- c(mean(sequ, na.rm=T),
-                sd(sequ, na.rm=T)/sqrt(LaplacesDemon::ESS(sequ)))
-
-
-singlemi <- t(sapply(otherCovs, function(acov){
-    probsingle <- c(readRDS(paste0(dirname1,'/probsingle_',acov,'.rds')), readRDS(paste0(dirname2,'/probsingle_',acov,'.rds')))
-    probjoint <- c(readRDS(paste0(dirname1,'/probjoint_',acov,'.rds')), readRDS(paste0(dirname2,'/probjoint_',acov,'.rds')))
-    ##
-    sequ <- log2(probjoint/(probY*probsingle))
-    ## print(LaplacesDemon::ESS(sequ))
-    c(mean(sequ, na.rm=T),
-      sd(sequ, na.rm=T)/sqrt(LaplacesDemon::ESS(sequ)))
-}))
-
-
-dropmis <- t(sapply(otherCovs, function(acov){
-    probjoint <- c(readRDS(paste0(dirname1,'/probjointminus_',acov,'.rds')), readRDS(paste0(dirname2,'/probjointminus_',acov,'.rds')))
-    probsingle <- c(readRDS(paste0(dirname1,'/probsingleminus_',acov,'.rds')), readRDS(paste0(dirname2,'/probsingleminus_',acov,'.rds')))
-    ##
-    sequ <- log2(probjoint/(probY*probsingle))
-    ##print(LaplacesDemon::ESS(sequ))
-    c(mean(sequ, na.rm=T),
-      sd(sequ, na.rm=T)/sqrt(LaplacesDemon::ESS(sequ)),
-      cov(sequ,
-          log2(probYX/(probY*probX)), use='complete.obs')/(LaplacesDemon::ESS(sequ*log2(probYX/(probY*probX))))
-      )
-}))
-
-
-outfile2 <- paste0('results_FAQcombined_err2.txt')
-printappr <- function(x){
-    appr <- cbind(
-        x,
-        signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
-        signif(x[,2],1))
-    print(appr[order(x[,1],decreasing=T),])
-}
-##
-sink(outfile2)
-cat('Mutual information/bit between', maincov, 'and all other features:\n')
-printappr(rbind(mutualinfo))
-##
-cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
-printappr(singlemi)
-##
-cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
-printappr(dropmis)
-##
-cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
-## relative difference in mutual information without the variate
-printappr(
-    cbind(1-dropmis[,1]/mutualinfo[1],
-          abs(-dropmis[,2]/mutualinfo[1] +
-          mutualinfo[2]*dropmis[,1]/(mutualinfo[1]*mutualinfo[1]))
-#          (dropmis[,2]/dropmis[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropmis[,1]/mutualinfo[1])
-          )*100
-)
-printappr(
-    cbind(1-dropmis[,1]/mutualinfo[1],
-          abs(dropmis[,1]/mutualinfo[1])*sqrt(
-                                       (dropmis[,2]/dropmis[,1])^2 +
-                                       (mutualinfo[2]/mutualinfo[1])^2 -
-                                       2*dropmis[,3]/(dropmis[,1]*mutualinfo[1])
-                               )
-          )*100
-)
-printappr(
-    cbind(1-dropmis[,1]/mutualinfo[1],
-          abs(dropmis[,1]/mutualinfo[1])*sqrt(
-                                       (dropmis[,2]/dropmis[,1])^2 +
-                                       (mutualinfo[2]/mutualinfo[1])^2 
-                               )
-          )*100
-)
-##
-sink()
-
-
-
-
-sink(outfile)
-cat('Mutual information between', maincov, 'and all other features:\n',
-mutualinfo, 'bit')
-## 0.222 bit
-
-cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
-print(cbind(sort(singlemi,decreasing=T)))
-
-cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
-print(cbind(sort(dropmis,decreasing=F)))
-##
-cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
-## relative difference in mutual information without the variate
-print(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100)
-##
-sink()
+## cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+## print(cbind(sort(dropmis,decreasing=F)))
+## ##
+## cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
+## ## relative difference in mutual information without the variate
+## print(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100)
+## ##
+## sink()
 
 ##print(round(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100))
+
+
+## #########################################################
+## ## Mutual info for next prediction - combined
+## #########################################################
+## dirname1 <- 'FAQposteriorAc4_-V12-D708-K75-I1024'
+## dirname2 <- 'FAQposteriorAc5_-V12-D708-K75-I1024'
+## dirname <- '.'
+
+## errcorr <- sqrt(16*128*2)
+
+## YX <- rbind(readRDS(paste0(dirname1,'/YX.rds')), readRDS(paste0(dirname2,'/YX.rds')))
+## probYX <- c(readRDS(paste0(dirname1,'/probYX.rds')), readRDS(paste0(dirname2,'/probYX.rds')))
+## probY <- c(readRDS(paste0(dirname1,'/probY.rds')), readRDS(paste0(dirname2,'/probY.rds')))
+## probX <- c(readRDS(paste0(dirname1,'/probX.rds')), readRDS(paste0(dirname2,'/probX.rds')))
+## ##mutualinfo <- mean(log2(probYX/(probY*probX)), na.rm=T)
+## sequ <- log2(probYX/(probY*probX))
+## mutualinfo <- c(mean(sequ, na.rm=T),
+##                 sd(sequ, na.rm=T)/sqrt(LaplacesDemon::ESS(sequ)))
+
+
+## singlemi <- t(sapply(otherCovs, function(acov){
+##     probsingle <- c(readRDS(paste0(dirname1,'/probsingle_',acov,'.rds')), readRDS(paste0(dirname2,'/probsingle_',acov,'.rds')))
+##     probjoint <- c(readRDS(paste0(dirname1,'/probjoint_',acov,'.rds')), readRDS(paste0(dirname2,'/probjoint_',acov,'.rds')))
+##     ##
+##     sequ <- log2(probjoint/(probY*probsingle))
+##     ## print(LaplacesDemon::ESS(sequ))
+##     c(mean(sequ, na.rm=T),
+##       sd(sequ, na.rm=T)/sqrt(LaplacesDemon::ESS(sequ)))
+## }))
+
+
+## dropmis <- t(sapply(otherCovs, function(acov){
+##     probjoint <- c(readRDS(paste0(dirname1,'/probjointminus_',acov,'.rds')), readRDS(paste0(dirname2,'/probjointminus_',acov,'.rds')))
+##     probsingle <- c(readRDS(paste0(dirname1,'/probsingleminus_',acov,'.rds')), readRDS(paste0(dirname2,'/probsingleminus_',acov,'.rds')))
+##     ##
+##     sequ <- log2(probjoint/(probY*probsingle))
+##     ##print(LaplacesDemon::ESS(sequ))
+##     c(mean(sequ, na.rm=T),
+##       sd(sequ, na.rm=T)/sqrt(LaplacesDemon::ESS(sequ)),
+##       cov(sequ,
+##           log2(probYX/(probY*probX)), use='complete.obs')/(LaplacesDemon::ESS(sequ*log2(probYX/(probY*probX))))
+##       )
+## }))
+
+
+## outfile2 <- paste0('results_FAQcombined_err2.txt')
+## printappr <- function(x){
+##     appr <- cbind(
+##         x,
+##         signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
+##         signif(x[,2],1))
+##     print(appr[order(x[,1],decreasing=T),])
+## }
+## ##
+## sink(outfile2)
+## cat('Mutual information/bit between', maincov, 'and all other features:\n')
+## printappr(rbind(mutualinfo))
+## ##
+## cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
+## printappr(singlemi)
+## ##
+## cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+## printappr(dropmis)
+## ##
+## cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
+## ## relative difference in mutual information without the variate
+## printappr(
+##     cbind(1-dropmis[,1]/mutualinfo[1],
+##           abs(-dropmis[,2]/mutualinfo[1] +
+##           mutualinfo[2]*dropmis[,1]/(mutualinfo[1]*mutualinfo[1]))
+## #          (dropmis[,2]/dropmis[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropmis[,1]/mutualinfo[1])
+##           )*100
+## )
+## printappr(
+##     cbind(1-dropmis[,1]/mutualinfo[1],
+##           abs(dropmis[,1]/mutualinfo[1])*sqrt(
+##                                        (dropmis[,2]/dropmis[,1])^2 +
+##                                        (mutualinfo[2]/mutualinfo[1])^2 -
+##                                        2*dropmis[,3]/(dropmis[,1]*mutualinfo[1])
+##                                )
+##           )*100
+## )
+## printappr(
+##     cbind(1-dropmis[,1]/mutualinfo[1],
+##           abs(dropmis[,1]/mutualinfo[1])*sqrt(
+##                                        (dropmis[,2]/dropmis[,1])^2 +
+##                                        (mutualinfo[2]/mutualinfo[1])^2 
+##                                )
+##           )*100
+## )
+## ##
+## sink()
+
+
+
+
+## sink(outfile)
+## cat('Mutual information between', maincov, 'and all other features:\n',
+## mutualinfo, 'bit')
+## ## 0.222 bit
+
+## cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
+## print(cbind(sort(singlemi,decreasing=T)))
+
+## cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+## print(cbind(sort(dropmis,decreasing=F)))
+## ##
+## cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
+## ## relative difference in mutual information without the variate
+## print(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100)
+## ##
+## sink()
+
+## ##print(round(cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100))
 
 
 

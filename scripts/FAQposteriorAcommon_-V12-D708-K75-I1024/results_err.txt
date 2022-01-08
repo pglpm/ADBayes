@@ -1,0 +1,61 @@
+Mutual information/bit between Subgroup_num_ and all other features:
+[1] 0.220474573 0.001809865 0.220470000 0.002000000
+
+
+Mutual information between Subgroup_num_ and SINGLE features:
+                        [,1]         [,2]     [,3]  [,4]
+AVDEL30MIN_neuro 0.091857970 1.243749e-03 0.091860 1e-03
+RAVLT_immediate  0.083780114 6.676589e-04 0.083780 7e-04
+AVDELTOT_neuro   0.063572374 1.408981e-03 0.063570 1e-03
+FAQ              0.062450316 4.089859e-04 0.062450 4e-04
+TRABSCOR_neuro   0.034942646 6.608367e-04 0.034940 7e-04
+LRHHC_n_long_log 0.026536544 2.305992e-04 0.026537 2e-04
+CATANIMSC_neuro  0.023984409 3.681725e-04 0.023980 4e-04
+TRAASCOR_neuro   0.020955793 1.892286e-04 0.020956 2e-04
+LRLV_n_long_log  0.007633524 5.332870e-04 0.007634 5e-04
+AGE_log          0.004279443 8.312523e-05 0.004279 8e-05
+GDTOTAL_gds      0.001257071 4.112195e-05 0.001257 4e-05
+
+
+Mutual information between Subgroup_num_ and all other features minus one (negative values are due to roundoff):
+                      [,1]        [,2]    [,3]  [,4]
+AGE_log          0.2200626 0.001780601 0.22006 0.002
+GDTOTAL_gds      0.2199853 0.001785660 0.21999 0.002
+LRLV_n_long_log  0.2198229 0.001777746 0.21982 0.002
+LRHHC_n_long_log 0.2196748 0.001773886 0.21967 0.002
+CATANIMSC_neuro  0.2196531 0.001782314 0.21965 0.002
+AVDELTOT_neuro   0.2178078 0.001756033 0.21781 0.002
+RAVLT_immediate  0.2174402 0.001749088 0.21744 0.002
+AVDEL30MIN_neuro 0.2144760 0.001771278 0.21448 0.002
+TRAASCOR_neuro   0.2133873 0.001645001 0.21339 0.002
+FAQ              0.2069476 0.001627817 0.20695 0.002
+TRABSCOR_neuro   0.1953764 0.001498976 0.19538 0.001
+
+
+Relative differences between mutual information using all features and those using all features minus one, in %:
+                       [,1]        [,2]    [,3]  [,4]
+TRABSCOR_neuro   11.3837221 0.047560545 11.3840 0.050
+FAQ               6.1353808 0.032205895  6.1354 0.030
+TRAASCOR_neuro    3.2145383 0.048389075  3.2150 0.050
+AVDEL30MIN_neuro  2.7207433 0.004832807  2.7207 0.005
+RAVLT_immediate   1.3763013 0.016268586  1.3760 0.020
+AVDELTOT_neuro    1.2095494 0.014487050  1.2100 0.010
+CATANIMSC_neuro   0.3726023 0.009437488  0.3726 0.009
+LRHHC_n_long_log  0.3627703 0.013341045  0.3628 0.010
+LRLV_n_long_log   0.2955990 0.012141550  0.2956 0.010
+GDTOTAL_gds       0.2219156 0.009157082  0.2219 0.009
+AGE_log           0.1868530 0.011739486  0.1869 0.010
+
+
+                 12.5%   50% 87.5%
+TRABSCOR_neuro    7.90 11.00 15.00
+FAQ               3.20  5.90  9.20
+TRAASCOR_neuro    1.40  3.00  5.10
+AVDEL30MIN_neuro  1.00  2.60  4.40
+RAVLT_immediate   0.29  1.30  2.60
+AVDELTOT_neuro    0.16  1.20  2.30
+LRHHC_n_long_log -0.19  0.34  0.94
+CATANIMSC_neuro  -0.19  0.34  0.97
+LRLV_n_long_log  -0.25  0.27  0.80
+GDTOTAL_gds      -0.19  0.20  0.65
+AGE_log          -0.21  0.18  0.57
