@@ -601,6 +601,7 @@ samplesX <- function(parmList, nperf=2, nfsamples=NULL, inorder=FALSE){
         ##
         cbind(rX, iX, bX)
     }
+    attr(XX, 'rng') <- NULL
     XX
 }
 ## ##
