@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-01-08T18:31:25+0100
-## Last-Updated: 2022-01-09T11:55:01+0100
+## Last-Updated: 2022-01-09T12:07:47+0100
 ################
 ## Illustrations for MMIV talk on Alzheimer analysis
 ################
@@ -58,9 +58,9 @@ xiseq <- c(seq(2,24,by=0.25),seq(24,40,by=0.25))
 yiseq <- yxin(xiseq)
 niseq <- length(xiseq)
 extracl <- matrix(c(
-    46,77,  5.5,7, 1,
-    64,90,  9,5, 1,
-    85,70,  9,10, 2,
+    47,77,  5.6,7, 2,
+    64,89,  7.5,5, 1.5,
+    84,74,  9,10, 1,
     60,80,  10,3, 1/8,
     90,37, 7,5, 2,
     70,30, 7,5, 1,
@@ -78,7 +78,11 @@ tauR <- 1/aperm(array(c(
               extracl[3:4,]
     ), dim=c(2,niseq+nextr,1), dimnames=list(c('X','Y'),NULL,NULL)), c(3,1,2))^2
 ##
-q <- matrix(c(inweight*normalize(rep(1,niseq)), (1-inweight)*normalize(extracl[5,]))
+px1 <- 1
+##px1 <- normalize(dcauchy(meanR[1,1,],15,1))
+##px1 <- normalize(dcauchy(meanR[1,1,],70,15))
+allw <- c(inweight*normalize(rep(1,niseq)), (1-inweight)*normalize(extracl[5,]))
+q <- matrix(normalize(px1*allw)
            ,nrow=1)
 ##
 emptya <- array(NA,dim=c(1,0,niseq+nextr))
@@ -95,7 +99,7 @@ tcks <- seq(0,100,by=10)
 convf <- 50
 tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.',cex.axis=1)
 pdff('_exampledistr')
-tplot(x=list(X=(spoints[,1])), y=list(Y=(spoints[,2])), type='p', pch='.', cex=1, cex.axis=1)
+tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,120)), ylim=transfy(c(0,110)))
 dev.off()
 
 
