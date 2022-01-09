@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-09T17:23:50+0100
+## Last-Updated: 2022-01-09T18:10:32+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -598,6 +598,12 @@ dropmis <- t(sapply(otherCovs, function(acov){
       sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
 }))
 
+dropmisq <- t(sapply(otherCovs, function(acov){
+    aMI <- allMI[paste0('all_minus_',acov),]
+    quantile(aMI, c(1/2, c(1,7)/8))
+}))
+orderdrop <- order(dropmisq[,1],decreasing=T)
+
 jointmi <- allMI['all',]
 dropmisrel <- t(sapply(otherCovs, function(acov){
     aMI <- allMI[paste0('all_minus_',acov),]
@@ -605,8 +611,32 @@ dropmisrel <- t(sapply(otherCovs, function(acov){
     quantile(reldiff, c(1/2, c(1,7)/8))
 }))
 
+histosmi <- apply(allMI,1,function(aMI){thist(aMI,n=16)})
+maxsmi <- sapply(histosmi,function(ahis){max(ahis$density)})
+##
+## tplot(x=list(histosmi[['FAQ']]$mids, histosmi[['GDTOTAL_gds']]$mids),
+##       y=list(histosmi[['FAQ']]$density, histosmi[['GDTOTAL_gds']]$density),
+##       border=NA)
+##
+minusnames <- names(Xlist)[grepl('^all',names(Xlist))]
+minusnames <- minusnames[c(1,orderdrop+1)]
+##
+maxmiminus <- round(max(maxsmi[minusnames]))
+vspace <- 1
+seqbases <- (0:length(minusnames))*(maxmiminus+vspace)
+names(seqbases) <- minusnames
+##
+pdff('_justtestsMI')
+tplot(x=lapply(minusnames,function(xx){histosmi[[xx]]$mids}),
+      y=lapply(minusnames,function(xx){histosmi[[xx]]$density*8+seqbases[xx]}),
+      lty=1,lwd=2,xlim=c(0,0.4))
+dev.off()
 
-
+pdff('_justtestsMI')
+tplot(y=lapply(histosmi[!grepl('^all',names(histosmi))],function(xx){xx$mids}),
+      x=lapply(histosmi[!grepl('^all',names(histosmi))],function(xx){xx$density*2+seqbases}),
+      lty=1,lwd=2)
+dev.off()
 
 
 
