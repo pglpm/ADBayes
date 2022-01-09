@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-09T18:10:32+0100
+## Last-Updated: 2022-01-09T19:27:20+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -604,6 +604,8 @@ dropmisq <- t(sapply(otherCovs, function(acov){
 }))
 orderdrop <- order(dropmisq[,1],decreasing=T)
 
+
+
 jointmi <- allMI['all',]
 dropmisrel <- t(sapply(otherCovs, function(acov){
     aMI <- allMI[paste0('all_minus_',acov),]
@@ -620,6 +622,14 @@ maxsmi <- sapply(histosmi,function(ahis){max(ahis$density)})
 ##
 minusnames <- names(Xlist)[grepl('^all',names(Xlist))]
 minusnames <- minusnames[c(1,orderdrop+1)]
+
+set.seed(149)
+choosesam <- sample(1:ncol(allMI),size=64)
+pdff('_justtestsMI')
+tplot(x=allMI[minusnames,choosesam],lty=1,col=3,lwd=1,alpha=0.5,xlim=c(NA,NA),ylabels=minusnames)
+tplot(x=allMI[minusnames,choosesam],col=3,alpha=0.5,type='p',pch=20,add=T,xgrid=F,ygrid=F,cex=1,lwd=1)
+dev.off()
+
 ##
 maxmiminus <- round(max(maxsmi[minusnames]))
 vspace <- 1
