@@ -1,8 +1,8 @@
 ## Author: PGL  Porta Mana
-## Created: 2022-01-08T18:31:25+0100
-## Last-Updated: 2022-01-09T13:23:47+0100
+## Created: 2021-11-25T14:52:14+0100
+## Last-Updated: 2022-01-09T17:15:16+0100
 ################
-## Illustrations for MMIV talk on Alzheimer analysis
+## Prediction of population frequencies for Alzheimer study
 ################
 if(file.exists("/cluster/home/pglpm/R")){
     .libPaths(c("/cluster/home/pglpm/R",.libPaths()))
@@ -38,84 +38,8 @@ if(file.exists("/cluster/home/pglpm/R")){
 ## options(bitmapType='cairo')
 ## pdff <- function(filename){pdf(file=paste0(filename,'.pdf'),paper='a4r',height=11.7,width=16.5)} # to output in pdf format
 ## pngf <- function(filename,res=300){png(file=paste0(filename,'.png'),height=11.7*1.2,width=16.5,units='in',res=res,pointsize=36)} # to output in pdf format
-##library('nimble')
+library('nimble')
 #### End custom setup ####
-
-source('functions_mcmc.R')
-normalize <- function(x){x/sum(x)}
-
-set.seed(149)
-transfx <- function(x){x*20/100+10}
-transfy <- function(x){x*2/100+3}
-yxin <- function(x){
-    90*((sin(x*pi/50)+sin(x*pi/5)/10)*(x<25) +
-##        (cos((x-25)*pi/100)+2/100)*(x>=25))
-        ((x-37)^2/800+74/90)*(x>=25))
-    }
-inweight <- 1/8
-npoints <- 2^15
-xiseq <- c(seq(2,24,by=0.25),seq(24,40,by=0.25))
-yiseq <- yxin(xiseq)
-niseq <- length(xiseq)
-extracl <- matrix(c(
-    47,77,  5.6,7, 2,
-    64,89,  7.5,5, 1.5,
-    84,74,  9,10, 1,
-    60,80,  10,3, 1/8,
-    90,37, 7,5, 2,
-    70,30, 7,5, 1,
-    60,20, 5,6, 0.5
-), nrow=5)
-nextr <- ncol(extracl)
-##
-meanR <- aperm(array(c(
-    matrix(c(xiseq,yiseq),nrow=2,byrow=T),
-    extracl[1:2,]
-), dim=c(2,niseq+nextr,1), dimnames=list(c('X','Y'),NULL,NULL)), c(3,1,2))
-##
-tauR <- 1/aperm(array(c(
-              matrix(c(1,diff(xiseq)*1.5,2,diff(yiseq[xiseq<20])*2,seq(2,20,length.out=sum(xiseq>=20)))/4 ,nrow=2,byrow=T),
-              extracl[3:4,]
-    ), dim=c(2,niseq+nextr,1), dimnames=list(c('X','Y'),NULL,NULL)), c(3,1,2))^2
-##
-px1 <- 1
-##px1 <- normalize(dcauchy(meanR[1,1,],15,1))
-##px1 <- normalize(dcauchy(meanR[1,1,],70,15))
-allw <- c(inweight*normalize(rep(1,niseq)), (1-inweight)*normalize(extracl[5,]))
-q <- matrix(normalize(px1*allw)
-           ,nrow=1)
-##
-emptya <- array(NA,dim=c(1,0,niseq+nextr))
-##
-parmList <- list(q=q, meanR=meanR, tauR=tauR, probI=emptya, sizeI=emptya, probB=emptya)
-pdff('_grid100')
-tplot(x=c(0,100),y=c(0,100),type='p',col='#ffffff',xticks=seq(0,100,2),yticks=seq(0,100,2),cex.axis=0.7,xlab=NA,ylab=NA)
-tplot(x=meanR[1,1,],y=meanR[1,2,],type='p',add=T,xgrid=F,ygrid=F)
-dev.off()
-##
-spoints <- samplesX(parmList=parmList, nperf=npoints)
-##
-tcks <- seq(0,100,by=10)
-convf <- 50
-#tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.',cex.axis=1)
-pdff('_exampledistr')
-tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,120)), ylim=transfy(c(0,110)))
-dev.off()
-
-pdff('_exampledistr_cont')
-tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch=20, alpha=31/32, cex=2.5, cex.axis=1, xlim=transfx(c(0,120)), ylim=transfy(c(0,110)))
-dev.off()
-
-
-
-
-
-
-
-
-####################################################
-####################################################
-####################################################
 
 ## Bernoulli distribution
 dbernoulli <- function(x, prob, log=FALSE){
@@ -130,15 +54,15 @@ dbernoulli <- function(x, prob, log=FALSE){
 
 maincov <- 'Subgroup_num_'
 source('functions_mcmc.R')
-dirname <- 'FAQposteriorAcommon_-V12-D708-K75-I1024'
-dirname1 <- 'FAQposteriorAc4_-V12-D708-K75-I1024'
-frequenciesfile1 <- '_mcsamples-RFAQposteriorAc4_3-V12-D708-K75-I1024.rds'
-dirname2 <- 'FAQposteriorAc5_-V12-D708-K75-I1024'
-frequenciesfile2 <- '_mcsamples-RFAQposteriorAc5_3-V12-D708-K75-I1024.rds'
+dirname <- 'INGposteriorAcommon_-V12-D708-K75-I1024'
+dirname1 <- 'Ing_posteriorA_-V13-D678-K75-I1024'
+frequenciesfile1 <- '_mcsamples-RIng_posteriorA_3-V13-D678-K75-I1024.rds'
+## dirname2 <- 'FAQposteriorAc5_-V12-D708-K75-I1024'
+## frequenciesfile2 <- '_mcsamples-RFAQposteriorAc5_3-V12-D708-K75-I1024.rds'
 ##
-datafile <- 'alldataFAQ_transformed_shuffled.csv'
-varinfofile <- 'variatesFAQng_info.csv'
-testdatafile <- 'testdataFAQ_transformed_shuffled.csv'
+datafile <- 'alldataIng_transformed_shuffled.csv'
+varinfofile <- 'variatesIng_info.csv'
+testdatafile <- 'testdataIng_transformed_shuffled.csv'
 ##
 variateinfo <- fread(varinfofile, sep=',')
 covNames <- variateinfo$variate
@@ -156,9 +80,9 @@ nbcovs <- length(binaryCovs)
 ncovs <- length(covNames)
 ##
 frequenciesfile1 <- paste0(dirname1,'/',frequenciesfile1)
-frequenciesfile2 <- paste0(dirname2,'/',frequenciesfile2)
+##frequenciesfile2 <- paste0(dirname2,'/',frequenciesfile2)
 outfile <- paste0(dirname,'/','results.txt')
-parmList <- mcsamples2parmlist(rbind(readRDS(frequenciesfile1),readRDS(frequenciesfile2)))
+parmList <- mcsamples2parmlist(readRDS(frequenciesfile1))
 nclusters <- ncol(parmList$q)
 nFsamples <- nrow(parmList$q)
 ##

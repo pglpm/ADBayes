@@ -1,8 +1,8 @@
 ## Author: PGL  Porta Mana
-## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-09T17:23:50+0100
+## Created: 2022-01-08T18:31:25+0100
+## Last-Updated: 2022-01-09T17:19:47+0100
 ################
-## Prediction of population frequencies for Alzheimer study
+## Illustrations for MMIV talk on Alzheimer analysis
 ################
 if(file.exists("/cluster/home/pglpm/R")){
     .libPaths(c("/cluster/home/pglpm/R",.libPaths()))
@@ -38,8 +38,117 @@ if(file.exists("/cluster/home/pglpm/R")){
 ## options(bitmapType='cairo')
 ## pdff <- function(filename){pdf(file=paste0(filename,'.pdf'),paper='a4r',height=11.7,width=16.5)} # to output in pdf format
 ## pngf <- function(filename,res=300){png(file=paste0(filename,'.png'),height=11.7*1.2,width=16.5,units='in',res=res,pointsize=36)} # to output in pdf format
-library('nimble')
+##library('nimble')
 #### End custom setup ####
+
+source('../scripts/functions_mcmc.R')
+normalize <- function(x){x/sum(x)}
+
+set.seed(149)
+transfx <- function(x){x*20/100+10}
+transfy <- function(x){x*2/100+3}
+yxin <- function(x){
+    90*((sin(x*pi/50)+sin(x*pi/5)/10)*(x<25) +
+##        (cos((x-25)*pi/100)+2/100)*(x>=25))
+        ((x-37)^2/800+74/90)*(x>=25))
+    }
+inweight <- 1/8
+npoints <- 2^15
+xiseq <- c(seq(2,24,by=0.25),seq(24,40,by=0.25))
+yiseq <- yxin(xiseq)
+niseq <- length(xiseq)
+extracl <- matrix(c(
+    45.5,77,  3.5,7, 2,
+    53.5,89,  3.5,5, 1.5,
+    62.5,74,  4.0,10, 1,
+    52.0,80,  4.5,3, 1/8,
+    65.0,37,  3.0,5, 2,
+    56.5,30,  4.0,5, 1.5,
+    48.0,20,  4.0,7, 1
+), nrow=5)
+extraclo <- matrix(c(
+    47,77,  5.6,7, 2,
+    64,89,  7.5,5, 1.5,
+    84,74,  9,10, 1,
+    60,80,  10,3, 1/8,
+    90,37, 7,5, 2,
+    70,30, 7,5, 1,
+    60,20, 5,6, 0.5
+), nrow=5)
+nextr <- ncol(extracl)
+##
+meanR <- aperm(array(c(
+    matrix(c(xiseq,yiseq),nrow=2,byrow=T),
+    extracl[1:2,]
+), dim=c(2,niseq+nextr,1), dimnames=list(c('X','Y'),NULL,NULL)), c(3,1,2))
+##
+tauR <- 1/aperm(array(c(
+              matrix(c(1,diff(xiseq)*1.5,2,diff(yiseq[xiseq<20])*2,seq(2,20,length.out=sum(xiseq>=20)))/4 ,nrow=2,byrow=T),
+              extracl[3:4,]
+    ), dim=c(2,niseq+nextr,1), dimnames=list(c('X','Y'),NULL,NULL)), c(3,1,2))^2
+##
+choosepx <- 1
+px1 <- list(all=1,
+            left=normalize(dcauchy(meanR[1,1,],15,1)),
+            right=normalize(dcauchy(meanR[1,1,],70,15))
+                      )
+allw <- c(inweight*normalize(rep(1,niseq)), (1-inweight)*normalize(extracl[5,]))
+q <- matrix(normalize(px1[[choosepx]]*allw)
+           ,nrow=1)
+##
+emptya <- array(NA,dim=c(1,0,niseq+nextr))
+##
+parmList <- list(q=q, meanR=meanR, tauR=tauR, probI=emptya, sizeI=emptya, probB=emptya)
+pdff('_grid100')
+tplot(x=c(0,100),y=c(0,100),type='p',col='#ffffff',xticks=seq(0,100,2),yticks=seq(0,100,2),cex.axis=0.7,xlab=NA,ylab=NA)
+tplot(x=meanR[1,1,],y=meanR[1,2,],type='p',add=T,xgrid=F,ygrid=F)
+dev.off()
+##
+spoints <- samplesX(parmList=parmList, nperf=npoints)
+##
+tcks <- seq(0,100,by=10)
+convf <- 50
+#tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.',cex.axis=1)
+pdff(paste0('_exampledistr_',names(px1)[choosepx]))
+tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)))
+dev.off()
+pdff('_exampledistr_empty')
+tplot(x=NA, y=NA, type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)), xlab='X', ylab='Y')
+dev.off()
+
+pdff('_exampledistr_cont')
+tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch=20, alpha=31/32, cex=2.5, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)))
+dev.off()
+
+
+
+nhours <- 60*12*30.4*24
+exmis <- c(H0=log2(nhours),
+     Hym=log2(30.4*24),
+     Hyd=log2(12*24),
+     Hmdt=log2(60*30.4))
+print(exmis)
+log2(nhours)-exmis
+
+nhours <- 60*52*7*24
+exmis <- c(H0=log2(nhours),
+     Hyw=log2(7*24),
+     Hyd=log2(52*24),
+     Hwdt=log2(60*52),NA,
+     mHyw=log2(nhours),
+     mHyd=log2(nhours),
+     mHwdt=log2(24))
+print(round(exmis))
+round(log2(nhours)-exmis)
+
+
+
+
+
+
+####################################################
+####################################################
+####################################################
 
 ## Bernoulli distribution
 dbernoulli <- function(x, prob, log=FALSE){
@@ -579,9 +688,9 @@ Xlist <- c(
 )
 names(Xlist) <- c(otherCovs, 'all', paste0('all_minus_',otherCovs))
 
-## allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^13)
-## saveRDS(allMI, paste0(dirname,'/allMI.rds'))
-allMI <- readRDS(paste0(dirname,'/allMI.rds'))
+allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^13)
+
+saveRDS(allMI, paste0(dirname,'/allMI.rds'))
 
 mutualinfo <- c(mean(allMI['all',], na.rm=T),
                 sd(allMI['all',])/sqrt(LaplacesDemon::ESS(allMI['all',])))
@@ -605,14 +714,6 @@ dropmisrel <- t(sapply(otherCovs, function(acov){
     quantile(reldiff, c(1/2, c(1,7)/8))
 }))
 
-
-
-
-
-
-
-######################
-#### Save to file ####
 
 outfile2 <- paste0(dirname,'/','results.txt')
 printappr <- function(x){
