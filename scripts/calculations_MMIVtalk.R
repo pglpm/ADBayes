@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-01-08T18:31:25+0100
-## Last-Updated: 2022-01-09T12:07:47+0100
+## Last-Updated: 2022-01-09T13:23:47+0100
 ################
 ## Illustrations for MMIV talk on Alzheimer analysis
 ################
@@ -52,7 +52,7 @@ yxin <- function(x){
 ##        (cos((x-25)*pi/100)+2/100)*(x>=25))
         ((x-37)^2/800+74/90)*(x>=25))
     }
-inweight <- 1/16
+inweight <- 1/8
 npoints <- 2^15
 xiseq <- c(seq(2,24,by=0.25),seq(24,40,by=0.25))
 yiseq <- yxin(xiseq)
@@ -97,11 +97,25 @@ spoints <- samplesX(parmList=parmList, nperf=npoints)
 ##
 tcks <- seq(0,100,by=10)
 convf <- 50
-tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.',cex.axis=1)
+#tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.',cex.axis=1)
 pdff('_exampledistr')
 tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,120)), ylim=transfy(c(0,110)))
 dev.off()
 
+pdff('_exampledistr_cont')
+tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch=20, alpha=31/32, cex=2.5, cex.axis=1, xlim=transfx(c(0,120)), ylim=transfy(c(0,110)))
+dev.off()
+
+
+
+
+
+
+
+
+####################################################
+####################################################
+####################################################
 
 ## Bernoulli distribution
 dbernoulli <- function(x, prob, log=FALSE){
