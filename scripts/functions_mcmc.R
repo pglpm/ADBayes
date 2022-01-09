@@ -595,9 +595,10 @@ samplesX <- function(parmList, nperf=2, nfsamples=NULL, inorder=FALSE){
         iX <- matrix(rbinom(n=nperf*nicovs, prob=t(parmList$probI[asample,,acluster]), size=t(parmList$sizeI[asample,,acluster])),
                      nrow=nperf, dimnames=list(NULL, iCovs))
         ##
+        (if(nbcovs>0){
         bX <- sapply(bCovs, function(acov){sapply(acluster,function(clus){
             sample(x=0:1, size=1, prob=c(1-parmList$probB[asample,acov,clus], parmList$probB[asample,acov,clus]))
-        })})
+        })})}else{bX <- NULL})
         ##
         cbind(rX, iX, bX)
     }
