@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-10T18:38:15+0100
+## Last-Updated: 2022-01-10T18:46:34+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -145,7 +145,8 @@ svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
 
 ## plot of frequencies of features given AD state f(F|AD)
 pdff(paste0(dirname,'/','allplots_features_given_AD'))
-par(mfrow=c(3,4), mai=c(0,0,0,0),oma=c(0,0,0,0),mar=c(0,0,0,0))
+par(mfrow=c(3,4), mai=c(0,0,0,0),oma=c(0,0,0,0))
+#par(mfrow=c(3,4), mai=c(0,0,0,0),oma=c(0,0,0,0),mar=c(0,0,0,0))
 for(acov in otherCovs[orderc]){
     agrid <- grids[[acov]]
     ymax <- quant(apply(qdistsFA[[acov]],2,function(x){quant(x,99/100)}),99/100)
@@ -290,7 +291,7 @@ ylim <- c(0,1)
     }
     tplot(x=agrid, y=qdistsAF[[acov]][1,,'AD'],
           col=2, lty=1, lwd=3, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
-          yticks=(0:4)/4, ylabels=(if((iacov-1)%%4==0){c('0%','25%','50%','75%','100%')}else{F}),cex.axis=1.25,cex.lab=1.5,ly=(if((iacov-1)%%4==0){2.5}else{NULL}),
+          yticks=(0:4)/4, ylabels=(if((iacov-1)%%4==0){c('0%','25%','50%','75%','100%')}else{F}),cex.axis=1.25,cex.lab=1.5,ly=(if((iacov-1)%%4==0){2.5}else{0}),
           xlab=svnames[acov], ylab=NA)#(if((iacov-1)%%4==0){'probability of AD onset'}else{NA}))
     #mtext('probability of AD onset', side=2, outer=T, at=0.5,cex=1)
     polygon(x=c(agrid,rev(agrid)), y=c(qdistsAF[[acov]][2,,'AD'], rev(qdistsAF[[acov]][3,,'AD'])), col=paste0(palette()[2],'80'), border=NA)
