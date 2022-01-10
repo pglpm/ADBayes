@@ -1,63 +1,96 @@
+Conditional entropy/bit between Subgroup_num_ and all other features:
+    O1 median     O3
+ 0.743  0.775  0.805
+
+
+Conditional entropy between Subgroup_num_ and SINGLE features:
+                    O1 median    O3
+AVDEL30MIN_neuro 0.882  0.903 0.924
+RAVLT_immediate  0.891  0.911 0.931
+AVDELTOT_neuro   0.912  0.932 0.948
+FAQ              0.914  0.933 0.949
+TRABSCOR_neuro   0.947  0.961 0.972
+LRHHC_n_long_log 0.958  0.969 0.978
+CATANIMSC_neuro  0.960  0.971 0.981
+TRAASCOR_neuro   0.963  0.974 0.983
+LRLV_n_long_log  0.980  0.988 0.994
+AGE_log          0.984  0.991 0.996
+GDTOTAL_gds      0.988  0.994 0.998
+
+
+Conditional entropy between Subgroup_num_ and all other features minus one (negative values are due to roundoff):
+                    O1 median    O3
+AGE_log          0.743  0.775 0.806
+GDTOTAL_gds      0.743  0.775 0.806
+CATANIMSC_neuro  0.744  0.776 0.806
+LRHHC_n_long_log 0.744  0.776 0.806
+LRLV_n_long_log  0.743  0.776 0.806
+AVDELTOT_neuro   0.746  0.778 0.808
+RAVLT_immediate  0.746  0.778 0.808
+AVDEL30MIN_neuro 0.749  0.781 0.810
+TRAASCOR_neuro   0.750  0.782 0.811
+FAQ              0.758  0.789 0.817
+TRABSCOR_neuro   0.770  0.800 0.828
+
+
+Relative differences between conditional entropy using all features and those using all features minus one, in %:
+                       O1 median   O3
+TRABSCOR_neuro    2.3e+00  3.200 4.20
+FAQ               1.1e+00  1.700 2.50
+TRAASCOR_neuro    5.4e-01  0.880 1.30
+AVDEL30MIN_neuro  4.5e-01  0.750 1.10
+RAVLT_immediate   2.1e-01  0.390 0.61
+AVDELTOT_neuro    1.6e-01  0.330 0.53
+CATANIMSC_neuro   1.8e-02  0.097 0.20
+LRHHC_n_long_log  1.9e-02  0.093 0.19
+LRLV_n_long_log   5.4e-03  0.078 0.17
+GDTOTAL_gds       9.0e-06  0.059 0.13
+AGE_log          -6.7e-03  0.051 0.12
 Mutual information/bit between Subgroup_num_ and all other features:
-[1] 0.22026 0.00200
+    O1 median     O3
+ 0.190  0.220  0.252
 
 
 Mutual information between Subgroup_num_ and SINGLE features:
-                     [,1]  [,2]
-AVDEL30MIN_neuro 0.091770 1e-03
-RAVLT_immediate  0.083522 7e-04
-AVDELTOT_neuro   0.063570 1e-03
-FAQ              0.062613 4e-04
-TRABSCOR_neuro   0.034680 7e-04
-LRHHC_n_long_log 0.026390 3e-04
-CATANIMSC_neuro  0.023950 4e-04
-TRAASCOR_neuro   0.020900 2e-04
-LRLV_n_long_log  0.007580 5e-04
-AGE_log          0.004363 6e-05
-GDTOTAL_gds      0.001202 3e-05
+                       O1   median      O3
+AVDEL30MIN_neuro 7.14e-02 0.090900 0.11200
+RAVLT_immediate  6.47e-02 0.083300 0.10300
+AVDELTOT_neuro   4.69e-02 0.062600 0.08110
+FAQ              4.62e-02 0.061400 0.07980
+TRABSCOR_neuro   2.33e-02 0.033900 0.04630
+LRHHC_n_long_log 1.79e-02 0.026100 0.03520
+CATANIMSC_neuro  1.52e-02 0.023200 0.03320
+TRAASCOR_neuro   1.27e-02 0.020300 0.02980
+LRLV_n_long_log  3.21e-03 0.007050 0.01230
+AGE_log          1.55e-03 0.003910 0.00744
+GDTOTAL_gds      9.05e-05 0.000845 0.00255
 
 
 Mutual information between Subgroup_num_ and all other features minus one (negative values are due to roundoff):
-                    [,1]  [,2]
-AGE_log          0.21983 0.002
-GDTOTAL_gds      0.21975 0.002
-LRLV_n_long_log  0.21959 0.002
-LRHHC_n_long_log 0.21946 0.002
-CATANIMSC_neuro  0.21944 0.002
-AVDELTOT_neuro   0.21756 0.002
-RAVLT_immediate  0.21720 0.002
-AVDEL30MIN_neuro 0.21420 0.002
-TRAASCOR_neuro   0.21318 0.002
-FAQ              0.20668 0.002
-TRABSCOR_neuro   0.19519 0.001
+                    O1 median    O3
+AGE_log          0.189  0.219 0.251
+LRLV_n_long_log  0.189  0.219 0.251
+GDTOTAL_gds      0.189  0.219 0.251
+CATANIMSC_neuro  0.189  0.219 0.251
+LRHHC_n_long_log 0.189  0.219 0.251
+AVDELTOT_neuro   0.187  0.217 0.249
+RAVLT_immediate  0.187  0.217 0.248
+AVDEL30MIN_neuro 0.185  0.214 0.245
+TRAASCOR_neuro   0.183  0.213 0.244
+FAQ              0.178  0.206 0.236
+TRABSCOR_neuro   0.167  0.194 0.224
 
 
 Relative differences between mutual information using all features and those using all features minus one, in %:
-                   50%    12.5% 87.5%
-TRABSCOR_neuro   11.00  8.70000 14.00
-FAQ               5.90  3.90000  8.40
-TRAASCOR_neuro    3.10  2.00000  4.50
-AVDEL30MIN_neuro  2.70  1.70000  3.90
-RAVLT_immediate   1.30  0.72000  2.10
-AVDELTOT_neuro    1.20  0.61000  1.90
-LRHHC_n_long_log  0.34  0.07600  0.66
-CATANIMSC_neuro   0.35  0.06400  0.69
-LRLV_n_long_log   0.28  0.03700  0.58
-GDTOTAL_gds       0.21 -0.00071  0.47
-AGE_log           0.19 -0.01800  0.40
-
-
-Average uncertainty in test-set predictions, direct:
- 0.4386041 bit
-SD of uncertainty in test-set predictions, direct:
- 0.09122829 bit
-
-Average uncertainty in test-set predictions, via Bayes:
- 0.4315141 bit
-SD of uncertainty in test-set predictions, via Bayes:
- 0.09691443 bit
-
-
-Confusion matrix test-set, threshold 0.5, direct prediction:
-
-Confusion matrix test-set, threshold 0.5, via Bayes:
+                       O1 median    O3
+TRABSCOR_neuro    8.8e+00  11.00 14.00
+FAQ               4.0e+00   6.00  8.40
+TRAASCOR_neuro    2.0e+00   3.10  4.50
+AVDEL30MIN_neuro  1.7e+00   2.60  3.90
+RAVLT_immediate   7.7e-01   1.40  2.10
+AVDELTOT_neuro    6.2e-01   1.20  1.80
+CATANIMSC_neuro   6.5e-02   0.35  0.69
+LRHHC_n_long_log  6.8e-02   0.33  0.65
+LRLV_n_long_log   1.9e-02   0.28  0.59
+GDTOTAL_gds       3.2e-05   0.21  0.47
+AGE_log          -2.5e-02   0.18  0.40

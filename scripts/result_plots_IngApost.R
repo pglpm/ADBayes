@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-10T07:38:29+0100
+## Last-Updated: 2022-01-10T09:42:51+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -583,51 +583,46 @@ names(Xlist) <- c(covNames, 'all', paste0('all_minus_',otherCovs))
 ## saveRDS(allMI, paste0(dirname,'/allMI.rds'))
 allMI <- readRDS(paste0(dirname,'/allMI.rds'))
 
+tquant <- function(xx){yy <- quantile(xx, c(1,4,7)/8, na.rm=T, type=8)
+    names(yy) <- c('O1','median','O3')
+    yy
+}
+
 maincovMI <- allMI[maincov,]
 
-mutualinfo <- c(mean(allMI['all',], na.rm=T),
-                sd(allMI['all',])/sqrt(LaplacesDemon::ESS(allMI['all',])))
+mutualinfo <- tquant(allMI['all',])
 
-condH <- c(mean(maincovMI-allMI['all',], na.rm=T),
-                sd(maincovMI-allMI['all',])/sqrt(LaplacesDemon::ESS(maincovMI-allMI['all',])))
-
+condH <- tquant(maincovMI-allMI['all',])
 
 singleMI <- t(sapply(otherCovs, function(acov){
-    aMI <- allMI[acov,]
-    c(mean(aMI, na.rm=T),
-      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
+    tquant(allMI[acov,])
 }))
 
+
 singleCH <- t(sapply(otherCovs, function(acov){
-    aMI <- maincovMI-allMI[acov,]
-    c(mean(aMI, na.rm=T),
-      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
+    tquant(maincovMI-allMI[acov,])
 }))
 
 dropMI <- t(sapply(otherCovs, function(acov){
-    aMI <- allMI[paste0('all_minus_',acov),]
-    c(mean(aMI, na.rm=T),
-      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
+    tquant(allMI[paste0('all_minus_',acov),])
 }))
 
 dropCH <- t(sapply(otherCovs, function(acov){
-    aMI <- maincovMI-allMI[paste0('all_minus_',acov),]
-    c(mean(aMI, na.rm=T),
-      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
+    tquant(maincovMI-allMI[paste0('all_minus_',acov),])
 }))
 
 jointMI <- allMI['all',]
 dropMIrel <- t(sapply(otherCovs, function(acov){
     aMI <- allMI[paste0('all_minus_',acov),]
     reldiff <- (1 - aMI/jointMI)*100
-    quantile(reldiff, c(1/2, c(1,7)/8))
+    tquant(reldiff)
 }))
 
 jointCH <- maincovMI-allMI['all',]
 dropCHrel <- t(sapply(otherCovs, function(acov){
     aMI <- maincovMI-allMI[paste0('all_minus_',acov),]
     reldiff <- -(1 - aMI/jointCH)*100
-    quantile(reldiff, c(1/2, c(1,7)/8))
+    tquant(reldiff)
 }))
 
 
@@ -635,11 +630,12 @@ dropCHrel <- t(sapply(otherCovs, function(acov){
 #### Save to file ####
 outfile2 <- paste0(dirname,'/','results.txt')
 printappr <- function(x,decreasing=T){
-    appr <- cbind(
-        ## x,
-        signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
-        signif(x[,2],1))
-    print(appr[order(x[,1],decreasing=decreasing),])
+    print(signif(x[order(x[,'median'],decreasing=decreasing),], 3))
+    ## appr <- cbind(
+    ##     ## x,
+    ##     signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
+    ##     signif(x[,2],1))
+    ## print(appr[order(x[,1],decreasing=decreasing),])
 }
 ##
 sink(outfile2)
@@ -695,11 +691,15 @@ print(
 sink()
 
 
-dropMIq <- t(sapply(otherCovs, function(acov){
-    aMI <- allMI[paste0('all_minus_',acov),]
-    quantile(aMI, c(1/2, c(1,7)/8))
-}))
-orderdrop <- order(dropMIq[,1],decreasing=T)
+########################
+#### Plots for talk ####
+
+svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
+
+svminusnames <- sapply(minusnames,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
+
+
+orderdrop <- order(dropMI[,'median'],decreasing=T)
 
 histosmi <- apply(allMI,1,function(aMI){thist(aMI,n=16)})
 maxsmi <- sapply(histosmi,function(ahis){max(ahis$density)})
@@ -713,10 +713,33 @@ minusnames <- minusnames[c(1,orderdrop+1)]
 
 set.seed(149)
 choosesam <- sample(1:ncol(allMI),size=64)
-pdff('_justtestsMI')
-tplot(x=allMI[minusnames,choosesam],lty=1,col=3,lwd=1,alpha=0.5,xlim=c(NA,NA),ylabels=minusnames)
-tplot(x=allMI[minusnames,choosesam],col=3,alpha=0.5,type='p',pch=20,add=T,xgrid=F,ygrid=F,cex=1,lwd=1)
+pdff(paste0(dirname,'/_justtestsMI'))
+tplot(x=allMI[minusnames,choosesam],lty=1,col=1,lwd=1,alpha=0.5,xlim=c(NA,NA),ylabels=svminusnames[minusnames], xlab='mutual info/bit', ylab='feature set',cex.lab=1.5,cex.axis=1,ly=8)
+#tplot(x=allMI[minusnames,choosesam],col=1,alpha=0.5,type='p',pch=20,add=T,xgrid=F,ygrid=F,cex=1,lwd=1)
+tplot(x=t(apply(allMI[minusnames,],1,tquant)),lty=c(2,1,2),col=c(4,2,4),lwd=c(2,4,2),alpha=0,xlim=c(NA,NA),ylabels=svnames[singlenames], xlab='mutual info/bit', ylab='dropped feature',add=T,xgrid=F,ygrid=F)
+## tplot(x=apply(allMI[minusnames,],1,median),lty=1,col=2,lwd=4,alpha=0,xlim=c(NA,NA),ylabels=svminusnames[minusnames], xlab='mutual info/bit', ylab='dropped feature',add=T,xgrid=F,ygrid=F)
+tplot(x=apply(allMI[minusnames,],1,median),col=2,alpha=0,type='p',pch=20,add=T,xgrid=F,ygrid=F,cex=1.5,lwd=4)
 dev.off()
+
+
+ordersingle <- order(singleMI[otherCovs,'median'],decreasing=F)
+singlenames <- otherCovs[ordersingle]
+
+set.seed(149)
+choosesam <- sample(1:ncol(allMI),size=64)
+pdff(paste0(dirname,'/_justtestsMIsingle'))
+tplot(x=allMI[singlenames,choosesam],lty=1,col=1,lwd=1,alpha=0.5,xlim=c(NA,NA),ylabels=svnames[singlenames], xlab='mutual info/bit', ylab='single feature',cex.lab=1.5,cex.axis=1,ly=8)
+#tplot(x=allMI[singlenames,choosesam],col=1,alpha=0.5,type='p',pch=20,add=T,xgrid=F,ygrid=F,cex=1,lwd=1)
+tplot(x=t(apply(allMI[singlenames,],1,tquant)),lty=c(2,1,2),col=c(4,2,4),lwd=c(2,4,2),alpha=0,xlim=c(NA,NA),ylabels=svnames[singlenames], xlab='mutual info/bit', ylab='dropped feature',add=T,xgrid=F,ygrid=F)
+tplot(x=apply(allMI[singlenames,],1,median),col=2,alpha=0,type='p',pch=20,add=T,xgrid=F,ygrid=F,cex=1.5,lwd=4)
+dev.off()
+
+
+################################################
+################################################
+################################################
+
+
 
 ##
 maxmiminus <- round(max(maxsmi[minusnames]))

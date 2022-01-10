@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-10T07:38:38+0100
+## Last-Updated: 2022-01-10T08:44:33+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -579,55 +579,50 @@ Xlist <- c(
 )
 names(Xlist) <- c(covNames, 'all', paste0('all_minus_',otherCovs))
 
-allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^13)
-saveRDS(allMI, paste0(dirname,'/allMI.rds'))
-##allMI <- readRDS(paste0(dirname,'/allMI.rds'))
+## allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^13)
+## saveRDS(allMI, paste0(dirname,'/allMI.rds'))
+allMI <- readRDS(paste0(dirname,'/allMI.rds'))
+
+tquant <- function(xx){yy <- quantile(xx, c(1,4,7)/8, na.rm=T, type=8)
+    names(yy) <- c('O1','median','O3')
+    yy
+}
 
 maincovMI <- allMI[maincov,]
 
-mutualinfo <- c(mean(allMI['all',], na.rm=T),
-                sd(allMI['all',])/sqrt(LaplacesDemon::ESS(allMI['all',])))
+mutualinfo <- tquant(allMI['all',])
 
-condH <- c(mean(maincovMI-allMI['all',], na.rm=T),
-                sd(maincovMI-allMI['all',])/sqrt(LaplacesDemon::ESS(maincovMI-allMI['all',])))
-
+condH <- tquant(maincovMI-allMI['all',])
 
 singleMI <- t(sapply(otherCovs, function(acov){
-    aMI <- allMI[acov,]
-    c(mean(aMI, na.rm=T),
-      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
+    tquant(allMI[acov,])
 }))
 
+
 singleCH <- t(sapply(otherCovs, function(acov){
-    aMI <- maincovMI-allMI[acov,]
-    c(mean(aMI, na.rm=T),
-      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
+    tquant(maincovMI-allMI[acov,])
 }))
 
 dropMI <- t(sapply(otherCovs, function(acov){
-    aMI <- allMI[paste0('all_minus_',acov),]
-    c(mean(aMI, na.rm=T),
-      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
+    tquant(allMI[paste0('all_minus_',acov),])
 }))
 
 dropCH <- t(sapply(otherCovs, function(acov){
-    aMI <- maincovMI-allMI[paste0('all_minus_',acov),]
-    c(mean(aMI, na.rm=T),
-      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
+    tquant(maincovMI-allMI[paste0('all_minus_',acov),])
 }))
 
 jointMI <- allMI['all',]
 dropMIrel <- t(sapply(otherCovs, function(acov){
     aMI <- allMI[paste0('all_minus_',acov),]
     reldiff <- (1 - aMI/jointMI)*100
-    quantile(reldiff, c(1/2, c(1,7)/8))
+    tquant(reldiff)
 }))
 
 jointCH <- maincovMI-allMI['all',]
 dropCHrel <- t(sapply(otherCovs, function(acov){
     aMI <- maincovMI-allMI[paste0('all_minus_',acov),]
     reldiff <- -(1 - aMI/jointCH)*100
-    quantile(reldiff, c(1/2, c(1,7)/8))
+    tquant(reldiff)
 }))
 
 
@@ -635,11 +630,12 @@ dropCHrel <- t(sapply(otherCovs, function(acov){
 #### Save to file ####
 outfile2 <- paste0(dirname,'/','results.txt')
 printappr <- function(x,decreasing=T){
-    appr <- cbind(
-        ## x,
-        signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
-        signif(x[,2],1))
-    print(appr[order(x[,1],decreasing=decreasing),])
+    print(signif(x[order(x[,'median'],decreasing=decreasing),], 3))
+    ## appr <- cbind(
+    ##     ## x,
+    ##     signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
+    ##     signif(x[,2],1))
+    ## print(appr[order(x[,1],decreasing=decreasing),])
 }
 ##
 sink(outfile2)
