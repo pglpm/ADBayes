@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-09T19:27:20+0100
+## Last-Updated: 2022-01-10T07:38:38+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -573,45 +573,133 @@ dev.off()
 #########################################################
 
 Xlist <- c(
-    as.list(otherCovs),
+    as.list(covNames),
     list(otherCovs),
     lapply(otherCovs,function(x){setdiff(otherCovs,x)})
 )
-names(Xlist) <- c(otherCovs, 'all', paste0('all_minus_',otherCovs))
+names(Xlist) <- c(covNames, 'all', paste0('all_minus_',otherCovs))
 
-## allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^13)
-## saveRDS(allMI, paste0(dirname,'/allMI.rds'))
-allMI <- readRDS(paste0(dirname,'/allMI.rds'))
+allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^13)
+saveRDS(allMI, paste0(dirname,'/allMI.rds'))
+##allMI <- readRDS(paste0(dirname,'/allMI.rds'))
+
+maincovMI <- allMI[maincov,]
 
 mutualinfo <- c(mean(allMI['all',], na.rm=T),
                 sd(allMI['all',])/sqrt(LaplacesDemon::ESS(allMI['all',])))
 
-singlemi <- t(sapply(otherCovs, function(acov){
+condH <- c(mean(maincovMI-allMI['all',], na.rm=T),
+                sd(maincovMI-allMI['all',])/sqrt(LaplacesDemon::ESS(maincovMI-allMI['all',])))
+
+
+singleMI <- t(sapply(otherCovs, function(acov){
     aMI <- allMI[acov,]
     c(mean(aMI, na.rm=T),
       sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
 }))
 
-dropmis <- t(sapply(otherCovs, function(acov){
+singleCH <- t(sapply(otherCovs, function(acov){
+    aMI <- maincovMI-allMI[acov,]
+    c(mean(aMI, na.rm=T),
+      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
+}))
+
+dropMI <- t(sapply(otherCovs, function(acov){
     aMI <- allMI[paste0('all_minus_',acov),]
     c(mean(aMI, na.rm=T),
       sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
 }))
 
-dropmisq <- t(sapply(otherCovs, function(acov){
+dropCH <- t(sapply(otherCovs, function(acov){
+    aMI <- maincovMI-allMI[paste0('all_minus_',acov),]
+    c(mean(aMI, na.rm=T),
+      sd(aMI)/sqrt(LaplacesDemon::ESS(aMI)))
+}))
+
+jointMI <- allMI['all',]
+dropMIrel <- t(sapply(otherCovs, function(acov){
+    aMI <- allMI[paste0('all_minus_',acov),]
+    reldiff <- (1 - aMI/jointMI)*100
+    quantile(reldiff, c(1/2, c(1,7)/8))
+}))
+
+jointCH <- maincovMI-allMI['all',]
+dropCHrel <- t(sapply(otherCovs, function(acov){
+    aMI <- maincovMI-allMI[paste0('all_minus_',acov),]
+    reldiff <- -(1 - aMI/jointCH)*100
+    quantile(reldiff, c(1/2, c(1,7)/8))
+}))
+
+
+######################
+#### Save to file ####
+outfile2 <- paste0(dirname,'/','results.txt')
+printappr <- function(x,decreasing=T){
+    appr <- cbind(
+        ## x,
+        signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
+        signif(x[,2],1))
+    print(appr[order(x[,1],decreasing=decreasing),])
+}
+##
+sink(outfile2)
+cat('Conditional entropy/bit between', maincov, 'and all other features:\n')
+printappr(rbind(condH),F)
+##
+cat('\n\nConditional entropy between', maincov, 'and SINGLE features:\n')
+printappr(singleCH,F)
+##
+cat('\n\nConditional entropy between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+printappr(dropCH,F)
+##
+cat('\n\nRelative differences between conditional entropy using all features and those using all features minus one, in %:\n')
+## relative difference in mutual information without the variate
+## printappr(
+##     cbind(1-dropMI[,1]/mutualinfo[1],
+##           abs(-dropMI[,2]/mutualinfo[1] +
+##           mutualinfo[2]*dropMI[,1]/(mutualinfo[1]*mutualinfo[1]))
+## #          (dropMI[,2]/dropMI[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropMI[,1]/mutualinfo[1])
+##           )*100
+## )
+## ##
+## cat('\n\n')
+print(
+    signif(dropCHrel[order(dropCHrel[,2],decreasing=T),],2)
+)
+##
+##
+cat('Mutual information/bit between', maincov, 'and all other features:\n')
+printappr(rbind(mutualinfo))
+##
+cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
+printappr(singleMI)
+##
+cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+printappr(dropMI)
+##
+cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
+## relative difference in mutual information without the variate
+## printappr(
+##     cbind(1-dropMI[,1]/mutualinfo[1],
+##           abs(-dropMI[,2]/mutualinfo[1] +
+##           mutualinfo[2]*dropMI[,1]/(mutualinfo[1]*mutualinfo[1]))
+## #          (dropMI[,2]/dropMI[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropMI[,1]/mutualinfo[1])
+##           )*100
+## )
+## ##
+## cat('\n\n')
+print(
+    signif(dropMIrel[order(dropMIrel[,2],decreasing=T),],2)
+)
+##
+sink()
+
+
+dropMIq <- t(sapply(otherCovs, function(acov){
     aMI <- allMI[paste0('all_minus_',acov),]
     quantile(aMI, c(1/2, c(1,7)/8))
 }))
-orderdrop <- order(dropmisq[,1],decreasing=T)
-
-
-
-jointmi <- allMI['all',]
-dropmisrel <- t(sapply(otherCovs, function(acov){
-    aMI <- allMI[paste0('all_minus_',acov),]
-    reldiff <- (1 - aMI/jointmi)*100
-    quantile(reldiff, c(1/2, c(1,7)/8))
-}))
+orderdrop <- order(dropMIq[,1],decreasing=T)
 
 histosmi <- apply(allMI,1,function(aMI){thist(aMI,n=16)})
 maxsmi <- sapply(histosmi,function(ahis){max(ahis$density)})
@@ -650,45 +738,6 @@ dev.off()
 
 
 
-
-######################
-#### Save to file ####
-
-outfile2 <- paste0(dirname,'/','results.txt')
-printappr <- function(x){
-    appr <- cbind(
-        ## x,
-        signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
-        signif(x[,2],1))
-    print(appr[order(x[,1],decreasing=T),])
-}
-##
-sink(outfile2)
-cat('Mutual information/bit between', maincov, 'and all other features:\n')
-printappr(rbind(mutualinfo))
-##
-cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
-printappr(singlemi)
-##
-cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
-printappr(dropmis)
-##
-cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
-## relative difference in mutual information without the variate
-## printappr(
-##     cbind(1-dropmis[,1]/mutualinfo[1],
-##           abs(-dropmis[,2]/mutualinfo[1] +
-##           mutualinfo[2]*dropmis[,1]/(mutualinfo[1]*mutualinfo[1]))
-## #          (dropmis[,2]/dropmis[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropmis[,1]/mutualinfo[1])
-##           )*100
-## )
-## ##
-## cat('\n\n')
-print(
-    signif(dropmisrel[order(dropmisrel[,2],decreasing=T),],2)
-)
-##
-sink()
 
 
 
@@ -747,7 +796,7 @@ sink()
 ## ## print(cbind(sort(singlemi2,decreasing=T)))
 ## ## sink()
 
-## dropmis <- t(sapply(otherCovs, function(acov){
+## dropMI <- t(sapply(otherCovs, function(acov){
 ##     probjoint <- rowMeans(samplesF(Y=YX[,setdiff(colnames(YX),acov),drop=F], parmList=parmList),na.rm=T)
 ##     saveRDS(probjoint,paste0(dirname,'/probjointminus_',acov,'.rds'))
 ##     probsingle <- rowMeans(samplesF(Y=YX[,setdiff(otherCovs,acov),drop=F], parmList=parmList), na.rm=T)
@@ -758,7 +807,7 @@ sink()
 
 ## }))
 
-## cbind(sort(dropmis,decreasing=F))
+## cbind(sort(dropMI,decreasing=F))
 ## >                       [,1]
 ## FAQ              0.1827049
 ## TRABSCOR_neuro   0.1885598
@@ -774,7 +823,7 @@ sink()
 ## AGE_log          0.2074283
 
 
-## cbind(sort(1-dropmis/mutualinfo,decreasing=T))*100
+## cbind(sort(1-dropMI/mutualinfo,decreasing=T))*100
 ## FAQ              11.886637654
 ## TRABSCOR_neuro    9.062990024
 ## TRAASCOR_neuro    4.094235113
@@ -805,15 +854,15 @@ sink()
 ## printappr(singlemi)
 ## ##
 ## cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
-## printappr(dropmis)
+## printappr(dropMI)
 ## ##
 ## cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
 ## ## relative difference in mutual information without the variate
 ## printappr(
-##     cbind(1-dropmis[,1]/mutualinfo[1],
-##           abs(-dropmis[,2]/mutualinfo[1] +
-##           mutualinfo[2]*dropmis[,1]/(mutualinfo[1]*mutualinfo[1]))
-## #          (dropmis[,2]/dropmis[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropmis[,1]/mutualinfo[1])
+##     cbind(1-dropMI[,1]/mutualinfo[1],
+##           abs(-dropMI[,2]/mutualinfo[1] +
+##           mutualinfo[2]*dropMI[,1]/(mutualinfo[1]*mutualinfo[1]))
+## #          (dropMI[,2]/dropMI[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropMI[,1]/mutualinfo[1])
 ##           )*100
 ## )
 ## ##
