@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-01-08T18:31:25+0100
-## Last-Updated: 2022-01-09T17:19:47+0100
+## Last-Updated: 2022-01-10T15:38:18+0100
 ################
 ## Illustrations for MMIV talk on Alzheimer analysis
 ################
@@ -47,6 +47,8 @@ normalize <- function(x){x/sum(x)}
 set.seed(149)
 transfx <- function(x){x*20/100+10}
 transfy <- function(x){x*2/100+3}
+itransfx <- function(x){(x-10)*100/20}
+itransfy <- function(x){(x-3)*100/2}
 yxin <- function(x){
     90*((sin(x*pi/50)+sin(x*pi/5)/10)*(x<25) +
 ##        (cos((x-25)*pi/100)+2/100)*(x>=25))
@@ -54,6 +56,7 @@ yxin <- function(x){
     }
 inweight <- 1/8
 npoints <- 2^15
+npoints2 <- 200
 xiseq <- c(seq(2,24,by=0.25),seq(24,40,by=0.25))
 yiseq <- yxin(xiseq)
 niseq <- length(xiseq)
@@ -99,20 +102,66 @@ q <- matrix(normalize(px1[[choosepx]]*allw)
 emptya <- array(NA,dim=c(1,0,niseq+nextr))
 ##
 parmList <- list(q=q, meanR=meanR, tauR=tauR, probI=emptya, sizeI=emptya, probB=emptya)
-pdff('_grid100')
-tplot(x=c(0,100),y=c(0,100),type='p',col='#ffffff',xticks=seq(0,100,2),yticks=seq(0,100,2),cex.axis=0.7,xlab=NA,ylab=NA)
-tplot(x=meanR[1,1,],y=meanR[1,2,],type='p',add=T,xgrid=F,ygrid=F)
-dev.off()
+## pdff('_grid100')
+## tplot(x=c(0,100),y=c(0,100),type='p',col='#ffffff',xticks=seq(0,100,2),yticks=seq(0,100,2),cex.axis=0.7,xlab=NA,ylab=NA)
+## tplot(x=meanR[1,1,],y=meanR[1,2,],type='p',add=T,xgrid=F,ygrid=F)
+## dev.off()
 ##
 spoints <- samplesX(parmList=parmList, nperf=npoints)
+spoints2 <- spoints[sample(1:npoints,size=npoints2,replace=F),]
 ##
 tcks <- seq(0,100,by=10)
 convf <- 50
 #tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.',cex.axis=1)
-pdff(paste0('_exampledistr_',names(px1)[choosepx]))
+    pdff(paste0('exampledistr_','full','_',names(px1)[choosepx]))
 tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)))
+    dev.off()
+##     pdff(paste0('help_exampledistr'))
+## tplot(x=list(X=(spoints[,1])), y=list(Y=(spoints[,2])), type='p', pch='.', cex=1, cex.axis=1)
+##     dev.off()
+##
+pdff(paste0('exampledistr_','sample','_',names(px1)[choosepx]))
+tplot(x=list(X=transfx(spoints2[,1])), y=list(Y=transfy(spoints2[,2])), type='p', pch=15, alpha=0.125, cex=0.75, col=4, lwd=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)))
 dev.off()
-pdff('_exampledistr_empty')
+##
+pdff(paste0('exampledistr_','combo','_',names(px1)[choosepx]))
+tplot(x=list(X=transfx(spoints[,1])), y=list(Y=transfy(spoints[,2])), type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)))
+tplot(x=list(X=transfx(spoints2[,1])), y=list(Y=transfy(spoints2[,2])), type='p', pch=15, alpha=0.125, cex=0.75, col=4, lwd=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)),add=T)
+dev.off()
+
+
+set.seed(111)
+unlikelypoints <- t(cbind(
+    matrix(rnorm(round(npoints*3/6)*2,mean=c(23,15),sd=4),nrow=2),
+    matrix(rnorm(round(npoints*2/6)*2,mean=c(28,22),sd=3),nrow=2),
+    matrix(rnorm(round(npoints*1/6)*2,mean=c(32,28),sd=2),nrow=2)
+))
+pdff(paste0('exampledistr_','unlikely','_',names(px1)[choosepx]))
+tplot(x=list(X=transfx(unlikelypoints[,1])), y=list(Y=transfy(unlikelypoints[,2])), type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)))
+tplot(x=list(X=transfx(spoints2[,1])), y=list(Y=transfy(spoints2[,2])), type='p', pch=15, alpha=0.125, cex=0.75, col=4, lwd=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)),add=T)
+dev.off()
+##
+strangepoints <- t(matrix(rnorm(round(npoints/npoints2)*npoints2*2,mean=t(spoints2),sd=0.5),nrow=2))
+pdff(paste0('exampledistr_','strange','_',names(px1)[choosepx]))
+tplot(x=list(X=transfx(strangepoints[,1])), y=list(Y=transfy(strangepoints[,2])), type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)))
+tplot(x=list(X=transfx(spoints2[,1])), y=list(Y=transfy(spoints2[,2])), type='p', pch=15, alpha=0.125, cex=0.75, col=4, lwd=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)),add=T)
+dev.off()
+
+##
+OKpoints <- t(matrix(rnorm(round(npoints/npoints2)*npoints2*2,mean=t(spoints2),sd=6),nrow=2))
+pdff(paste0('exampledistr_','okish','_',names(px1)[choosepx]))
+tplot(x=list(X=transfx(OKpoints[,1])), y=list(Y=transfy(OKpoints[,2])), type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)))
+tplot(x=list(X=transfx(spoints2[,1])), y=list(Y=transfy(spoints2[,2])), type='p', pch=15, alpha=0.125, cex=0.75, col=4, lwd=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)),add=T)
+dev.off()
+
+ygrid <- seq(4.4,4.8,length.out=512)
+distr18 <- samplesF(Y=cbind(Y=itransfy(ygrid)),X=cbind(X=itransfx(16)), parmList=parmList)
+tplot(x=transfy(ygrid),y=distr18,lwd=20,col=3,xgrid=F,ygrid=F,xticks=F,yticks=F,xlab=NA,ylab=NA)
+
+
+
+
+pdff('exampledistr_empty')
 tplot(x=NA, y=NA, type='p', pch='.', cex=1, cex.axis=1, xlim=transfx(c(0,75)), ylim=transfy(c(0,110)), xlab='X', ylab='Y')
 dev.off()
 
