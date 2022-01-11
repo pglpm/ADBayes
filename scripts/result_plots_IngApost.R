@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-11T18:27:41+0100
+## Last-Updated: 2022-01-11T22:16:41+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -284,18 +284,24 @@ for(iacov in 1:length(otherCovs[orderc])){acov <- otherCovs[orderc][iacov]
     }else{xticks <- NULL
     xlabels <- TRUE}
 ylim <- c(0,1)
-    xlim <- c(NA,NA)
+    xlim <- range(agrid)
     if(acov %in% binaryCovs){
         xticks <- 0:1
         xlim <- c(-0.25,1.25)
     }
-    tplot(x=agrid, y=qdistsAF[[acov]][1,,'AD'],
+    tplot(x=c(-100,100), y=c(-100,100),type='p',
           col=2, lty=1, lwd=3, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
           yticks=(0:4)/4, ylabels=(if((iacov-1)%%4==0){c('0%','25%','50%','75%','100%')}else{F}),cex.axis=1.25,cex.lab=1.5,ly=(if((iacov-1)%%4==0){2.5}else{0}),
           xlab=svnames[acov], ylab=NA)#(if((iacov-1)%%4==0){'probability of AD onset'}else{NA}))
-    #mtext('probability of AD onset', side=2, outer=T, at=0.5,cex=1)
-    polygon(x=c(agrid,rev(agrid)), y=c(qdistsAF[[acov]][2,,'AD'], rev(qdistsAF[[acov]][3,,'AD'])), col=paste0(palette()[2],'80'), border=NA)
+    polygon(x=c(xlim,rev(xlim)),y=c(0.5,0.5,1,1),col=paste0(palette()[2],'22'),border=NA)
+    polygon(x=c(xlim,rev(xlim)),y=c(0,0,0.5,0.5),col=paste0(palette()[1],'22'),border=NA)
     abline(h=0.5, lty=2, lwd=1, col=4)
+    tplot(x=agrid, y=qdistsAF[[acov]][1,,'AD'],
+          col=darkgrey, lty=1, lwd=3, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
+          yticks=(0:4)/4, ylabels=(if((iacov-1)%%4==0){c('0%','25%','50%','75%','100%')}else{F}),cex.axis=1.25,cex.lab=1.5,ly=(if((iacov-1)%%4==0){2.5}else{0}),
+          xlab=svnames[acov], ylab=NA,add=T)#(if((iacov-1)%%4==0){'probability of AD onset'}else{NA}))
+    #mtext('probability of AD onset', side=2, outer=T, at=0.5,cex=1)
+    polygon(x=c(agrid,rev(agrid)), y=c(qdistsAF[[acov]][2,,'AD'], rev(qdistsAF[[acov]][3,,'AD'])), col=paste0(darkgrey,'80'), border=NA)
 ## legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability'),
 ##        col=palette()[c(2)], lty=c(1), lwd=c(15), cex=1.5, bty='n'
 ##                        )
@@ -820,46 +826,76 @@ dev.off()
 set.seed(149)
 choosesam <- sample(1:ncol(allMI),size=64)
 maxMI <- max(allMI[allothercovs,choosesam])
+plotsingle <- TRUE
+plotall <- TRUE
+plotdrop <- TRUE
+plotunc <- TRUE
 ### Plot of samples of MI of single and discarded features
-pdff(paste0(dirname,'/rankMI_single'))
+pdff(paste0(dirname,'/rankMI_single',plotsingle,'_all',plotall,'_drop',plotdrop,'_unc',plotunc))
+if(plotsingle){
+    if(plotunc){
 tplot(x=allMI[otherCovs[ordersingle],choosesam], type='l',
-      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=7,lwd=1,alpha=0.5,
-      xlim=c(0,maxMI), ylim=c(0,NA))
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=5,lwd=1,alpha=0.5,
+      xlim=c(0,maxMI), ylim=c(0,12))
+}
 tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
-      pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
-      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
-tplot(x=medianallMI[otherCovs[ordersingle]], type='l',
+      pch=16, cex=1.25,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+      xlim=c(0,maxMI), ylim=c(0,12), add=plotunc)
+if(plotunc){
+    tplot(x=medianallMI[otherCovs[ordersingle]], type='l',
       pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1, lty=1, lwd=2,
-      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
-axis(side=3, at=pretty(c(0,maxMI),10), labels=paste0(round(thbound(pretty(c(0,maxMI),10))),'%'), tick=TRUE, lty=1, lwd=0, lwd.ticks=1, col.ticks='#bbbbbb80', cex.axis=1.25, gap.axis=0.25, line=0.5)
-mtext("correct prognoses (TP+TN)", side=3, line=3, cex=1.25)
-for(i in 1:length(otherCovs[ordersingle])){
+      xlim=c(0,maxMI), ylim=c(0,12), add=T)
+}
+    for(i in 1:length(otherCovs[ordersingle])){
     acov <- otherCovs[ordersingle][i]
-    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.5),xpd=NA, col='#000000',cex=1)
+    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.7),xpd=NA, col='#000000',cex=1)
+}
 }
 ##
+if(plotdrop){
+    if(plotunc){
 tplot(x=allMI[dropcovsall[orderdropall],choosesam], y=0:length(dropcovs),type='l',
-      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=7,lwd=1,alpha=0.5,
-      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=2,lwd=1,alpha=0.5,
+      xlim=c(0,maxMI), ylim=c(0,12), add=plotsingle)
+    }
 tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='p',
-      pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6,
-      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
-tplot(x=medianallMI['all'], y=0, type='p',
-      pch=10, cex=2,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=3,
-      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
-tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='l',
+      pch=16, cex=1.25,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6,
+      xlim=c(0,maxMI), ylim=c(0,12), add=plotsingle)
+if(plotunc){
+    tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='l',
       pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6, lty=1, lwd=2,
-      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
+      xlim=c(0,maxMI), ylim=c(0,12), add=T)
+    }
 for(i in 1:length(dropcovs[orderdrop])){
     acov <- dropcovs[orderdrop][i]
-    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.5),xpd=NA, col='#000000',cex=1)
+    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.7),xpd=NA, col='#000000',cex=1)
 }
-    text(x=medianallMI['all'], y=0, labels='all features', adj=c(0.5,-0.5),xpd=NA, col='#000000',cex=1.5)
+}
+if(plotall | plotdrop){
+tplot(x=medianallMI['all'], y=0, type='p',
+      pch=10, cex=2,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=3,
+      xlim=c(0,maxMI), ylim=c(0,12), add=(plotdrop|plotsingle))
+text(x=medianallMI['all'], y=0, labels='all features', adj=c(0.5,-0.7),xpd=NA, col=3,cex=1.25)
+}
+##
+axis(side=3, at=pretty(c(0,maxMI),10), labels=paste0(round(thbound(pretty(c(0,maxMI),10))),'%'), tick=TRUE, lty=1, lwd=0, lwd.ticks=1, col.ticks='#bbbbbb80', cex.axis=1.25, gap.axis=0.25, line=0.5)
+mtext("max achievable correct prognoses (TP+TN)", side=3, line=3, cex=1.25)
 dev.off()
 
 
+set.seed(149)
+choosesam2 <- sample(1:ncol(allMI),size=32)
+tplot(y=t(allMI[dropcovsall[orderdropall],choosesam]), #x=0:length(dropcovs),
+      type='l',
+      pch='+',xticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=2,lwd=1,
+      alpha=0.5,      ylim=c(0,maxMI), xlim=c(0,NA))
+tplot(y=t(allMI[covNames[ordersingle],choosesam]), #x=0:length(dropcovs),
+      type='l',
+      pch='+',xticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=1,lwd=1,
+      alpha=0.5,      ylim=c(0,maxMI), xlim=c(0,NA), add=T)
 
-
+histod <- thist(2*(allMI[dropcovsall[orderdropall[11]],]>allMI[dropcovsall[orderdropall[13]],])-1, n=c(-2,0,+2))
+tplot(x=histod$breaks, y=histod$density,ylim=c(0,NA))
 
 
 
