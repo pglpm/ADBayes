@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-10T18:46:34+0100
+## Last-Updated: 2022-01-11T18:27:41+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -768,12 +768,119 @@ sink()
 ########################
 #### Plots for talk ####
 
-svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
+dropcovs <- paste0('all_minus_',otherCovs)
+dropcovsall <- c('all', dropcovs)
+shnames <- c(
+    sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)}),
+    all='all',
+    sapply(dropcovs,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
+)
 
+thbound <- function(x, N=100){(1/2+(1/2)*sqrt(1-(1-x)^(4/3)))*N}
+## thbounderr <- function(x, N=100){num <- 1/2+(1/2)*sqrt(1-(1-x)^(4/3)); c(num*N, 2*sqrt(num*(1-num)*N))}
+
+allothercovs <- setdiff(rownames(allMI),maincov)
+maxMI <- max(allMI[allothercovs,])
+maxmedianMI <- max(apply(allMI[allothercovs,],1,median))
+medianallMI <- apply(allMI,1,median)
+
+ordersingle <- order(medianallMI[otherCovs],decreasing=F)
+orderdrop <- order(medianallMI[dropcovs],decreasing=T)
+orderdropall <- order(medianallMI[dropcovsall],decreasing=T)
+
+svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
+ordersingle <- order(singleMI[otherCovs,'median'],decreasing=F)
+##
+orderdrop <- order(dropMI[,'median'],decreasing=F)
+minusnames <- names(Xlist)[grepl('^all',names(Xlist))]
+minusnames <- minusnames[c(1,orderdrop+1)]
 svminusnames <- sapply(minusnames,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
 
+### Plot of MI of single and discarded features
+pdff(paste0(dirname,'/rankMI_single'))
+tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+      xlim=c(0,maxMI), ylim=c(0,NA))
+axis(side=3, at=pretty(c(0,maxMI),10), labels=paste0(round(thbound(pretty(c(0,maxMI),10))),'%'), tick=TRUE, lty=1, lwd=0, lwd.ticks=1, col.ticks='#bbbbbb80', cex.axis=1.25, gap.axis=0.25, line=0.5)
+mtext("correct prognoses (TP+TN)", side=3, line=3, cex=1.25)
+for(i in 1:length(otherCovs[ordersingle])){
+    acov <- otherCovs[ordersingle][i]
+    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
+}
+tplot(x=medianallMI[dropcovsall[orderdropall]], y=0:length(dropcovs),type='p',
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+      xlim=c(0,maxMI),add=T)
+for(i in 1:length(dropcovsall[orderdropall])){
+    acov <- dropcovsall[orderdropall][i]
+    text(x=medianallMI[acov], y=i-1, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
+}
+dev.off()
 
-orderdrop <- order(dropMI[,'median'],decreasing=T)
+
+set.seed(149)
+choosesam <- sample(1:ncol(allMI),size=64)
+maxMI <- max(allMI[allothercovs,choosesam])
+### Plot of samples of MI of single and discarded features
+pdff(paste0(dirname,'/rankMI_single'))
+tplot(x=allMI[otherCovs[ordersingle],choosesam], type='l',
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=7,lwd=1,alpha=0.5,
+      xlim=c(0,maxMI), ylim=c(0,NA))
+tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
+      pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
+tplot(x=medianallMI[otherCovs[ordersingle]], type='l',
+      pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1, lty=1, lwd=2,
+      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
+axis(side=3, at=pretty(c(0,maxMI),10), labels=paste0(round(thbound(pretty(c(0,maxMI),10))),'%'), tick=TRUE, lty=1, lwd=0, lwd.ticks=1, col.ticks='#bbbbbb80', cex.axis=1.25, gap.axis=0.25, line=0.5)
+mtext("correct prognoses (TP+TN)", side=3, line=3, cex=1.25)
+for(i in 1:length(otherCovs[ordersingle])){
+    acov <- otherCovs[ordersingle][i]
+    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.5),xpd=NA, col='#000000',cex=1)
+}
+##
+tplot(x=allMI[dropcovsall[orderdropall],choosesam], y=0:length(dropcovs),type='l',
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=7,lwd=1,alpha=0.5,
+      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
+tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='p',
+      pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6,
+      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
+tplot(x=medianallMI['all'], y=0, type='p',
+      pch=10, cex=2,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=3,
+      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
+tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='l',
+      pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6, lty=1, lwd=2,
+      xlim=c(0,maxMI), ylim=c(0,NA), add=T)
+for(i in 1:length(dropcovs[orderdrop])){
+    acov <- dropcovs[orderdrop][i]
+    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.5),xpd=NA, col='#000000',cex=1)
+}
+    text(x=medianallMI['all'], y=0, labels='all features', adj=c(0.5,-0.5),xpd=NA, col='#000000',cex=1.5)
+dev.off()
+
+
+
+
+
+
+
+
+pdff(paste0(dirname,'/rankMI_single'))
+tplot(x=singleMI[otherCovs[ordersingle],'median'], type='p',
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+      xlim=c(0,maxMI))
+for(i in 1:length(otherCovs[ordersingle])){
+    acov <- otherCovs[ordersingle][i]
+    text(x=singleMI[acov,'median'], y=i, labels=svnames[acov], adj=c(0.5,-0.5),xpd=NA, col=1,cex=1.5)
+}
+tplot(x=dropMI[otherCovs[ordersingle],'median'], type='p',
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+      xlim=c(0,maxMI))
+for(i in 1:length(otherCovs[ordersingle])){
+    acov <- otherCovs[ordersingle][i]
+    text(x=singleMI[acov,'median'], y=i, labels=svnames[acov], adj=c(0.5,-0.5),xpd=NA, col=1,cex=1.5)
+}
+dev.off()
+
 
 histosmi <- apply(allMI,1,function(aMI){thist(aMI,n=16)})
 maxsmi <- sapply(histosmi,function(ahis){max(ahis$density)})
@@ -782,8 +889,6 @@ maxsmi <- sapply(histosmi,function(ahis){max(ahis$density)})
 ##       y=list(histosmi[['FAQ']]$density, histosmi[['GDTOTAL_gds']]$density),
 ##       border=NA)
 ##
-minusnames <- names(Xlist)[grepl('^all',names(Xlist))]
-minusnames <- minusnames[c(1,orderdrop+1)]
 
 set.seed(149)
 choosesam <- sample(1:ncol(allMI),size=64)
