@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-12T05:24:30+0100
+## Last-Updated: 2022-01-12T10:46:50+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -107,6 +107,7 @@ alldata <- alldata[,..covNames]
 ## ##
 ## probx <- samplesF(X=NULL, Y=data.matrix(alldata[2,..otherCovs]), parmList=parmList, inorder=T)
 
+
 grids <- foreach(acov=covNames)%do%{
     rg <- range(alldata[[acov]], na.rm=T)
     if(acov %in% realCovs){
@@ -139,26 +140,102 @@ qdistsFA <- foreach(acov=otherCovs)%do%{
 }
 names(qdistsFA) <- otherCovs
 
+#allMI <- readRDS(paste0(dirname,'/allMI.rds'))
+orderc <- order(apply(allMI[otherCovs,],1,median),decreasing=T)
+svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
 
-
-## distsFAG <- foreach(acov=setdiff(covNames, c(maincov, 'Gender_num_')))%do%{
-##     dists <- rbind(
-##         samplesF(Y=grids[[acov]], X=matrix(c(0,0),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
-##         samplesF(Y=grids[[acov]], X=matrix(c(1,0),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
-##         samplesF(Y=grids[[acov]], X=matrix(c(0,1),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T),
-##         samplesF(Y=grids[[acov]], X=matrix(c(1,1),nrow=1,dimnames=list(NULL,c(maincov,'Gender_num_'))), parmList=parmList, inorder=T)
-##         )
-##     dim(dists) <- c(length(grids[[acov]]), 2, 2, ncol(dists))
-##     dimnames(dists) <- list(NULL, diseasenames, gendernames, NULL)
-##     aperm(dists, c(4,1,2,3))
-## }
-## names(distsFAG) <- setdiff(covNames, c(maincov, 'Gender_num_'))
-
-## ## quantiles
-## qdistsFAG <- foreach(acov=names(distsFAG))%do%{
-##     apply(distsFAG[[acov]],c(2,3,4),function(x)c(mean(x,na.rm=T), quant(x=x, probs=c(1,15)/16, na.rm=T)))
-## }
-## names(qdistsFAG) <- names(distsFAG)
+## plot of frequencies of features given AD state f(F|AD)
+pdff(paste0(dirname,'/','allplots_features_given_AD'))
+par(mfrow=c(3,4), mai=c(0,0,0,0),oma=c(0,0,0,0))
+#par(mfrow=c(3,4), mai=c(0,0,0,0),oma=c(0,0,0,0),mar=c(0,0,0,0))
+for(acov in otherCovs[orderc]){
+    agrid <- grids[[acov]]
+    ymax <- quant(apply(qdistsFA[[acov]],2,function(x){quant(x,99/100)}),99/100)
+    ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
+    xlim <- c(NA,NA)
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+        xlabels <- TRUE}
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
+    for(i in 1:2){
+        tplot(x=agrid, y=qdistsFA[[acov]][1,,i], yticks=NULL, xlim=xlim,
+              col=i, lty=i, lwd=3, alpha=0.25, ylim=ylim, xticks=xticks, xlabels=xlabels,ylabels=F,cex.axis=1.25,cex.lab=1.5,ly=0,
+              xlab=svnames[acov], ylab=NA, add=(i==2))
+        polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
+    }
+    ## legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients who will have ',diseasenames), '87.5% uncertainty'),
+    ##        col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
+    ##        )
+    ## for(i in 1:2){
+    ##     histo <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=32)
+    ##     tplot(x=histo$breaks,y=histo$density,col=i,border=NA,alpha=0.75,xgrid=F,ygrid=F,add=T)
+    ## }
+}
+dev.off()
+## plot of samples of frequencies of features given AD state f(F|AD)
+pdff(paste0(dirname,'/','exampleplotsamples_features_given_AD'))
+for(acov in otherCovs[orderc[1]]){
+    agrid <- grids[[acov]]
+    ymax <- quant(apply(distsFA[[acov]],2,function(x){quant(x,99/100)}),99/100)
+    ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
+    xlim <- c(NA,NA)
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+        xlabels <- TRUE}
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
+    subsam <- seq(1,dim(distsFA[[acov]])[1], length.out=128)
+    tplot(x=agrid, y=matrix(
+                       rbind(t(distsFA[[acov]][subsam,,1]),t(distsFA[[acov]][subsam,,2])),
+                       nrow=length(agrid)),
+          yticks=NULL, xlim=xlim,
+              col=c(5,2), lty=1, lwd=1, alpha=0.75, ylim=ylim, xticks=xticks, xlabels=xlabels,
+              xlab=svnames[acov], ylab='population frequency')
+}
+dev.off()
+## plot of samples of frequencies of features given AD state f(F|AD)
+pdff(paste0(dirname,'/','exampleplot_features_given_AD'))
+for(acov in otherCovs[orderc[1]]){
+    agrid <- grids[[acov]]
+    ##ymax <- quant(apply(qdistsFA[[acov]],2,function(x){quant(x,99/100)}),99/100)
+    ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
+    xlim <- c(NA,NA)
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+        xlabels <- TRUE}
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
+    for(i in 1:2){
+        tplot(x=agrid, y=qdistsFA[[acov]][1,,i], yticks=NULL, xlim=xlim,
+              col=i, lty=i, lwd=4, alpha=0.25, ylim=ylim, xticks=xticks, xlabels=xlabels,
+              xlab=svnames[acov], ylab='population frequency', add=(i==2))
+        polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
+    }
+    ## legend(x=agrid[1], y=ylim[2]*1.2, legend=c(paste0('distribution for patients who will have ',diseasenames), '87.5% uncertainty'),
+    ##        col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
+    ##        )
+    ## for(i in 1:2){
+    ##     histo <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=32)
+    ##     tplot(x=histo$breaks,y=histo$density,col=i,border=NA,alpha=0.75,xgrid=F,ygrid=F,add=T)
+    ## }
+}
+dev.off()
 
 
 
@@ -196,44 +273,47 @@ qdistsAF <- foreach(acov=otherCovs)%do%{
 }
 names(qdistsAF) <- otherCovs
 
-## plot of frequencies of features given AD state f(F|AD)
-## pdff(paste0(dirname,'/','data_histograms_given_AD'))
-## for(acov in otherCovs){
-##     agrid <- grids[[acov]]
-##     histo <- list()
-##     ymax <- -Inf
-##     for(i in 1:2){
-##         histo[[i]] <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=if(acov %in% realCovs){seq(min(agrid),max(agrid),length.out=32)}else{'i'})
-##         ymax <- max(ymax, histo[[i]]$counts)
-##             }
-##     ylim <- c(0,ymax)#max(qdistsFA[[acov]]))
-##     xlim <- c(NA,NA)
-##     tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
-##     if(!any(is.na(tpar))){
-##         xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
-##         xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
-##     }else{xticks <- NULL
-##         xlabels <- TRUE}
-##     if(acov %in% binaryCovs){
-##         xticks <- 0:1
-##         xlim <- c(-0.25,1.25)
-##     }
-##     freqs <- histo[[2]]$counts/(histo[[1]]$counts+histo[[2]]$counts)
-##     maxf <- max(freqs,na.rm=T)
-##     for(i in 1:2){
-##         ## histo <- thist(c(data.matrix(alldata[get(maincov)==(i-1),..acov])),n=if(acov %in% realCovs){seq(min(agrid),max(agrid),length.out=32)}else{'i'})
-##         tplot(x=histo[[i]]$breaks,y=histo[[i]]$counts,col=i,alpha=0.75,
-##               yticks=NULL, xlim=xlim,
-##                ylim=ylim, xticks=xticks, xlabels=xlabels,
-##               xlab=acov, ylab='data counts', add=(i==2))
-##         ## polygon(x=c(agrid,rev(agrid)), y=c(qdistsFA[[acov]][2,,i], rev(qdistsFA[[acov]][3,,i])), col=paste0(palette()[i],'40'), border=NA)
-##         tplot(x=histo[[i]]$mids,y=-freqs/maxf*ymax,col=i)
-##     }
-##     legend(x='topright', legend=c(paste0('',diseasenames)),
-##            col=palette()[c(1,2,7)], lty=c(1,2,1), lwd=c(3,3,15), cex=1.5, bty='n', xpd=T
-##            )
-## }
-## dev.off()
+## plot of frequencies of AD state given features, f(AD|F)
+pdff(paste0(dirname,'/','allplots_predictAD'))
+par(mfrow=c(3,4), mai=c(0,0,0,0),oma=c(0,0,0,0))
+for(iacov in 1:length(otherCovs[orderc])){acov <- otherCovs[orderc][iacov]
+    agrid <- grids[[acov]]
+    tpar <- unlist(variateinfo[variate==acov,c('transfM','transfW')])
+    if(!any(is.na(tpar))){
+        xlabels <- pretty(exp(tpar['transfW']*agrid + tpar['transfM']),n=10)
+        xticks <- (log(xlabels)-tpar['transfM'])/tpar['transfW']
+    }else{xticks <- NULL
+    xlabels <- TRUE}
+ylim <- c(0,1)
+    xlim <- range(agrid)
+    if(acov %in% binaryCovs){
+        xticks <- 0:1
+        xlim <- c(-0.25,1.25)
+    }
+    tplot(x=c(-100,100), y=c(-100,100),type='p',
+          col=2, lty=1, lwd=3, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
+          yticks=(0:4)/4, ylabels=(if((iacov-1)%%4==0){c('0%','25%','50%','75%','100%')}else{F}),cex.axis=1.25,cex.lab=1.5,ly=(if((iacov-1)%%4==0){2.5}else{0}),
+          xlab=svnames[acov], ylab=NA)#(if((iacov-1)%%4==0){'probability of AD onset'}else{NA}))
+    polygon(x=c(xlim,rev(xlim)),y=c(0.5,0.5,1,1),col=paste0(palette()[2],'22'),border=NA)
+    polygon(x=c(xlim,rev(xlim)),y=c(0,0,0.5,0.5),col=paste0(palette()[1],'22'),border=NA)
+    abline(h=0.5, lty=2, lwd=1, col=4)
+    tplot(x=agrid, y=qdistsAF[[acov]][1,,'AD'],
+          col=darkgrey, lty=1, lwd=3, ylim=ylim, xlim=xlim, xticks=xticks, xlabels=xlabels,
+          yticks=(0:4)/4, ylabels=(if((iacov-1)%%4==0){c('0%','25%','50%','75%','100%')}else{F}),cex.axis=1.25,cex.lab=1.5,ly=(if((iacov-1)%%4==0){2.5}else{0}),
+          xlab=svnames[acov], ylab=NA,add=T)#(if((iacov-1)%%4==0){'probability of AD onset'}else{NA}))
+    #mtext('probability of AD onset', side=2, outer=T, at=0.5,cex=1)
+    polygon(x=c(agrid,rev(agrid)), y=c(qdistsAF[[acov]][2,,'AD'], rev(qdistsAF[[acov]][3,,'AD'])), col=paste0(darkgrey,'80'), border=NA)
+## legend(x=agrid[1], y=ylim[2]*1, legend=c('87.5% uncertainty on the probability'),
+##        col=palette()[c(2)], lty=c(1), lwd=c(15), cex=1.5, bty='n'
+##                        )
+}
+dev.off()
+
+
+
+###################################
+#### Graphs
+
 
 ## plot of frequencies of features given AD state f(F|AD)
 pdff(paste0(dirname,'/','data_histogramsprobs_given_AD'),paper='a4')
@@ -580,8 +660,8 @@ Xlist <- c(
 )
 names(Xlist) <- c(covNames, 'all', paste0('all_minus_',otherCovs))
 
-allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^15)
-saveRDS(allMI, paste0(dirname,'/allMI2.rds'))
+## allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^15)
+## saveRDS(allMI, paste0(dirname,'/allMI2.rds'))
 
 ## allMI <- readRDS(paste0(dirname,'/allMI.rds'))
 
@@ -716,13 +796,13 @@ ordersingle <- order(medianallMI[otherCovs],decreasing=F)
 orderdrop <- order(medianallMI[dropcovs],decreasing=T)
 orderdropall <- order(medianallMI[dropcovsall],decreasing=T)
 
-svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
-ordersingle <- order(singleMI[otherCovs,'median'],decreasing=F)
-##
-orderdrop <- order(dropMI[,'median'],decreasing=F)
-minusnames <- names(Xlist)[grepl('^all',names(Xlist))]
-minusnames <- minusnames[c(1,orderdrop+1)]
-svminusnames <- sapply(minusnames,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
+## svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
+## ordersingle <- order(singleMI[otherCovs,'median'],decreasing=F)
+## ##
+## orderdrop <- order(dropMI[,'median'],decreasing=F)
+## minusnames <- names(Xlist)[grepl('^all',names(Xlist))]
+## minusnames <- minusnames[c(1,orderdrop+1)]
+## svminusnames <- sapply(minusnames,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
 
 ### Plot of MI of single and discarded features
 pdff(paste0(dirname,'/rankMI_single'))
@@ -748,6 +828,7 @@ dev.off()
 set.seed(149)
 choosesam <- sample(1:ncol(allMI),size=64)
 maxMI <- max(allMI[allothercovs,choosesam])
+maxy <- 11
 plotsingle <- TRUE
 plotall <- TRUE
 plotdrop <- TRUE
@@ -758,15 +839,15 @@ if(plotsingle){
     if(plotunc){
 tplot(x=allMI[otherCovs[ordersingle],choosesam], type='l',
       pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=5,lwd=1,alpha=0.5,
-      xlim=c(0,maxMI), ylim=c(0,12))
+      xlim=c(0,maxMI), ylim=c(0,maxy))
 }
 tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
       pch=16, cex=1.25,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
-      xlim=c(0,maxMI), ylim=c(0,12), add=plotunc)
+      xlim=c(0,maxMI), ylim=c(0,maxy), add=plotunc)
 if(FALSE){
     tplot(x=medianallMI[otherCovs[ordersingle]], type='l',
       pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1, lty=1, lwd=2,
-      xlim=c(0,maxMI), ylim=c(0,12), add=T)
+      xlim=c(0,maxMI), ylim=c(0,maxy), add=T)
 }
     for(i in 1:length(otherCovs[ordersingle])){
     acov <- otherCovs[ordersingle][i]
@@ -778,15 +859,15 @@ if(plotdrop){
     if(plotunc){
 tplot(x=allMI[dropcovsall[orderdropall],choosesam], y=0:length(dropcovs),type='l',
       pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=2,lwd=1,alpha=0.5,
-      xlim=c(0,maxMI), ylim=c(0,12), add=plotsingle)
+      xlim=c(0,maxMI), ylim=c(0,maxy), add=plotsingle)
     }
 tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='p',
       pch=16, cex=1.25,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6,
-      xlim=c(0,maxMI), ylim=c(0,12), add=plotsingle)
+      xlim=c(0,maxMI), ylim=c(0,maxy), add=plotsingle)
 if(FALSE){
     tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='l',
       pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6, lty=1, lwd=2,
-      xlim=c(0,maxMI), ylim=c(0,12), add=T)
+      xlim=c(0,maxMI), ylim=c(0,maxy), add=T)
     }
 for(i in 1:length(dropcovs[orderdrop])){
     acov <- dropcovs[orderdrop][i]
@@ -796,7 +877,7 @@ for(i in 1:length(dropcovs[orderdrop])){
 if(plotall | plotdrop){
 tplot(x=medianallMI['all'], y=0, type='p',
       pch=10, cex=2,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=3,
-      xlim=c(0,maxMI), ylim=c(0,12), add=(plotdrop|plotsingle))
+      xlim=c(0,maxMI), ylim=c(0,maxy), add=(plotdrop|plotsingle))
 text(x=medianallMI['all'], y=0, labels='all features', adj=c(0.5,-0.7),xpd=NA, col=3,cex=1.25)
 }
 ##

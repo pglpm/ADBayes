@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-12T05:21:13+0100
+## Last-Updated: 2022-01-12T08:16:19+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -662,7 +662,7 @@ names(Xlist) <- c(covNames, 'all', paste0('all_minus_',otherCovs))
 ## allMI2 <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^15)
 ## saveRDS(allMI2, paste0(dirname,'/allMI2.rds'))
 
-allMI <- readRDS(paste0(dirname,'/allMI.rds'))
+allMI <- readRDS(paste0(dirname,'/allMI2.rds'))
 
 tquant <- function(xx){yy <- quantile(xx, c(1,4,7)/8, na.rm=T, type=8)
     names(yy) <- c('O1','median','O3')
