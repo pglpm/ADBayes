@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-12T08:16:19+0100
+## Last-Updated: 2022-01-12T11:07:18+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -139,7 +139,7 @@ qdistsFA <- foreach(acov=otherCovs)%do%{
 }
 names(qdistsFA) <- otherCovs
 
-allMI <- readRDS(paste0(dirname,'/allMI.rds'))
+allMI <- readRDS(paste0(dirname,'/allMI2.rds'))
 orderc <- order(apply(allMI[otherCovs,],1,median),decreasing=T)
 svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
 
@@ -795,33 +795,33 @@ ordersingle <- order(medianallMI[otherCovs],decreasing=F)
 orderdrop <- order(medianallMI[dropcovs],decreasing=T)
 orderdropall <- order(medianallMI[dropcovsall],decreasing=T)
 
-svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
-ordersingle <- order(singleMI[otherCovs,'median'],decreasing=F)
-##
-orderdrop <- order(dropMI[,'median'],decreasing=F)
-minusnames <- names(Xlist)[grepl('^all',names(Xlist))]
-minusnames <- minusnames[c(1,orderdrop+1)]
-svminusnames <- sapply(minusnames,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
+## svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
+## ordersingle <- order(singleMI[otherCovs,'median'],decreasing=F)
+## ##
+## orderdrop <- order(dropMI[,'median'],decreasing=F)
+## minusnames <- names(Xlist)[grepl('^all',names(Xlist))]
+## minusnames <- minusnames[c(1,orderdrop+1)]
+## svminusnames <- sapply(minusnames,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
 
-### Plot of MI of single and discarded features
-pdff(paste0(dirname,'/rankMI_single'))
-tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
-      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
-      xlim=c(0,maxMI), ylim=c(0,NA))
-axis(side=3, at=pretty(c(0,maxMI),10), labels=paste0(round(thbound(pretty(c(0,maxMI),10))),'%'), tick=TRUE, lty=1, lwd=0, lwd.ticks=1, col.ticks='#bbbbbb80', cex.axis=1.25, gap.axis=0.25, line=0.5)
-mtext("correct prognoses (TP+TN)", side=3, line=3, cex=1.25)
-for(i in 1:length(otherCovs[ordersingle])){
-    acov <- otherCovs[ordersingle][i]
-    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
-}
-tplot(x=medianallMI[dropcovsall[orderdropall]], y=0:length(dropcovs),type='p',
-      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
-      xlim=c(0,maxMI),add=T)
-for(i in 1:length(dropcovsall[orderdropall])){
-    acov <- dropcovsall[orderdropall][i]
-    text(x=medianallMI[acov], y=i-1, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
-}
-dev.off()
+## ### Plot of MI of single and discarded features
+## pdff(paste0(dirname,'/rankMI_single'))
+## tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
+##       pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+##       xlim=c(0,maxMI), ylim=c(0,NA))
+## axis(side=3, at=pretty(c(0,maxMI),10), labels=paste0(round(thbound(pretty(c(0,maxMI),10))),'%'), tick=TRUE, lty=1, lwd=0, lwd.ticks=1, col.ticks='#bbbbbb80', cex.axis=1.25, gap.axis=0.25, line=0.5)
+## mtext("correct prognoses (TP+TN)", side=3, line=3, cex=1.25)
+## for(i in 1:length(otherCovs[ordersingle])){
+##     acov <- otherCovs[ordersingle][i]
+##     text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
+## }
+## tplot(x=medianallMI[dropcovsall[orderdropall]], y=0:length(dropcovs),type='p',
+##       pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+##       xlim=c(0,maxMI),add=T)
+## for(i in 1:length(dropcovsall[orderdropall])){
+##     acov <- dropcovsall[orderdropall][i]
+##     text(x=medianallMI[acov], y=i-1, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
+## }
+## dev.off()
 
 
 set.seed(149)
