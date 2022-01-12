@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-01-08T18:31:25+0100
-## Last-Updated: 2022-01-10T15:38:18+0100
+## Last-Updated: 2022-01-12T22:14:38+0100
 ################
 ## Illustrations for MMIV talk on Alzheimer analysis
 ################
@@ -130,6 +130,10 @@ tplot(x=list(X=transfx(spoints2[,1])), y=list(Y=transfy(spoints2[,2])), type='p'
 dev.off()
 
 
+
+
+
+
 set.seed(111)
 unlikelypoints <- t(cbind(
     matrix(rnorm(round(npoints*3/6)*2,mean=c(23,15),sd=4),nrow=2),
@@ -157,6 +161,40 @@ dev.off()
 ygrid <- seq(4.4,4.8,length.out=512)
 distr18 <- samplesF(Y=cbind(Y=itransfy(ygrid)),X=cbind(X=itransfx(16)), parmList=parmList)
 tplot(x=transfy(ygrid),y=distr18,lwd=20,col=3,xgrid=F,ygrid=F,xticks=F,yticks=F,xlab=NA,ylab=NA)
+
+
+xgrid <- seq(0,100,length.out=512)
+distrx <- normalize(dnorm(xgrid,itransfx(14),15))
+tplot(x=transfx(xgrid),y=distrx,lwd=10,col=3,xgrid=F,ygrid=F,xticks=F,yticks=F,xlab=NA,ylab=NA)
+
+px1 <- list(all=1,
+            left=normalize(dcauchy(meanR[1,1,],15,1)),
+            right=normalize(dcauchy(meanR[1,1,],70,15))
+                      )
+
+
+
+distr18 <- samplesF(Y=cbind(Y=itransfy(ygrid)),X=cbind(X=itransfx(16)), parmList=parmList)
+tplot(x=transfy(ygrid),y=distr18,lwd=20,col=3,xgrid=F,ygrid=F,xticks=F,yticks=F,xlab=NA,ylab=NA)
+
+
+
+oparmList <- readRDS('../scripts/Ing_posteriorA_-V13-D678-K75-I1024/_frequencies-RIng_posteriorA_3-V13-D678-K75-I1024.rds')
+
+
+distrbin <- samplesX(parmList=oparmList, nperf=2)
+nsambin <- 64
+pdff('example_distr_bin')
+tplot(y=distrbin[1:nsambin,maincov], x=distrbin[1:nsambin,'RAVLT_immediate'], type='p', pch=20, cex=0.5, ylim=c(-0.5,1.5), col=black, xlim=c(5,70), yticks=0:1,xlab='X',ylab='Y')
+dev.off()
+
+ygrid0 <- apply(samplesF(Y=cbind(RAVLT_immediate=5:70), X=c(Subgroup_num_=0), parmList=oparmList),1,mean)
+
+ygrid1 <- apply(samplesF(Y=cbind(RAVLT_immediate=5:70), X=c(Subgroup_num_=1), parmList=oparmList),1,mean)
+
+tplot(x=5:70, y=ygrid0, cex=0.5, xlim=c(5,70), ygrid=F, xgrid=F, yticks=F, xticks=F, xlab=NA,ylab=NA, lwd=10, col=1)
+
+tplot(x=5:70, y=ygrid1, cex=0.5, xlim=c(5,70), ygrid=F, xgrid=F, yticks=F, xticks=F, xlab=NA,ylab=NA, lwd=10, col=2, lty=2)
 
 
 
