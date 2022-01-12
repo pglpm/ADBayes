@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-12T11:11:37+0100
+## Last-Updated: 2022-01-12T11:14:11+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -781,7 +781,7 @@ dropcovsall <- c('all', dropcovs)
 shnames <- c(
     sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)}),
     all='all',
-    sapply(dropcovs,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
+    sapply(dropcovs,function(acov){gsub('all_(minus_)*([^_]+)_*.*', 'all \\\\ \\2', acov)})
 )
 
 thbound <- function(x, N=100){(1/2+(1/2)*sqrt(1-(1-x)^(4/3)))*N}
@@ -805,24 +805,24 @@ orderdropall <- order(medianallMI[dropcovsall],decreasing=T)
 ## svminusnames <- sapply(minusnames,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
 
 ### Plot of MI of single and discarded features
-pdff(paste0(dirname,'/rankMI_single'))
-tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
-      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
-      xlim=c(0,maxMI), ylim=c(0,NA))
-axis(side=3, at=pretty(c(0,maxMI),10), labels=paste0(round(thbound(pretty(c(0,maxMI),10))),'%'), tick=TRUE, lty=1, lwd=0, lwd.ticks=1, col.ticks='#bbbbbb80', cex.axis=1.25, gap.axis=0.25, line=0.5)
-mtext("correct prognoses (TP+TN)", side=3, line=3, cex=1.25)
-for(i in 1:length(otherCovs[ordersingle])){
-    acov <- otherCovs[ordersingle][i]
-    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
-}
-tplot(x=medianallMI[dropcovsall[orderdropall]], y=0:length(dropcovs),type='p',
-      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
-      xlim=c(0,maxMI),add=T)
-for(i in 1:length(dropcovsall[orderdropall])){
-    acov <- dropcovsall[orderdropall][i]
-    text(x=medianallMI[acov], y=i-1, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
-}
-dev.off()
+## pdff(paste0(dirname,'/rankMI_single'))
+## tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
+##       pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+##       xlim=c(0,maxMI), ylim=c(0,NA))
+## axis(side=3, at=pretty(c(0,maxMI),10), labels=paste0(round(thbound(pretty(c(0,maxMI),10))),'%'), tick=TRUE, lty=1, lwd=0, lwd.ticks=1, col.ticks='#bbbbbb80', cex.axis=1.25, gap.axis=0.25, line=0.5)
+## mtext("correct prognoses (TP+TN)", side=3, line=3, cex=1.25)
+## for(i in 1:length(otherCovs[ordersingle])){
+##     acov <- otherCovs[ordersingle][i]
+##     text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
+## }
+## tplot(x=medianallMI[dropcovsall[orderdropall]], y=0:length(dropcovs),type='p',
+##       pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+##       xlim=c(0,maxMI),add=T)
+## for(i in 1:length(dropcovsall[orderdropall])){
+##     acov <- dropcovsall[orderdropall][i]
+##     text(x=medianallMI[acov], y=i-1, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
+## }
+## dev.off()
 
 
 set.seed(149)
