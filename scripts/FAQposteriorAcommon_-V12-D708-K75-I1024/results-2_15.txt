@@ -1,6 +1,6 @@
 Conditional entropy/bit between Subgroup_num_ and all other features:
-    O1 median     O3 
- 0.744  0.775  0.804 
+    O1 median     O3
+ 0.744  0.775  0.804
 
 
 Conditional entropy between Subgroup_num_ and SINGLE features:
@@ -47,8 +47,8 @@ LRLV_n_long_log  0.034  0.079 0.140
 GDTOTAL_gds      0.022  0.058 0.110
 AGE_log          0.020  0.051 0.093
 Mutual information/bit between Subgroup_num_ and all other features:
-    O1 median     O3 
-  0.19   0.22   0.25 
+    O1 median     O3
+  0.19   0.22   0.25
 
 
 Mutual information between Subgroup_num_ and SINGLE features:
