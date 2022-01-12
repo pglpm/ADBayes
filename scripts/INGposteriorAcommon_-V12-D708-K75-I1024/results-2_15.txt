@@ -1,0 +1,102 @@
+Conditional entropy/bit between Subgroup_num_ and all other features:
+    O1 median     O3
+ 0.770  0.797  0.824
+
+
+Conditional entropy between Subgroup_num_ and SINGLE features:
+                    O1 median    O3
+RAVLT_immediate  0.893  0.912 0.929
+AVDEL30MIN_neuro 0.894  0.913 0.930
+AVDELTOT_neuro   0.918  0.933 0.948
+TRABSCOR_neuro   0.946  0.959 0.970
+LRHHC_n_long_log 0.967  0.975 0.983
+CATANIMSC_neuro  0.966  0.976 0.984
+TRAASCOR_neuro   0.967  0.977 0.985
+ANARTERR_neuro   0.986  0.992 0.996
+AGE_log          0.988  0.993 0.996
+Apoe4_           0.987  0.993 0.996
+Gender_num_      0.991  0.996 0.998
+GDTOTAL_gds      0.992  0.997 0.999
+
+
+Conditional entropy between Subgroup_num_ and all other features minus one (negative values are due to roundoff):
+                    O1 median    O3
+Gender_num_      0.770  0.797 0.824
+Apoe4_           0.770  0.797 0.824
+AGE_log          0.771  0.797 0.824
+GDTOTAL_gds      0.770  0.798 0.824
+LRHHC_n_long_log 0.771  0.798 0.824
+CATANIMSC_neuro  0.771  0.798 0.824
+AVDELTOT_neuro   0.773  0.800 0.825
+RAVLT_immediate  0.773  0.800 0.826
+TRAASCOR_neuro   0.775  0.802 0.827
+AVDEL30MIN_neuro 0.776  0.802 0.827
+ANARTERR_neuro   0.781  0.806 0.831
+TRABSCOR_neuro   0.791  0.816 0.840
+
+
+Relative differences between conditional entropy using all features and those using all features minus one, in %:
+                       O1 median    O3
+TRABSCOR_neuro    1.80000  2.400 3.100
+ANARTERR_neuro    0.79000  1.100 1.600
+AVDEL30MIN_neuro  0.41000  0.580 0.830
+TRAASCOR_neuro    0.32000  0.500 0.720
+RAVLT_immediate   0.25000  0.390 0.580
+AVDELTOT_neuro    0.17000  0.260 0.380
+CATANIMSC_neuro   0.02900  0.063 0.120
+LRHHC_n_long_log  0.02200  0.056 0.100
+AGE_log           0.01400  0.040 0.072
+GDTOTAL_gds       0.01300  0.039 0.075
+Apoe4_           -0.00025  0.017 0.040
+Gender_num_       0.00072  0.016 0.038
+Mutual information/bit between Subgroup_num_ and all other features:
+    O1 median     O3
+ 0.174  0.200  0.226
+
+
+Mutual information between Subgroup_num_ and SINGLE features:
+                       O1  median      O3
+RAVLT_immediate  0.068100 0.08550 0.10300
+AVDEL30MIN_neuro 0.066800 0.08430 0.10300
+AVDELTOT_neuro   0.049400 0.06350 0.07880
+TRABSCOR_neuro   0.027600 0.03790 0.05000
+LRHHC_n_long_log 0.014900 0.02140 0.02900
+CATANIMSC_neuro  0.014100 0.02090 0.02980
+TRAASCOR_neuro   0.012800 0.01970 0.02890
+ANARTERR_neuro   0.002750 0.00542 0.00926
+AGE_log          0.002150 0.00437 0.00774
+Apoe4_           0.002030 0.00428 0.00762
+Gender_num_      0.000419 0.00176 0.00414
+GDTOTAL_gds      0.000160 0.00069 0.00204
+
+
+Mutual information between Subgroup_num_ and all other features minus one (negative values are due to roundoff):
+                    O1 median    O3
+Gender_num_      0.174  0.200 0.226
+Apoe4_           0.174  0.199 0.226
+AGE_log          0.174  0.199 0.226
+GDTOTAL_gds      0.174  0.199 0.226
+CATANIMSC_neuro  0.174  0.199 0.226
+LRHHC_n_long_log 0.174  0.199 0.226
+AVDELTOT_neuro   0.172  0.197 0.224
+RAVLT_immediate  0.171  0.197 0.223
+TRAASCOR_neuro   0.170  0.195 0.222
+AVDEL30MIN_neuro 0.170  0.195 0.221
+ANARTERR_neuro   0.166  0.191 0.215
+TRABSCOR_neuro   0.157  0.181 0.205
+
+
+Relative differences between mutual information using all features and those using all features minus one, in %:
+                      O1 median    O3
+TRABSCOR_neuro    7.5000  9.600 12.00
+ANARTERR_neuro    3.3000  4.500  6.10
+AVDEL30MIN_neuro  1.7000  2.300  3.20
+TRAASCOR_neuro    1.3000  2.000  2.90
+RAVLT_immediate   1.1000  1.500  2.20
+AVDELTOT_neuro    0.7000  1.100  1.50
+CATANIMSC_neuro   0.1200  0.260  0.45
+LRHHC_n_long_log  0.0950  0.220  0.39
+AGE_log           0.0600  0.160  0.28
+GDTOTAL_gds       0.0530  0.150  0.30
+Apoe4_           -0.0011  0.065  0.16
+Gender_num_       0.0030  0.065  0.14

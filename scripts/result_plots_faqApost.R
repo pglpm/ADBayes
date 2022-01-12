@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-10T08:44:33+0100
+## Last-Updated: 2022-01-12T05:24:30+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -572,6 +572,247 @@ dev.off()
 ## long-run mutual infos
 #########################################################
 
+
+Xlist <- c(
+    as.list(covNames),
+    list(otherCovs),
+    lapply(otherCovs,function(x){setdiff(otherCovs,x)})
+)
+names(Xlist) <- c(covNames, 'all', paste0('all_minus_',otherCovs))
+
+allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^15)
+saveRDS(allMI, paste0(dirname,'/allMI2.rds'))
+
+## allMI <- readRDS(paste0(dirname,'/allMI.rds'))
+
+tquant <- function(xx){yy <- quantile(xx, c(1,4,7)/8, na.rm=T, type=8)
+    names(yy) <- c('O1','median','O3')
+    yy
+}
+
+maincovMI <- allMI[maincov,]
+
+mutualinfo <- tquant(allMI['all',])
+
+condH <- tquant(maincovMI-allMI['all',])
+
+singleMI <- t(sapply(otherCovs, function(acov){
+    tquant(allMI[acov,])
+}))
+
+
+singleCH <- t(sapply(otherCovs, function(acov){
+    tquant(maincovMI-allMI[acov,])
+}))
+
+dropMI <- t(sapply(otherCovs, function(acov){
+    tquant(allMI[paste0('all_minus_',acov),])
+}))
+
+dropCH <- t(sapply(otherCovs, function(acov){
+    tquant(maincovMI-allMI[paste0('all_minus_',acov),])
+}))
+
+jointMI <- allMI['all',]
+dropMIrel <- t(sapply(otherCovs, function(acov){
+    aMI <- allMI[paste0('all_minus_',acov),]
+    reldiff <- (1 - aMI/jointMI)*100
+    tquant(reldiff)
+}))
+
+jointCH <- maincovMI-allMI['all',]
+dropCHrel <- t(sapply(otherCovs, function(acov){
+    aMI <- maincovMI-allMI[paste0('all_minus_',acov),]
+    reldiff <- -(1 - aMI/jointCH)*100
+    tquant(reldiff)
+}))
+
+
+######################
+#### Save to file ####
+outfile2 <- paste0(dirname,'/','results-2_15.txt')
+printappr <- function(x,decreasing=T){
+    print(signif(x[order(x[,'median'],decreasing=decreasing),], 3))
+    ## appr <- cbind(
+    ##     ## x,
+    ##     signif(x[,1], ceiling(log10(x[,1]/x[,2]))+2),
+    ##     signif(x[,2],1))
+    ## print(appr[order(x[,1],decreasing=decreasing),])
+}
+##
+sink(outfile2)
+cat('Conditional entropy/bit between', maincov, 'and all other features:\n')
+printappr(rbind(condH),F)
+##
+cat('\n\nConditional entropy between', maincov, 'and SINGLE features:\n')
+printappr(singleCH,F)
+##
+cat('\n\nConditional entropy between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+printappr(dropCH,F)
+##
+cat('\n\nRelative differences between conditional entropy using all features and those using all features minus one, in %:\n')
+## relative difference in mutual information without the variate
+## printappr(
+##     cbind(1-dropMI[,1]/mutualinfo[1],
+##           abs(-dropMI[,2]/mutualinfo[1] +
+##           mutualinfo[2]*dropMI[,1]/(mutualinfo[1]*mutualinfo[1]))
+## #          (dropMI[,2]/dropMI[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropMI[,1]/mutualinfo[1])
+##           )*100
+## )
+## ##
+## cat('\n\n')
+print(
+    signif(dropCHrel[order(dropCHrel[,2],decreasing=T),],2)
+)
+##
+##
+cat('Mutual information/bit between', maincov, 'and all other features:\n')
+printappr(rbind(mutualinfo))
+##
+cat('\n\nMutual information between', maincov, 'and SINGLE features:\n')
+printappr(singleMI)
+##
+cat('\n\nMutual information between', maincov, 'and all other features minus one (negative values are due to roundoff):\n')
+printappr(dropMI)
+##
+cat('\n\nRelative differences between mutual information using all features and those using all features minus one, in %:\n')
+## relative difference in mutual information without the variate
+## printappr(
+##     cbind(1-dropMI[,1]/mutualinfo[1],
+##           abs(-dropMI[,2]/mutualinfo[1] +
+##           mutualinfo[2]*dropMI[,1]/(mutualinfo[1]*mutualinfo[1]))
+## #          (dropMI[,2]/dropMI[,1] + mutualinfo[2]/mutualinfo[1]) * (1-dropMI[,1]/mutualinfo[1])
+##           )*100
+## )
+## ##
+## cat('\n\n')
+print(
+    signif(dropMIrel[order(dropMIrel[,2],decreasing=T),],2)
+)
+##
+sink()
+
+
+########################
+#### Plots for talk ####
+
+dropcovs <- paste0('all_minus_',otherCovs)
+dropcovsall <- c('all', dropcovs)
+shnames <- c(
+    sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)}),
+    all='all',
+    sapply(dropcovs,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
+)
+
+thbound <- function(x, N=100){(1/2+(1/2)*sqrt(1-(1-x)^(4/3)))*N}
+## thbounderr <- function(x, N=100){num <- 1/2+(1/2)*sqrt(1-(1-x)^(4/3)); c(num*N, 2*sqrt(num*(1-num)*N))}
+
+allothercovs <- setdiff(rownames(allMI),maincov)
+maxMI <- max(allMI[allothercovs,])
+maxmedianMI <- max(apply(allMI[allothercovs,],1,median))
+medianallMI <- apply(allMI,1,median)
+
+ordersingle <- order(medianallMI[otherCovs],decreasing=F)
+orderdrop <- order(medianallMI[dropcovs],decreasing=T)
+orderdropall <- order(medianallMI[dropcovsall],decreasing=T)
+
+svnames <- sapply(covNames,function(acov){gsub('([^_]+)_.*', '\\1', acov)})
+ordersingle <- order(singleMI[otherCovs,'median'],decreasing=F)
+##
+orderdrop <- order(dropMI[,'median'],decreasing=F)
+minusnames <- names(Xlist)[grepl('^all',names(Xlist))]
+minusnames <- minusnames[c(1,orderdrop+1)]
+svminusnames <- sapply(minusnames,function(acov){gsub('all_(minus_)*([^_]+)_.*', 'all \\\\ \\2', acov)})
+
+### Plot of MI of single and discarded features
+pdff(paste0(dirname,'/rankMI_single'))
+tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+      xlim=c(0,maxMI), ylim=c(0,NA))
+axis(side=3, at=pretty(c(0,maxMI),10), labels=paste0(round(thbound(pretty(c(0,maxMI),10))),'%'), tick=TRUE, lty=1, lwd=0, lwd.ticks=1, col.ticks='#bbbbbb80', cex.axis=1.25, gap.axis=0.25, line=0.5)
+mtext("correct prognoses (TP+TN)", side=3, line=3, cex=1.25)
+for(i in 1:length(otherCovs[ordersingle])){
+    acov <- otherCovs[ordersingle][i]
+    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
+}
+tplot(x=medianallMI[dropcovsall[orderdropall]], y=0:length(dropcovs),type='p',
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+      xlim=c(0,maxMI),add=T)
+for(i in 1:length(dropcovsall[orderdropall])){
+    acov <- dropcovsall[orderdropall][i]
+    text(x=medianallMI[acov], y=i-1, labels=shnames[acov], adj=c(0.5,-0.75),xpd=NA, col=1,cex=1)
+}
+dev.off()
+
+
+set.seed(149)
+choosesam <- sample(1:ncol(allMI),size=64)
+maxMI <- max(allMI[allothercovs,choosesam])
+plotsingle <- TRUE
+plotall <- TRUE
+plotdrop <- TRUE
+plotunc <- TRUE
+### Plot of samples of MI of single and discarded features
+pdff(paste0(dirname,'/rankMI_single',plotsingle,'_all',plotall,'_drop',plotdrop,'_unc',plotunc))
+if(plotsingle){
+    if(plotunc){
+tplot(x=allMI[otherCovs[ordersingle],choosesam], type='l',
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=5,lwd=1,alpha=0.5,
+      xlim=c(0,maxMI), ylim=c(0,12))
+}
+tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
+      pch=16, cex=1.25,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
+      xlim=c(0,maxMI), ylim=c(0,12), add=plotunc)
+if(FALSE){
+    tplot(x=medianallMI[otherCovs[ordersingle]], type='l',
+      pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1, lty=1, lwd=2,
+      xlim=c(0,maxMI), ylim=c(0,12), add=T)
+}
+    for(i in 1:length(otherCovs[ordersingle])){
+    acov <- otherCovs[ordersingle][i]
+    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.7),xpd=NA, col='#000000',cex=1)
+}
+}
+##
+if(plotdrop){
+    if(plotunc){
+tplot(x=allMI[dropcovsall[orderdropall],choosesam], y=0:length(dropcovs),type='l',
+      pch='+',yticks=NA, ylab=NA, xlab='mutual info/Sh', lty=1,col=2,lwd=1,alpha=0.5,
+      xlim=c(0,maxMI), ylim=c(0,12), add=plotsingle)
+    }
+tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='p',
+      pch=16, cex=1.25,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6,
+      xlim=c(0,maxMI), ylim=c(0,12), add=plotsingle)
+if(FALSE){
+    tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='l',
+      pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6, lty=1, lwd=2,
+      xlim=c(0,maxMI), ylim=c(0,12), add=T)
+    }
+for(i in 1:length(dropcovs[orderdrop])){
+    acov <- dropcovs[orderdrop][i]
+    text(x=medianallMI[acov], y=i, labels=shnames[acov], adj=c(0.5,-0.7),xpd=NA, col='#000000',cex=1)
+}
+}
+if(plotall | plotdrop){
+tplot(x=medianallMI['all'], y=0, type='p',
+      pch=10, cex=2,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=3,
+      xlim=c(0,maxMI), ylim=c(0,12), add=(plotdrop|plotsingle))
+text(x=medianallMI['all'], y=0, labels='all features', adj=c(0.5,-0.7),xpd=NA, col=3,cex=1.25)
+}
+##
+axis(side=3, at=pretty(c(0,maxMI),10), labels=paste0(round(thbound(pretty(c(0,maxMI),10))),'%'), tick=TRUE, lty=1, lwd=0, lwd.ticks=1, col.ticks='#bbbbbb80', cex.axis=1.25, gap.axis=0.25, line=0.5)
+mtext("max achievable correct prognoses (TP+TN)", side=3, line=3, cex=1.25)
+dev.off()
+
+
+
+
+
+#######################################################
+#######################################################
+#######################################################
+#### Old version
+#######################################################
 Xlist <- c(
     as.list(covNames),
     list(otherCovs),

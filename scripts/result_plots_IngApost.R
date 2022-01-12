@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2021-11-25T14:52:14+0100
-## Last-Updated: 2022-01-11T22:16:41+0100
+## Last-Updated: 2022-01-12T05:21:13+0100
 ################
 ## Prediction of population frequencies for Alzheimer study
 ################
@@ -659,8 +659,9 @@ Xlist <- c(
 )
 names(Xlist) <- c(covNames, 'all', paste0('all_minus_',otherCovs))
 
-## allMI <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^13)
-## saveRDS(allMI, paste0(dirname,'/allMI.rds'))
+## allMI2 <- samplesMI(Y=maincov, X=Xlist, parmList=parmList, inorder=F, nperf=2^15)
+## saveRDS(allMI2, paste0(dirname,'/allMI2.rds'))
+
 allMI <- readRDS(paste0(dirname,'/allMI.rds'))
 
 tquant <- function(xx){yy <- quantile(xx, c(1,4,7)/8, na.rm=T, type=8)
@@ -708,7 +709,7 @@ dropCHrel <- t(sapply(otherCovs, function(acov){
 
 ######################
 #### Save to file ####
-outfile2 <- paste0(dirname,'/','results.txt')
+outfile2 <- paste0(dirname,'/','results-2_15.txt')
 printappr <- function(x,decreasing=T){
     print(signif(x[order(x[,'median'],decreasing=decreasing),], 3))
     ## appr <- cbind(
@@ -841,7 +842,7 @@ tplot(x=allMI[otherCovs[ordersingle],choosesam], type='l',
 tplot(x=medianallMI[otherCovs[ordersingle]], type='p',
       pch=16, cex=1.25,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1,
       xlim=c(0,maxMI), ylim=c(0,12), add=plotunc)
-if(plotunc){
+if(FALSE){
     tplot(x=medianallMI[otherCovs[ordersingle]], type='l',
       pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=1, lty=1, lwd=2,
       xlim=c(0,maxMI), ylim=c(0,12), add=T)
@@ -861,7 +862,7 @@ tplot(x=allMI[dropcovsall[orderdropall],choosesam], y=0:length(dropcovs),type='l
 tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='p',
       pch=16, cex=1.25,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6,
       xlim=c(0,maxMI), ylim=c(0,12), add=plotsingle)
-if(plotunc){
+if(FALSE){
     tplot(x=medianallMI[dropcovs[orderdrop]], y=1:length(dropcovs), type='l',
       pch=16, cex=1,yticks=NA, ylab=NA, xlab='mutual info/Sh', col=6, lty=1, lwd=2,
       xlim=c(0,maxMI), ylim=c(0,12), add=T)
