@@ -1,7 +1,7 @@
 \pdfoutput=1
 %% Author: PGL  Porta Mana
 %% Created: 2015-05-01T20:53:34+0200
-%% Last-Updated: 2022-01-03T12:42:24+0100
+%% Last-Updated: 2022-02-03T13:41:53+0100
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newif\ifarxiv
 \arxivfalse
@@ -681,7 +681,7 @@ Open Science Framework \doi{10.31219/osf.io/#1}%
 %\DeclareMathOperator*{\argsup}{arg\,sup}
 \newcommand*{\dob}{degree of belief}
 \newcommand*{\dobs}{degrees of belief}
-\newcommand*{\bit}{\textrm{bit}}
+\newcommand*{\bit}{\textrm{Sh}}
 \newcommand*{\narrow}{\texttt{narrow}}
 \newcommand*{\broad}{\texttt{broad}}
 \newcommand*{\all}{\texttt{all}}
@@ -763,11 +763,11 @@ for them.
 
 The \enquote{predictive power} of a set of features is measured using the
 \emph{mutual information} between that set of features and the predictand
-variate, measured in \emph{bits}. The mutual information can in this case
-range from $0\;\bit$, representing a complete lack of predictive power
-(features and predictand are independent, so we can just as well flip a
-coin to make our prognoses); to $1\;\bit$, representing perfect,
-deterministic prediction.
+variate, measured in \emph{Shannons} (symbol \enquote{$\bit$}, see
+\textcite{iso2008c}). The mutual information can in this case range from
+$0\;\bit$, representing a complete lack of predictive power (features and
+predictand are independent, so we can just as well flip a coin to make our
+prognoses); to $1\;\bit$, representing perfect, deterministic prediction.
 
 The operational meaning of mutual
 information is quickly explained in \sect~\ref{sec:joint} and somewhat
@@ -792,7 +792,7 @@ This is the mutual information for each feature if it were used
 from highest to lowest:
 \begin{center}
   \begin{tabular}[c]{l|ccc}
-    feature &\multicolumn{3}{c}{mutual information/bit} \\
+    feature &\multicolumn{3}{c}{mutual information/Sh} \\
     & \narrow & \broad & \all \\
 \hline
     \texttt{AVDEL30MIN} & 0.13 & 0.1 & 0.09\\
@@ -820,7 +820,7 @@ This is the mutual information for the set of features, used \emph{jointly}:
 \begin{center}
   \begin{tabular}[c]{ccc}
     \narrow & \broad & \all \\
-    0.31\;\bit & 0.20\;\bit & 0.18\;bit
+    0.31\;\bit & 0.20\;\bit & 0.18\;\bit
   \end{tabular}
 \end{center}
 
@@ -1203,7 +1203,7 @@ The \emph{entropy} of the distribution for a variate $Y$, here denoted
 $H(Y)$, represents our uncertainty about future occurrences of that
 variate. For a binary variate it assumes a value between $0\;\bit$
 (complete certainty and exact prediction) and $1\;\bit$ (complete
-uncertainty). A value of $H$ (in bits) means that we are on average
+uncertainty). A value of $H$ (in Shannons) means that we are on average
 uncertain about  $H\,N$ future outcomes. This means that we will on average make
 \begin{multline}
   \label{eq:entropy_est}
