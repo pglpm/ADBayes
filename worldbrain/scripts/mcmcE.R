@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-02T17:38:01+0100
+## Last-Updated: 2022-12-02T23:31:35+0100
 ################
 ## Exchangeable-probability calculation (non-parametric density regression)
 ################
@@ -331,15 +331,47 @@ if(ncvars > 0){
 ##
 ## data
 datapoints = c(
-    if(Rn>0){list( Rdata = Rdata )},
-    if(In>0){list( Idata = Idata )},
-    if(Dn>0){list( Data = Ddata, Daux = Daux )},
-    if(Bn>0){list( Bdata = Bdata )},
-    if(Cn>0){list( Cdata = Cdata )}
+    if(Rn>0){ list(Rdata = t(
+    (sapply(Rvariates, function(v){
+        if(varinfo[v, 'type']==0){ data0[[v]] }else{log(data0[[v]])}
+    }) - varinfo[Rvariates, 'location'])/varinfo[Rvariates, 'scale']
+    )) },
+    if(In>0){ list(Idata = t( round(
+    (varinfo[Ivariates,'n']-1)*(t(data0[,..Ivariates])-varinfo[Ivariates,'min'])/
+    (varinfo[Ivariates,'max']-varinfo[Ivariates,'min'])
+    ))) },
+    if(Dn>0){ list(Data = t(qnorm(
+    (sapply(Dvariates, function(v){
+        dat <- data0[[v]]
+        dat[dat<=varinfo[v,'min'] | dat>=varinfo[v,'max']] <- NA
+        dat
+    }) - varinfo[v, 'location'])/varinfo[v, 'scale']
+    )),
+    Daux = t( (t(data0[,..Dvariates])>varinfo[Dvariates,'min']) +
+             (t(data0[,..Dvariates])>=varinfo[Dvariates,'max']) )
+    )},
+    if(Bn>0){list( Bdata = data.matrix(data0[,..Bvariates]) )},
+    if(Cn>0){list( Cdata = data.matrix(data0[,..Cvariates]) )}
 )
 
-
 ##
+## calculation of some constants
+Imaxn <- max(varinfo[Ivariates, 'n']) - 1
+Iintervals0 <- t(sapply(Ivariates, function(v){
+    imin <- varinfo[v, 'min']
+    imax <- varinfo[v, 'max']
+    inn <- varinfo[v, 'n']
+    c( qnorm( # (imax-imin)/(inn-1) == 2*(imin-loc)
+    ( (0.5:(inn-1.5))*(imax-imin)/(inn-1) + imin - varinfo[v, 'location'] )/
+    varinfo[v, 'scale']
+    ), rep(+Inf, Imaxn-(inn-1)) )
+}))
+##
+Dmaxn <- 2
+Dintervals0 <- t(sapply(Dvariates, function(v){
+    pp <- varinfo[v, 'n']
+    qnorm(c(pp, 1-pp))
+}))
 ## constants
 constants <- c(
     list(nclusters = nclusters),
