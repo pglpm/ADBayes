@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-02T14:38:54+0100
+## Last-Updated: 2022-12-02T17:38:01+0100
 ################
 ## Exchangeable-probability calculation (non-parametric density regression)
 ################
@@ -327,54 +327,91 @@ if(ncvars > 0){
         }
     }
 }
-## constants
-constants <- c(list(nclusters=nclusters),
-               if(nalpha>0){list(nalpha=nalpha,
-                                 walpha0=rep(0.25/nclusters, nclusters))},
-               
-               
-if(nrvars>0){constants$nRvars <- nrvars}
-if(ncvars>0){constants$nCvars <- ncvars
-    constants$nCategories <- ncategories}
-if(nbvars>0){constants$nBvars <- nbvars}
-if(posterior){constants$nData <- ndata}
+
 ##
+## data
+datapoints = c(
+    if(Rn>0){list( Rdata = Rdata )},
+    if(In>0){list( Idata = Idata )},
+    if(Dn>0){list( Data = Ddata, Daux = Daux )},
+    if(Bn>0){list( Bdata = Bdata )},
+    if(Cn>0){list( Cdata = Cdata )}
+)
+
+
+##
+## constants
+constants <- c(
+    list(nclusters = nclusters),
+    if(nalpha>0){ list(nalpha = nalpha) },
+    if(Rn>0){ list(Rn = Rn) },
+    if(Dn>0){
+        list(Dn = Dn,
+             Dintervals0 = Dintervals0,
+             Dmaxn = Dmaxn)
+    },
+    if(In>0){
+        list(In = In,
+             Iintervals0 = Iintervals0,
+             Imaxn = Imaxn)
+    },
+    if(Bn>0){ list(Bn = Bn) },
+    if(Cn>0){
+        list(Cn = Cn,
+             Cmaxn = Cmaxn)
+    },
+    if(posterior){ list(ndata = ndata)}
+)
+##
+## hyperparameters and some initial values
 initsFunction <- function(){
-    c(list(
-        qalpha0 = rep(alpha/nclusters, nclusters) # cluster probabilities
-    ),
-    if(alphavariable){# categorical distribution for conc. parameter
-list(probalpha = rep(1/3, 3))
-    },
-    if(nrvars > 0){# real variates
-        list(
-            meanRmean0 = varinfo[realVars,'location']*0,
-            meanRvar0 = (3 * (varinfo[realVars,'scale']*0+1))^2,
-            varRshape2shape = varinfo[realVars,'shape2shape']
-        )
-    },
-    if(compoundgamma & nrvars > 0){
-        list(varRshape1 = varinfo[realVars,'shape1rate'])
-    }else{
-        list(varRrate = varinfo[realVars,'shape1rate'])
-    },
-    if(ncvars > 0){# categorical variates
-        list(
-            calpha0 = calphapad
-        )},
-    if(nbvars > 0){# binary variates
-        list(
-            probBa0 = rep(1,nbvars),
-            probBb0 = rep(1,nbvars)
-        )},
-    if((!casualinitvalues) & posterior){list(
-                                            q = rep(1/nclusters, nclusters),
-                                            C = rep(1, ndata)  # cluster occupations: all in one cluster at first
-                                        )},
-    if(casualinitvalues & posterior){
-        list(q = rdirch(1, alpha=rep(1,nclusters)),
-             ## C = rep(1, ndata))
-             C = sample(1:nclusters, ndata, replace=TRUE))
+    c(
+        if(nalpha>1){# distribution over concentration parameter
+            list(probalpha0 = rep(1/nalpha, nalpha),
+                 walpha0 = matrix(c(0.5, 1, 2)/nclusters,
+                                  nrow=nalpha, ncol=nclusters) )
+        }else{
+            list(walpha0 = rep(1/nclusters, nclusters))
+        },
+        if(Rn>0){# real variates
+            list(Rmean0 = varinfo[Rvariates, 'mean'],
+                 Rvar0 = varinfo[Rvariates, 'sd']^2,
+                 Rshapeout0 = varinfo[Rvariates, 'shapeout'],
+                 Rshapein0 = varinfo[Rvariates, 'shapein'],
+                 Rvarscale0 = varinfo[Rvariates, 'varscale']^2 )
+        },
+        if(Dn>0){# real variates
+            list(Dmean0 = varinfo[Dvariates, 'mean'],
+                 Dvar0 = varinfo[Dvariates, 'sd']^2,
+                 Dshapeout0 = varinfo[Dvariates, 'shapeout'],
+                 Dshapein0 = varinfo[Dvariates, 'shapein'],
+                 Dvarscale0 = varinfo[Dvariates, 'varscale']^2 )
+        },
+        if(In>0){# real variates
+            list(Imean0 = varinfo[Ivariates, 'mean'],
+                 Ivar0 = varinfo[Ivariates, 'sd']^2,
+                 Ishapeout0 = varinfo[Ivariates, 'shapeout'],
+                 Ishapein0 = varinfo[Ivariates, 'shapein'],
+                 Ivarscale0 = varinfo[Ivariates, 'varscale']^2,
+                 Iaux = Iauxinit)
+        },
+        if(Bn>0){# real variates
+            list(Bshapeout0 = varinfo[Bvariates, 'shapeout'],
+                 Bshapein0 = varinfo[Bvariates, 'shapein'] )
+        },
+        if(Cn>0){# real variates
+            list(Calpha0 = t(sapply(Bvariates, function(v){
+                c( rep(varinfo[v, 'shapeout'], varinfo[v, 'max']),
+                  rep(2^(-40), Cmaxn-varinfo[v, 'max']) )
+            })) )
+        },
+        if((!casualinitvalues) & posterior){
+            list(W = rep(1/nclusters, nclusters),
+                 K = rep(1, ndata) ) # all in one cluster at first
+        },
+        if(casualinitvalues & posterior){
+            list(W = rdirch(1, alpha=rep(1,nclusters)),
+             K = sample(1:nclusters, ndata, replace=TRUE) )
         }
 )}
 
@@ -382,13 +419,16 @@ list(probalpha = rep(1/3, 3))
 ##
 #### Mathematical representation of long-run frequency distributions
 finitemix <- nimbleCode({
-    Alpha <- dcat(prob=probalpha0[1:nalpha])
-    Walpha[1:nclusters] <- 2^Alpha * walpha0[1:nclusters]
-    W[1:nclusters] ~ ddirch(alpha=Walpha[1:nclusters])
+    if(nalpha>1){# distribution over concentration parameter
+        Alpha <- dcat(prob=probalpha0[1:nalpha])
+        W[1:nclusters] ~ ddirch(alpha=walpha0[Alpha, 1:nclusters])
+    }else{
+        W[1:nclusters] ~ ddirch(alpha=walpha0[1:nclusters])
+    }
     ##
     if(Rn>0){# real variates
             for(v in 1:Rn){
-                Rrate[v] ~ dinvgamma(shape=Rshapein0[v], scale=Rscale0[v])
+                Rrate[v] ~ dinvgamma(shape=Rshapein0[v], scale=Rvarscale0[v])
             }
         }
     if(Dn>0){# bounded continuous variates
@@ -405,7 +445,7 @@ finitemix <- nimbleCode({
     for(k in 1:nclusters){
         if(Rn>0){# real variates
             for(v in 1:Rn){
-                Rmean[v, k] ~ dnorm(mean=Rmeanmean0[v], var=Rmeanvar0[v])
+                Rmean[v, k] ~ dnorm(mean=Rmean0[v], var=Rvar0[v])
                 Rvar[v, k] ~ dinvgamma(shape=Rshapeout0[v], rate=Rrate[v])
             }
         }
@@ -444,13 +484,13 @@ finitemix <- nimbleCode({
             }
             if(In>0){# integer variates
                 for(v in 1:In){
-                    Idata[d, v] ~ dinterval(t=Iaux[v, K[d]], c=Iintervals0[v, 1:Imaxnintervals])
+                    Idata[d, v] ~ dinterval(t=Iaux[v, K[d]], c=Iintervals0[v, 1:Imaxn])
                     Iaux[d, v] ~ dnorm(mean=Imean[v, K[d]], var=Ivar[v, K[d]])
                 }
             }
             if(Dn>0){# bounded continuous variates
                 for(v in 1:Dn){
-                    Daux[d, v] ~ dinterval(t=Ddata[v, K[d]], c=Dintervals0[v, 1:Dmaxnintervals])
+                    Daux[d, v] ~ dinterval(t=Ddata[v, K[d]], c=Dintervals0[v, 1:Dmaxn])
                     Ddata[d, v] ~ dnorm(mean=Dmean[v, K[d]], var=Dvar[v, K[d]])
                 }
             }
@@ -461,7 +501,7 @@ finitemix <- nimbleCode({
             }
             if(Cn>0){# categorical variates
                 for(v in 1:Cn){
-                    Cdata[d, v] ~ dcat(prob=Cprob[v, K[d], 1:Cnmaxcategories])
+                    Cdata[d, v] ~ dcat(prob=Cprob[v, K[d], 1:Cmaxn])
                 }
             }
         }
