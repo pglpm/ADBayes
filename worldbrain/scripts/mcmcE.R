@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-04T13:47:47+0100
+## Last-Updated: 2022-12-04T15:16:26+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -302,6 +302,9 @@ for(obj in c('constants', 'dat', 'inits', 'finitemix', 'finitemixnimble', 'Cfini
 gc()
 
 
+
+
+
 ## Data (standardized for real variates)
 dat <- list()
 if(nrvars>0){ dat$Real=transform[varinfo[realVars,'transform']](t((t(data.matrix(alldata[, ..realVars])) - varinfo[realVars,'location'])/varinfo[realVars,'scale'])) }
@@ -330,62 +333,66 @@ if(ncvars > 0){
         }
     }
 }
+#################################################################
+#################################################################
+#################################################################
+#################################################################
+#################################################################
 
 ##
 ## data
 datapoints = c(
     ## real
-    if(Rn>0){ list(Rdata = t(
-                  ( t(sapply(Rvariates, function(v){
-                      if(varinfo[v, 'type']==0){ data0[[v]] }else{log(data0[[v]])}
-                  })) - varinfo[Rvariates, 'location'] )/varinfo[Rvariates, 'scale']
-                  )) },
+    if(n$R>0){list( Rdata = t(
+    (t(data0[,..variates$R]) - varinfo[variates$R, 'location'])/varinfo[variates$R, 'scale']
+    )) },
+    ## logarithmic
+    if(n$L>0){list( Ldata = t(
+    (t(log(data0[,..variates$L])) - varinfo[variates$L, 'location'])/varinfo[variates$L, 'scale']
+    )) },
     ## integer
-    if(In>0){ list(Idata = t( round( 
-    ( t(data0[,..Ivariates]) - varinfo[Ivariates,'min'] )/varinfo[Ivariates,'scale']
+    if(n$I>0){ list(Idata = t( round( 
+    ( t(data0[,..variates$I]) - varinfo[variates$I,'min'] )/varinfo[variates$I,'scale']
     ))) },
-    ## doubly bounded
-    if(Dn>0){ list(
-                  Ddata = t( qnorm(
-                  ( t(sapply(Dvariates, function(v){
+    ## Two-bounded
+    if(n$T>0){ list(
+                  Tdata = t( qnorm(
+                  ( t(sapply(variates$T, function(v){
                       dat <- data0[[v]]
                       dat[dat<=varinfo[v,'min'] | dat>=varinfo[v,'max']] <- NA
                       dat
                       })) - varinfo[v, 'location'] )/varinfo[v, 'scale']
                   ) ),
-                  Daux = t( (t(data0[,..Dvariates])>varinfo[Dvariates,'min']) +
-                            (t(data0[,..Dvariates])>=varinfo[Dvariates,'max']) )
+                  Taux = t( (t(data0[,..variates$T])>varinfo[variates$T,'min']) +
+                            (t(data0[,..variates$T])>=varinfo[variates$T,'max']) )
               )},
     ## binary
-    if(Bn>0){list( Bdata = t(
-    (t(data0[,..Bvariates]) - varinfo[Bvariates, 'location'])/varinfo[Bvariates, 'scale']
+    if(n$B>0){list( Bdata = t(
+    (t(data0[,..variates$B]) - varinfo[variates$B, 'location'])/varinfo[variates$B, 'scale']
     )) },
     ## categorical
-    if(Cn>0){list( Cdata = t(
-    (t(data0[,..Cvariates]) - varinfo[Cvariates, 'location'])/varinfo[Cvariates, 'scale']
+    if(n$C>0){list( Cdata = t(
+    (t(data0[,..variates$C]) - varinfo[variates$C, 'location'])/varinfo[variates$C, 'scale']
      )) }
 )
 
 ##
 ## calculation of some constants
-Imaxn <- max(varinfo[Ivariates, 'n']) - 1
-Iintervals0 <- t(sapply(Ivariates, function(v){
+Imaxn <- max(varinfo[variates$I, 'n']) - 1
+Iintervals0 <- t(sapply(variates$I, function(v){
     createbounds(n=varinfo[v, 'n'], nmax=Imaxn)
 }))
 Iauxinit <- t( qnorm(
-    (t(data0[,..Ivariates]) - varinfo[Ivariates, 'min'])/varinfo[Ivariates, 'scale']
+    (t(data0[,..variates$I]) - varinfo[variates$I, 'min'])/varinfo[variates$I, 'scale']
 )
 
-
-
-
-    t(sapply(Ivariates, function(v){
+    t(sapply(variates$I, function(v){
     inn <- varinfo[v, 'n']
     qnorm((0.5:(inn-0.5))/inn)
 }))
 ##
-Dmaxn <- 2
-Dintervals0 <- t(sapply(Dvariates, function(v){
+Tmaxn <- 2
+Tintervals0 <- t(sapply(variates$T, function(v){
     pp <- varinfo[v, 'n']
     qnorm(c(pp, 1-pp))
 }))
@@ -393,20 +400,21 @@ Dintervals0 <- t(sapply(Dvariates, function(v){
 constants <- c(
     list(nclusters = nclusters),
     if(nalpha>0){ list(nalpha = nalpha) },
-    if(Rn>0){ list(Rn = Rn) },
-    if(Dn>0){
-        list(Dn = Dn,
-             Dintervals0 = Dintervals0,
-             Dmaxn = Dmaxn)
+    if(n$R>0){ list(Rn = n$R) },
+    if(n$L>0){ list(Ln = n$L) },
+    if(n$T>0){
+        list(Tn = n$T,
+             Tintervals0 = Tintervals0,
+             Tmaxn = Tmaxn)
     },
-    if(In>0){
-        list(In = In,
+    if(n$I>0){
+        list(In = n$I,
              Iintervals0 = Iintervals0,
              Imaxn = Imaxn)
     },
-    if(Bn>0){ list(Bn = Bn) },
-    if(Cn>0){
-        list(Cn = Cn,
+    if(n$B>0){ list(Bn = n$B) },
+    if(n$C>0){
+        list(Cn = n$C,
              Cmaxn = Cmaxn)
     },
     if(posterior){ list(ndata = ndata)}
@@ -422,34 +430,41 @@ initsFunction <- function(){
                      )}else{list(
                                 walpha0 = rep(1/nclusters, nclusters)
                             )},
-        if(Rn>0){list( # real variates
-                     Rmean0 = varinfo[Rvariates, 'mean'],
-                     Rvar0 = varinfo[Rvariates, 'sd']^2,
-                     Rshapeout0 = varinfo[Rvariates, 'shapeout'],
-                     Rshapein0 = varinfo[Rvariates, 'shapein'],
-                     Rvarscale0 = varinfo[Rvariates, 'varscale']^2
+        if(n$R>0){list( # real variates
+                     Rmean0 = varinfo[variates$R, 'mean'],
+                     Rvar0 = varinfo[variates$R, 'sd']^2,
+                     Rshapeout0 = varinfo[variates$R, 'shapeout'],
+                     Rshapein0 = varinfo[variates$R, 'shapein'],
+                     Rvarscale0 = varinfo[variates$R, 'varscale']^2
                  )},
-        if(Dn>0){list( # real variates
-                     Dmean0 = varinfo[Dvariates, 'mean'],
-                     Dvar0 = varinfo[Dvariates, 'sd']^2,
-                     Dshapeout0 = varinfo[Dvariates, 'shapeout'],
-                     Dshapein0 = varinfo[Dvariates, 'shapein'],
-                     Dvarscale0 = varinfo[Dvariates, 'varscale']^2
+        if(n$L>0){list( # logarithmic variates
+                     Lmean0 = varinfo[variates$L, 'mean'],
+                     Lvar0 = varinfo[variates$L, 'sd']^2,
+                     Lshapeout0 = varinfo[variates$L, 'shapeout'],
+                     Lshapein0 = varinfo[variates$L, 'shapein'],
+                     Lvarscale0 = varinfo[variates$L, 'varscale']^2
                  )},
-        if(In>0){list( # real variates
-                     Imean0 = varinfo[Ivariates, 'mean'],
-                     Ivar0 = varinfo[Ivariates, 'sd']^2,
-                     Ishapeout0 = varinfo[Ivariates, 'shapeout'],
-                     Ishapein0 = varinfo[Ivariates, 'shapein'],
-                     Ivarscale0 = varinfo[Ivariates, 'varscale']^2,
-                     Iaux = t((t(datapoints$Idata) + 0.5)/varinfo[Ivariates, 'n'])
+        if(n$T>0){list( # real variates
+                     Tmean0 = varinfo[variates$T, 'mean'],
+                     Tvar0 = varinfo[variates$T, 'sd']^2,
+                     Tshapeout0 = varinfo[variates$T, 'shapeout'],
+                     Tshapein0 = varinfo[variates$T, 'shapein'],
+                     Tvarscale0 = varinfo[variates$T, 'varscale']^2
                  )},
-        if(Bn>0){list( # real variates
-                     Bshapeout0 = varinfo[Bvariates, 'shapeout'],
-                     Bshapein0 = varinfo[Bvariates, 'shapein']
+        if(n$I>0){list( # real variates
+                     Imean0 = varinfo[variates$I, 'mean'],
+                     Ivar0 = varinfo[variates$I, 'sd']^2,
+                     Ishapeout0 = varinfo[variates$I, 'shapeout'],
+                     Ishapein0 = varinfo[variates$I, 'shapein'],
+                     Ivarscale0 = varinfo[variates$I, 'varscale']^2,
+                     Iaux = t((t(datapoints$Idata) + 0.5)/varinfo[variates$I, 'n'])
                  )},
-        if(Cn>0){list( # real variates
-                     Calpha0 = t(sapply(Bvariates, function(v){
+        if(n$B>0){list( # real variates
+                     Bshapeout0 = varinfo[variates$B, 'shapeout'],
+                     Bshapein0 = varinfo[variates$B, 'shapein']
+                 )},
+        if(n$C>0){list( # real variates
+                     Calpha0 = t(sapply(variates$B, function(v){
                          c( rep(varinfo[v, 'shapeout'], varinfo[v, 'max']),
                            rep(2^(-40), Cmaxn-varinfo[v, 'max']) )
                      }))
@@ -475,47 +490,58 @@ finitemix <- nimbleCode({
         W[1:nclusters] ~ ddirch(alpha=walpha0[1:nclusters])
     }
     ##
-    if(Rn>0){# real variates
+    if(n$R>0){# real variates
             for(v in 1:Rn){
                 Rrate[v] ~ dinvgamma(shape=Rshapein0[v], scale=Rvarscale0[v])
             }
         }
-    if(Dn>0){# bounded continuous variates
-            for(v in 1:Dn){
-                Drate[v] ~ dinvgamma(shape=Dshapein0[v], scale=Dscale0[v])
+    if(n$L>0){# logarithmic variates
+            for(v in 1:Ln){
+                Lrate[v] ~ dinvgamma(shape=Lshapein0[v], scale=Lvarscale0[v])
             }
         }
-    if(In>0){# integer variates
+    if(n$T>0){# bounded continuous variates
+            for(v in 1:Tn){
+                Trate[v] ~ dinvgamma(shape=Tshapein0[v], scale=Tscale0[v])
+            }
+        }
+    if(n$I>0){# integer variates
             for(v in 1:In){
                 Irate[v] ~ dinvgamma(shape=Ishapein0[v], scale=Iscale0[v])
             }
         }
     ##
     for(k in 1:nclusters){
-        if(Rn>0){# real variates
+        if(n$R>0){# real variates
             for(v in 1:Rn){
                 Rmean[v, k] ~ dnorm(mean=Rmean0[v], var=Rvar0[v])
                 Rvar[v, k] ~ dinvgamma(shape=Rshapeout0[v], rate=Rrate[v])
             }
         }
-        if(Dn>0){# bounded continuous variates
-            for(v in 1:Dn){
-                Dmean[v, k] ~ dnorm(mean=Dmeanmean0[v], var=Dmeanvar0[v])
-                Dvar[v, k] ~ dinvgamma(shape=Dshapeout0[v], rate=Drate[v])
+        if(n$L>0){# logarithmic variates
+            for(v in 1:Ln){
+                Lmean[v, k] ~ dnorm(mean=Lmean0[v], var=Lvar0[v])
+                Lvar[v, k] ~ dinvgamma(shape=Lshapeout0[v], rate=Lrate[v])
             }
         }
-        if(In>0){# bounded continuous variates
+        if(n$T>0){# bounded continuous variates
+            for(v in 1:Tn){
+                Tmean[v, k] ~ dnorm(mean=Tmeanmean0[v], var=Tmeanvar0[v])
+                Tvar[v, k] ~ dinvgamma(shape=Tshapeout0[v], rate=Trate[v])
+            }
+        }
+        if(n$I>0){# bounded continuous variates
             for(v in 1:In){
                 Imean[v, k] ~ dnorm(mean=Imeanmean0[v], var=Imeanvar0[v])
                 Ivar[v, k] ~ dinvgamma(shape=Ishapeout0[v], rate=Irate[v])
             }
         }
-        if(Bn>0){# binary variates
+        if(n$B>0){# binary variates
             for(v in 1:Bn){
                 Bprob[v, k] ~ dbeta(shape1=Bshapein0[v], shape2=Bshapeout0[v])
             }
         }
-        if(Cn>0){# categorical variates
+        if(n$C>0){# categorical variates
             for(v in 1:Cn){
                 Cprob[v, k, 1:nmaxcategories] ~ ddirch(alpha=Calpha0[v, 1:Cnmaxcategories])
             }
@@ -526,29 +552,34 @@ finitemix <- nimbleCode({
         for(d in 1:ndata){
             K[d] ~ dcat(prob=W[1:nclusters])
             ##
-            if(Rn>0){# real variates
+            if(n$R>0){# real variates
                 for(v in 1:Rn){
                     Rdata[d, v] ~ dnorm(mean=Rmean[v, K[d]], var=Rvar[v, K[d]])
                 }
             }
-            if(In>0){# integer variates
+            if(n$L>0){# logarithmic variates
+                for(v in 1:Ln){
+                    Ldata[d, v] ~ dnorm(mean=Lmean[v, K[d]], var=Lvar[v, K[d]])
+                }
+            }
+            if(n$I>0){# integer variates
                 for(v in 1:In){
                     Idata[d, v] ~ dinterval(t=Iaux[v, K[d]], c=Iintervals0[v, 1:Imaxn])
                     Iaux[d, v] ~ dnorm(mean=Imean[v, K[d]], var=Ivar[v, K[d]])
                 }
             }
-            if(Dn>0){# bounded continuous variates
-                for(v in 1:Dn){
-                    Daux[d, v] ~ dinterval(t=Ddata[v, K[d]], c=Dintervals0[v, 1:Dmaxn])
-                    Ddata[d, v] ~ dnorm(mean=Dmean[v, K[d]], var=Dvar[v, K[d]])
+            if(n$T>0){# bounded continuous variates
+                for(v in 1:Tn){
+                    Taux[d, v] ~ dinterval(t=Tdata[v, K[d]], c=Tintervals0[v, 1:Tmaxn])
+                    Tdata[d, v] ~ dnorm(mean=Tmean[v, K[d]], var=Tvar[v, K[d]])
                 }
             }
-            if(Bn>0){# binary variates
+            if(n$B>0){# binary variates
                 for(v in 1:Bn){
                     Bdata[d, v] ~ dbern(prob=Bprob[v, K[d]])
                 }
             }
-            if(Cn>0){# categorical variates
+            if(n$C>0){# categorical variates
                 for(v in 1:Cn){
                     Cdata[d, v] ~ dcat(prob=Cprob[v, K[d], 1:Cmaxn])
                 }

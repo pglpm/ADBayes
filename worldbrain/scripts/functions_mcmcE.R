@@ -1,18 +1,22 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-04T14:23:06+0100
+## Last-Updated: 2022-12-04T15:46:30+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
 ## Auxiliary functions
 #########################################
 
+sd2iqr <- 0.5/qnorm(0.75)
+
+variatetypes <- c( R=0, I=1, B=2, C=3, L=-1, T=-2 )
+
 ## Create interval bounds for transformed integer variates; pad with +Inf
 createbounds <- function(n, nmax=n){ c( qnorm((1:(n-1))/n), rep(+Inf, nmax-n+1) ) }
 
 ## Transformation from variate to internal variable
-transfdir <- function(x, info){
-    if(is.string(info)){info <- varinfo[info,]}
+transfdir <- function(x, info=colnames(x)){
+    if(is.character(info)){info <- varinfo[info,]}
     type <- info['type']
     ##
     if(type==-1){x <- log(x)} # strictly positive
@@ -22,8 +26,8 @@ transfdir <- function(x, info){
 }
 
 ## Transformation from internal variable to variate
-transfinv <- function(y, info){
-    if(is.string(info)){info <- varinfo[info,]}
+transfinv <- function(y, info=colnames(x)){
+    if(is.character(info)){info <- varinfo[info,]}
     type <- info['type']
     if(type==1){ # integer, discrete ordinal
         y <- nimble::rinterval(n=length(y), t=y, c=createbounds(info['n'])) + 0L*y
@@ -40,8 +44,8 @@ transfinv <- function(y, info){
 }
 
 ## Reciprocal of Jacobian, in terms of original variate
-recjacobian <- function(x, info){
-    if(is.string(info)){info <- varinfo[info,]}
+recjacobian <- function(x, info=colnames(x)){
+    if(is.character(info)){info <- varinfo[info,]}
     type <- info['type']
     if(type==0){ # real
         z <- info['scale'] + 0L*x
