@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-04T15:46:30+0100
+## Last-Updated: 2022-12-04T16:39:34+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -13,6 +13,9 @@ variatetypes <- c( R=0, I=1, B=2, C=3, L=-1, T=-2 )
 
 ## Create interval bounds for transformed integer variates; pad with +Inf
 createbounds <- function(n, nmax=n){ c( qnorm((1:(n-1))/n), rep(+Inf, nmax-n+1) ) }
+
+## WARNING:
+## transfdir() and transfinv() are not each other's inverse for all variate types
 
 ## Transformation from variate to internal variable
 transfdir <- function(x, info=colnames(x)){
@@ -31,12 +34,15 @@ transfinv <- function(y, info=colnames(x)){
     type <- info['type']
     if(type==1){ # integer, discrete ordinal
         y <- nimble::rinterval(n=length(y), t=y, c=createbounds(info['n'])) + 0L*y
+    }else if(type==-2){ # continuous doubly bounded
+        y <- pnorm(y)
     }
+    ##
     y <- y*info['scale'] + info['location']
+    ##
     if(type==-1){ # continuous strictly positive
         y <- exp(y)
     }else if(type==-2){ # continuous doubly bounded
-        y <- pnorm(y)
         y[y<=info['min']] <- info['min']
         y[y>=info['max']] <- info['max']
     }
@@ -51,7 +57,7 @@ recjacobian <- function(x, info=colnames(x)){
         z <- info['scale'] + 0L*x
     }else if(type==-1){ # continuous strictly positive
         z <- x*info['scale']
-    }else if(type==-1){ # continuous doubly bounded
+    }else if(type==-2){ # continuous doubly bounded
         z <- dnorm(transfdir(x, info))*info['scale']
         z[x<=info['min']] <- 1L
         z[x>=info['max']] <- 1L

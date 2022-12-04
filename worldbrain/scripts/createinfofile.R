@@ -20,6 +20,10 @@ varinfo[variates$B,'scale'] <- (varinfo[variates$B,'max']-varinfo[variates$B,'mi
 ##
 varinfo[variates$I,'location'] <- varinfo[variates$I,'min']
 varinfo[variates$I,'scale'] <- (varinfo[variates$I,'max']-varinfo[variates$I,'min'])/(varinfo[variates$I,'n']-1L)
+##
+ddd <- 2^-6
+varinfo[variates$T,'scale'] <- (varinfo[variates$T,'max']-varinfo[variates$T,'min'])/(1-2*ddd)
+varinfo[variates$T,'location'] <- varinfo[variates$T,'min']-ddd*varinfo[variates$T,'scale']
 
 ##
 varinfo[,'Q1'] <- apply(dt, 2, tquant, 0.25)
@@ -31,4 +35,24 @@ varinfo[,'Q3'] <- apply(dt, 2, tquant, 0.75)
 ## write.csv(varinfo, 'varinfo.csv')
 ## varinfo <- data.matrix(read.csv('varinfo.csv', row.names=1))
 
+summary(dt)
+
 summary(sapply(colnames(dt),function(v){transfdir(data.matrix(dt[,..v]), v)}))
+
+summary(sapply(colnames(dt),function(v){recjacobian(data.matrix(dt[,..v]), v)}))
+
+
+sapply(colnames(dt),function(v){
+    x <- data.matrix(dt[,..v])
+    y <- transfinv(transfdir(x,v),v)
+    rdiff <- y/x-1
+    rdiff[x==0 & y==0] <- 0
+    rdiff[x==0 & y!=0] <- Inf
+    max(abs(rdiff),na.rm=T)
+})
+
+v <- 'GDTOTAL_gds'
+varinfo[v,]
+
+transfdir(0:6,v)
+transfinv(0:6,v)
