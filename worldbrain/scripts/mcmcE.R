@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-04T15:16:26+0100
+## Last-Updated: 2022-12-04T19:29:19+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -339,60 +339,104 @@ if(ncvars > 0){
 #################################################################
 #################################################################
 
+#####################################################
+## READ DATA AND SETUP CONSTANTS AND  HYPERPARAMETERS
+#####################################################
+
+data0 <- fread(paste0(origdir,datafile), sep=',')
+if(!all(unlist(variate) %in% names(data0))){cat('\nERROR: variates missing from datafile')}
+data0 <- data0[, unlist(variate), with=F]
+## shuffle data
+if(exists('shuffledata') && shuffledata){data0 <- data0[sample(1:nrow(data0))]}
+if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(data0)}
+data0 <- data0[1:ndata]
+
 ##
 ## data
 datapoints = c(
     ## real
-    if(n$R>0){list( Rdata = t(
-    (t(data0[,..variates$R]) - varinfo[variates$R, 'location'])/varinfo[variates$R, 'scale']
-    )) },
+    if(n$R>0){list( Rdata = transfdir(data0[,variate$R,with=F], varinfo) )},
     ## logarithmic
-    if(n$L>0){list( Ldata = t(
-    (t(log(data0[,..variates$L])) - varinfo[variates$L, 'location'])/varinfo[variates$L, 'scale']
-    )) },
+    if(n$L>0){list( Ldata = transfdir(data0[,variate$L,with=F], varinfo) )},
     ## integer
-    if(n$I>0){ list(Idata = t( round( 
-    ( t(data0[,..variates$I]) - varinfo[variates$I,'min'] )/varinfo[variates$I,'scale']
-    ))) },
+    if(n$I>0){list( Idata = transfdir(data0[,variate$I,with=F], varinfo) )},
     ## Two-bounded
     if(n$T>0){ list(
                   Tdata = t( qnorm(
-                  ( t(sapply(variates$T, function(v){
+                  ( t(sapply(variate$T, function(v){
                       dat <- data0[[v]]
                       dat[dat<=varinfo[v,'min'] | dat>=varinfo[v,'max']] <- NA
                       dat
                       })) - varinfo[v, 'location'] )/varinfo[v, 'scale']
                   ) ),
-                  Taux = t( (t(data0[,..variates$T])>varinfo[variates$T,'min']) +
-                            (t(data0[,..variates$T])>=varinfo[variates$T,'max']) )
+                  Taux = t( (t(data0[,variate$T,with=F])>varinfo[variate$T,'min']) +
+                            (t(data0[,variate$T,with=F])>=varinfo[variate$T,'max']) )
               )},
     ## binary
     if(n$B>0){list( Bdata = t(
-    (t(data0[,..variates$B]) - varinfo[variates$B, 'location'])/varinfo[variates$B, 'scale']
+    (t(data0[,variate$B,with=F]) - varinfo[variate$B, 'location'])/varinfo[variate$B, 'scale']
     )) },
     ## categorical
     if(n$C>0){list( Cdata = t(
-    (t(data0[,..variates$C]) - varinfo[variates$C, 'location'])/varinfo[variates$C, 'scale']
+    (t(data0[,variate$C,with=F]) - varinfo[variate$C, 'location'])/varinfo[variate$C, 'scale']
+     )) }
+)
+
+
+
+
+datapoints = c(
+    ## real
+    if(n$R>0){list( Rdata = transfdir(data0[,variate$R,with=F])
+    (t(data0[,variate$R,with=F]) - varinfo[variate$R, 'location'])/varinfo[variate$R, 'scale']
+    )) },
+    ## logarithmic
+    if(n$L>0){list( Ldata = t(
+    (t(log(data0[,variate$L,with=F])) - varinfo[variate$L, 'location'])/varinfo[variate$L, 'scale']
+    )) },
+    ## integer
+    if(n$I>0){ list(Idata = t( round( 
+    ( t(data0[,variate$I,with=F]) - varinfo[variate$I,'min'] )/varinfo[variate$I,'scale']
+    ))) },
+    ## Two-bounded
+    if(n$T>0){ list(
+                  Tdata = t( qnorm(
+                  ( t(sapply(variate$T, function(v){
+                      dat <- data0[[v]]
+                      dat[dat<=varinfo[v,'min'] | dat>=varinfo[v,'max']] <- NA
+                      dat
+                      })) - varinfo[v, 'location'] )/varinfo[v, 'scale']
+                  ) ),
+                  Taux = t( (t(data0[,variate$T,with=F])>varinfo[variate$T,'min']) +
+                            (t(data0[,variate$T,with=F])>=varinfo[variate$T,'max']) )
+              )},
+    ## binary
+    if(n$B>0){list( Bdata = t(
+    (t(data0[,variate$B,with=F]) - varinfo[variate$B, 'location'])/varinfo[variate$B, 'scale']
+    )) },
+    ## categorical
+    if(n$C>0){list( Cdata = t(
+    (t(data0[,variate$C,with=F]) - varinfo[variate$C, 'location'])/varinfo[variate$C, 'scale']
      )) }
 )
 
 ##
 ## calculation of some constants
-Imaxn <- max(varinfo[variates$I, 'n']) - 1
-Iintervals0 <- t(sapply(variates$I, function(v){
+Imaxn <- max(varinfo[variate$I, 'n']) - 1
+Iintervals0 <- t(sapply(variate$I, function(v){
     createbounds(n=varinfo[v, 'n'], nmax=Imaxn)
 }))
 Iauxinit <- t( qnorm(
-    (t(data0[,..variates$I]) - varinfo[variates$I, 'min'])/varinfo[variates$I, 'scale']
+    (t(data0[,variate$I,with=F]) - varinfo[variate$I, 'min'])/varinfo[variate$I, 'scale']
 )
 
-    t(sapply(variates$I, function(v){
+    t(sapply(variate$I, function(v){
     inn <- varinfo[v, 'n']
     qnorm((0.5:(inn-0.5))/inn)
 }))
 ##
 Tmaxn <- 2
-Tintervals0 <- t(sapply(variates$T, function(v){
+Tintervals0 <- t(sapply(variate$T, function(v){
     pp <- varinfo[v, 'n']
     qnorm(c(pp, 1-pp))
 }))
@@ -430,41 +474,41 @@ initsFunction <- function(){
                      )}else{list(
                                 walpha0 = rep(1/nclusters, nclusters)
                             )},
-        if(n$R>0){list( # real variates
-                     Rmean0 = varinfo[variates$R, 'mean'],
-                     Rvar0 = varinfo[variates$R, 'sd']^2,
-                     Rshapeout0 = varinfo[variates$R, 'shapeout'],
-                     Rshapein0 = varinfo[variates$R, 'shapein'],
-                     Rvarscale0 = varinfo[variates$R, 'varscale']^2
+        if(n$R>0){list( # real variate
+                     Rmean0 = varinfo[variate$R, 'mean'],
+                     Rvar0 = varinfo[variate$R, 'sd']^2,
+                     Rshapeout0 = varinfo[variate$R, 'shapeout'],
+                     Rshapein0 = varinfo[variate$R, 'shapein'],
+                     Rvarscale0 = varinfo[variate$R, 'varscale']^2
                  )},
-        if(n$L>0){list( # logarithmic variates
-                     Lmean0 = varinfo[variates$L, 'mean'],
-                     Lvar0 = varinfo[variates$L, 'sd']^2,
-                     Lshapeout0 = varinfo[variates$L, 'shapeout'],
-                     Lshapein0 = varinfo[variates$L, 'shapein'],
-                     Lvarscale0 = varinfo[variates$L, 'varscale']^2
+        if(n$L>0){list( # logarithmic variate
+                     Lmean0 = varinfo[variate$L, 'mean'],
+                     Lvar0 = varinfo[variate$L, 'sd']^2,
+                     Lshapeout0 = varinfo[variate$L, 'shapeout'],
+                     Lshapein0 = varinfo[variate$L, 'shapein'],
+                     Lvarscale0 = varinfo[variate$L, 'varscale']^2
                  )},
-        if(n$T>0){list( # real variates
-                     Tmean0 = varinfo[variates$T, 'mean'],
-                     Tvar0 = varinfo[variates$T, 'sd']^2,
-                     Tshapeout0 = varinfo[variates$T, 'shapeout'],
-                     Tshapein0 = varinfo[variates$T, 'shapein'],
-                     Tvarscale0 = varinfo[variates$T, 'varscale']^2
+        if(n$T>0){list( # real variate
+                     Tmean0 = varinfo[variate$T, 'mean'],
+                     Tvar0 = varinfo[variate$T, 'sd']^2,
+                     Tshapeout0 = varinfo[variate$T, 'shapeout'],
+                     Tshapein0 = varinfo[variate$T, 'shapein'],
+                     Tvarscale0 = varinfo[variate$T, 'varscale']^2
                  )},
-        if(n$I>0){list( # real variates
-                     Imean0 = varinfo[variates$I, 'mean'],
-                     Ivar0 = varinfo[variates$I, 'sd']^2,
-                     Ishapeout0 = varinfo[variates$I, 'shapeout'],
-                     Ishapein0 = varinfo[variates$I, 'shapein'],
-                     Ivarscale0 = varinfo[variates$I, 'varscale']^2,
-                     Iaux = t((t(datapoints$Idata) + 0.5)/varinfo[variates$I, 'n'])
+        if(n$I>0){list( # real variate
+                     Imean0 = varinfo[variate$I, 'mean'],
+                     Ivar0 = varinfo[variate$I, 'sd']^2,
+                     Ishapeout0 = varinfo[variate$I, 'shapeout'],
+                     Ishapein0 = varinfo[variate$I, 'shapein'],
+                     Ivarscale0 = varinfo[variate$I, 'varscale']^2,
+                     Iaux = t((t(datapoints$Idata) + 0.5)/varinfo[variate$I, 'n'])
                  )},
-        if(n$B>0){list( # real variates
-                     Bshapeout0 = varinfo[variates$B, 'shapeout'],
-                     Bshapein0 = varinfo[variates$B, 'shapein']
+        if(n$B>0){list( # real variate
+                     Bshapeout0 = varinfo[variate$B, 'shapeout'],
+                     Bshapein0 = varinfo[variate$B, 'shapein']
                  )},
-        if(n$C>0){list( # real variates
-                     Calpha0 = t(sapply(variates$B, function(v){
+        if(n$C>0){list( # real variate
+                     Calpha0 = t(sapply(variate$B, function(v){
                          c( rep(varinfo[v, 'shapeout'], varinfo[v, 'max']),
                            rep(2^(-40), Cmaxn-varinfo[v, 'max']) )
                      }))

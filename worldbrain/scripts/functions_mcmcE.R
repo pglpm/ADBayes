@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-04T16:39:34+0100
+## Last-Updated: 2022-12-04T19:23:02+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -18,53 +18,62 @@ createbounds <- function(n, nmax=n){ c( qnorm((1:(n-1))/n), rep(+Inf, nmax-n+1) 
 ## transfdir() and transfinv() are not each other's inverse for all variate types
 
 ## Transformation from variate to internal variable
-transfdir <- function(x, info=colnames(x)){
-    if(is.character(info)){info <- varinfo[info,]}
-    type <- info['type']
-    ##
-    if(type==-1){x <- log(x)} # strictly positive
-    x <- (x-info['location'])/info['scale']
-    if(type==-2){x <- qnorm(x)} ## continuous doubly-bounded
-    x
+transfdir <- function(x, varinfo){
+    sapply(colnames(x), function(v){
+        datum <- data.matrix(x)[,v,drop=F]
+        info <- varinfo[v,]
+        type <- info['type']
+        ##
+        if(type==-1){datum <- log(datum)} # strictly positive
+        datum <- (datum-info['location'])/info['scale']
+        if(type==-2){datum <- qnorm(datum)} ## continuous doubly-bounded
+        datum
+    })
 }
 
 ## Transformation from internal variable to variate
-transfinv <- function(y, info=colnames(x)){
-    if(is.character(info)){info <- varinfo[info,]}
-    type <- info['type']
-    if(type==1){ # integer, discrete ordinal
-        y <- nimble::rinterval(n=length(y), t=y, c=createbounds(info['n'])) + 0L*y
-    }else if(type==-2){ # continuous doubly bounded
-        y <- pnorm(y)
-    }
-    ##
-    y <- y*info['scale'] + info['location']
-    ##
-    if(type==-1){ # continuous strictly positive
-        y <- exp(y)
-    }else if(type==-2){ # continuous doubly bounded
-        y[y<=info['min']] <- info['min']
-        y[y>=info['max']] <- info['max']
-    }
-    y
+transfinv <- function(y, varinfo){
+    sapply(colnames(y), function(v){
+        datum <- data.matrix(y)[,v,drop=F]
+        info <- varinfo[v,]
+        type <- info['type']
+        if(type==1){ # integer, discrete ordinal
+            datum <- nimble::rinterval(n=length(datum), t=datum, c=createbounds(info['n'])) + 0L*datum
+        }else if(type==-2){ # continuous doubly bounded
+            datum <- pnorm(datum)
+        }
+        ##
+        datum <- datum*info['scale'] + info['location']
+        ##
+        if(type==-1){ # continuous strictly positive
+            datum <- exp(datum)
+        }else if(type==-2){ # continuous doubly bounded
+            datum[datum<=info['min']] <- info['min']
+            datum[datum>=info['max']] <- info['max']
+        }
+        datum
+    })
 }
 
 ## Reciprocal of Jacobian, in terms of original variate
-recjacobian <- function(x, info=colnames(x)){
-    if(is.character(info)){info <- varinfo[info,]}
-    type <- info['type']
-    if(type==0){ # real
-        z <- info['scale'] + 0L*x
-    }else if(type==-1){ # continuous strictly positive
-        z <- x*info['scale']
-    }else if(type==-2){ # continuous doubly bounded
-        z <- dnorm(transfdir(x, info))*info['scale']
-        z[x<=info['min']] <- 1L
-        z[x>=info['max']] <- 1L
-    }else{ # other types
-        z <- 1L + 0L*x
-    }
-    z
+recjacobian <- function(x, varinfo){
+    sapply(colnames(x), function(v){
+        datum <- data.matrix(x)[,v,drop=F]
+        info <- varinfo[v,]
+        type <- info['type']
+        if(type==0){ # real
+            z <- info['scale'] + 0L*datum
+        }else if(type==-1){ # continuous strictly positive
+            z <- datum*info['scale']
+        }else if(type==-2){ # continuous doubly bounded
+            z <- dnorm(transfdir(datum, varinfo))*info['scale']
+            z[datum<=info['min']] <- 1L
+            z[datum>=info['max']] <- 1L
+        }else{ # other types
+            z <- 1L + 0L*datum
+        }
+        z
+    })
 }
 
 
