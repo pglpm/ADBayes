@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-04T19:23:02+0100
+## Last-Updated: 2022-12-04T19:52:02+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -18,7 +18,7 @@ createbounds <- function(n, nmax=n){ c( qnorm((1:(n-1))/n), rep(+Inf, nmax-n+1) 
 ## transfdir() and transfinv() are not each other's inverse for all variate types
 
 ## Transformation from variate to internal variable
-transfdir <- function(x, varinfo){
+transfdir <- function(x, varinfo, Tna=FALSE){
     sapply(colnames(x), function(v){
         datum <- data.matrix(x)[,v,drop=F]
         info <- varinfo[v,]
@@ -26,7 +26,13 @@ transfdir <- function(x, varinfo){
         ##
         if(type==-1){datum <- log(datum)} # strictly positive
         datum <- (datum-info['location'])/info['scale']
-        if(type==-2){datum <- qnorm(datum)} ## continuous doubly-bounded
+        if(type==-2){
+            datum <- qnorm(datum)
+            if(Tna){
+                datum[data.matrix(x)[,v]<=info['min']] <- NA
+                datum[data.matrix(x)[,v]>=info['max']] <- NA
+            }
+        } ## continuous doubly-bounded
         datum
     })
 }
@@ -62,17 +68,17 @@ recjacobian <- function(x, varinfo){
         info <- varinfo[v,]
         type <- info['type']
         if(type==0){ # real
-            z <- info['scale'] + 0L*datum
+            datum <- info['scale'] + 0L*datum
         }else if(type==-1){ # continuous strictly positive
-            z <- datum*info['scale']
+            datum <- datum*info['scale']
         }else if(type==-2){ # continuous doubly bounded
-            z <- dnorm(transfdir(datum, varinfo))*info['scale']
-            z[datum<=info['min']] <- 1L
-            z[datum>=info['max']] <- 1L
+            datum <- dnorm(transfdir(datum, varinfo))*info['scale']
+            datum[data.matrix(x)[,v]<=info['min']] <- 1L
+            datum[data.matrix(x)[,v]>=info['max']] <- 1L
         }else{ # other types
-            z <- 1L + 0L*datum
+            datum <- 1L + 0L*datum
         }
-        z
+        datum
     })
 }
 

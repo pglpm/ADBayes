@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-04T19:29:19+0100
+## Last-Updated: 2022-12-04T22:24:54+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -362,14 +362,8 @@ datapoints = c(
     if(n$I>0){list( Idata = transfdir(data0[,variate$I,with=F], varinfo) )},
     ## Two-bounded
     if(n$T>0){ list(
-                  Tdata = t( qnorm(
-                  ( t(sapply(variate$T, function(v){
-                      dat <- data0[[v]]
-                      dat[dat<=varinfo[v,'min'] | dat>=varinfo[v,'max']] <- NA
-                      dat
-                      })) - varinfo[v, 'location'] )/varinfo[v, 'scale']
-                  ) ),
-                  Taux = t( (t(data0[,variate$T,with=F])>varinfo[variate$T,'min']) +
+                   Tdata = transfdir(data0[,variate$I,with=F], varinfo, Tna=TRUE),
+                   Taux = t( (t(data0[,variate$T,with=F])>varinfo[variate$T,'min']) +
                             (t(data0[,variate$T,with=F])>=varinfo[variate$T,'max']) )
               )},
     ## binary
