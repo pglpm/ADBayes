@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-02T23:31:35+0100
+## Last-Updated: 2022-12-04T13:04:43+0100
 ################
 ## Exchangeable-probability calculation (non-parametric density regression)
 ################
@@ -331,40 +331,55 @@ if(ncvars > 0){
 ##
 ## data
 datapoints = c(
+    ## real
     if(Rn>0){ list(Rdata = t(
-    (sapply(Rvariates, function(v){
-        if(varinfo[v, 'type']==0){ data0[[v]] }else{log(data0[[v]])}
-    }) - varinfo[Rvariates, 'location'])/varinfo[Rvariates, 'scale']
-    )) },
-    if(In>0){ list(Idata = t( round(
-    (varinfo[Ivariates,'n']-1)*(t(data0[,..Ivariates])-varinfo[Ivariates,'min'])/
-    (varinfo[Ivariates,'max']-varinfo[Ivariates,'min'])
+                  ( t(sapply(Rvariates, function(v){
+                      if(varinfo[v, 'type']==0){ data0[[v]] }else{log(data0[[v]])}
+                  })) - varinfo[Rvariates, 'location'] )/varinfo[Rvariates, 'scale']
+                  )) },
+    ## integer
+    if(In>0){ list(Idata = t( round( 
+    ( t(data0[,..Ivariates]) - varinfo[Ivariates,'min'] )/varinfo[Ivariates,'scale']
     ))) },
-    if(Dn>0){ list(Data = t(qnorm(
-    (sapply(Dvariates, function(v){
-        dat <- data0[[v]]
-        dat[dat<=varinfo[v,'min'] | dat>=varinfo[v,'max']] <- NA
-        dat
-    }) - varinfo[v, 'location'])/varinfo[v, 'scale']
-    )),
-    Daux = t( (t(data0[,..Dvariates])>varinfo[Dvariates,'min']) +
-             (t(data0[,..Dvariates])>=varinfo[Dvariates,'max']) )
-    )},
-    if(Bn>0){list( Bdata = data.matrix(data0[,..Bvariates]) )},
-    if(Cn>0){list( Cdata = data.matrix(data0[,..Cvariates]) )}
+    ## doubly bounded
+    if(Dn>0){ list(
+                  Ddata = t( qnorm(
+                  ( t(sapply(Dvariates, function(v){
+                      dat <- data0[[v]]
+                      dat[dat<=varinfo[v,'min'] | dat>=varinfo[v,'max']] <- NA
+                      dat
+                      })) - varinfo[v, 'location'] )/varinfo[v, 'scale']
+                  ) ),
+                  Daux = t( (t(data0[,..Dvariates])>varinfo[Dvariates,'min']) +
+                            (t(data0[,..Dvariates])>=varinfo[Dvariates,'max']) )
+              )},
+    ## binary
+    if(Bn>0){list( Bdata = t(
+    (t(data0[,..Bvariates]) - varinfo[Bvariates, 'location'])/varinfo[Bvariates, 'scale']
+    )) },
+    ## categorical
+    if(Cn>0){list( Cdata = t(
+    (t(data0[,..Cvariates]) - varinfo[Cvariates, 'location'])/varinfo[Cvariates, 'scale']
+     )) }
 )
 
 ##
 ## calculation of some constants
 Imaxn <- max(varinfo[Ivariates, 'n']) - 1
 Iintervals0 <- t(sapply(Ivariates, function(v){
-    imin <- varinfo[v, 'min']
-    imax <- varinfo[v, 'max']
     inn <- varinfo[v, 'n']
-    c( qnorm( # (imax-imin)/(inn-1) == 2*(imin-loc)
-    ( (0.5:(inn-1.5))*(imax-imin)/(inn-1) + imin - varinfo[v, 'location'] )/
-    varinfo[v, 'scale']
-    ), rep(+Inf, Imaxn-(inn-1)) )
+    c( qnorm((1:(inn-1))/inn), rep(+Inf, Imaxn-(inn-1)) )
+}))
+Iauxinit <- t( qnorm(
+    (t(data0[,..Ivariates]) - varinfo[Ivariates, 'min'])/varinfo[Ivariates, 'scale']
+)
+
+
+
+
+    t(sapply(Ivariates, function(v){
+    inn <- varinfo[v, 'n']
+    qnorm((0.5:(inn-0.5))/inn)
 }))
 ##
 Dmaxn <- 2
@@ -398,54 +413,54 @@ constants <- c(
 ## hyperparameters and some initial values
 initsFunction <- function(){
     c(
-        if(nalpha>1){# distribution over concentration parameter
-            list(probalpha0 = rep(1/nalpha, nalpha),
-                 walpha0 = matrix(c(0.5, 1, 2)/nclusters,
-                                  nrow=nalpha, ncol=nclusters) )
-        }else{
-            list(walpha0 = rep(1/nclusters, nclusters))
-        },
-        if(Rn>0){# real variates
-            list(Rmean0 = varinfo[Rvariates, 'mean'],
-                 Rvar0 = varinfo[Rvariates, 'sd']^2,
-                 Rshapeout0 = varinfo[Rvariates, 'shapeout'],
-                 Rshapein0 = varinfo[Rvariates, 'shapein'],
-                 Rvarscale0 = varinfo[Rvariates, 'varscale']^2 )
-        },
-        if(Dn>0){# real variates
-            list(Dmean0 = varinfo[Dvariates, 'mean'],
-                 Dvar0 = varinfo[Dvariates, 'sd']^2,
-                 Dshapeout0 = varinfo[Dvariates, 'shapeout'],
-                 Dshapein0 = varinfo[Dvariates, 'shapein'],
-                 Dvarscale0 = varinfo[Dvariates, 'varscale']^2 )
-        },
-        if(In>0){# real variates
-            list(Imean0 = varinfo[Ivariates, 'mean'],
-                 Ivar0 = varinfo[Ivariates, 'sd']^2,
-                 Ishapeout0 = varinfo[Ivariates, 'shapeout'],
-                 Ishapein0 = varinfo[Ivariates, 'shapein'],
-                 Ivarscale0 = varinfo[Ivariates, 'varscale']^2,
-                 Iaux = Iauxinit)
-        },
-        if(Bn>0){# real variates
-            list(Bshapeout0 = varinfo[Bvariates, 'shapeout'],
-                 Bshapein0 = varinfo[Bvariates, 'shapein'] )
-        },
-        if(Cn>0){# real variates
-            list(Calpha0 = t(sapply(Bvariates, function(v){
-                c( rep(varinfo[v, 'shapeout'], varinfo[v, 'max']),
-                  rep(2^(-40), Cmaxn-varinfo[v, 'max']) )
-            })) )
-        },
-        if((!casualinitvalues) & posterior){
-            list(W = rep(1/nclusters, nclusters),
-                 K = rep(1, ndata) ) # all in one cluster at first
-        },
-        if(casualinitvalues & posterior){
-            list(W = rdirch(1, alpha=rep(1,nclusters)),
-             K = sample(1:nclusters, ndata, replace=TRUE) )
-        }
-)}
+        if(nalpha>1){list( # distribution over concentration parameter
+                         probalpha0 = rep(1/nalpha, nalpha),
+                         walpha0 = matrix(c(0.5, 1, 2)/nclusters,
+                                          nrow=nalpha, ncol=nclusters)
+                     )}else{list(
+                                walpha0 = rep(1/nclusters, nclusters)
+                            )},
+        if(Rn>0){list( # real variates
+                     Rmean0 = varinfo[Rvariates, 'mean'],
+                     Rvar0 = varinfo[Rvariates, 'sd']^2,
+                     Rshapeout0 = varinfo[Rvariates, 'shapeout'],
+                     Rshapein0 = varinfo[Rvariates, 'shapein'],
+                     Rvarscale0 = varinfo[Rvariates, 'varscale']^2
+                 )},
+        if(Dn>0){list( # real variates
+                     Dmean0 = varinfo[Dvariates, 'mean'],
+                     Dvar0 = varinfo[Dvariates, 'sd']^2,
+                     Dshapeout0 = varinfo[Dvariates, 'shapeout'],
+                     Dshapein0 = varinfo[Dvariates, 'shapein'],
+                     Dvarscale0 = varinfo[Dvariates, 'varscale']^2
+                 )},
+        if(In>0){list( # real variates
+                     Imean0 = varinfo[Ivariates, 'mean'],
+                     Ivar0 = varinfo[Ivariates, 'sd']^2,
+                     Ishapeout0 = varinfo[Ivariates, 'shapeout'],
+                     Ishapein0 = varinfo[Ivariates, 'shapein'],
+                     Ivarscale0 = varinfo[Ivariates, 'varscale']^2,
+                     Iaux = t((t(datapoints$Idata) + 0.5)/varinfo[Ivariates, 'n'])
+                 )},
+        if(Bn>0){list( # real variates
+                     Bshapeout0 = varinfo[Bvariates, 'shapeout'],
+                     Bshapein0 = varinfo[Bvariates, 'shapein']
+                 )},
+        if(Cn>0){list( # real variates
+                     Calpha0 = t(sapply(Bvariates, function(v){
+                         c( rep(varinfo[v, 'shapeout'], varinfo[v, 'max']),
+                           rep(2^(-40), Cmaxn-varinfo[v, 'max']) )
+                     }))
+                 )},
+        if((!casualinitvalues) & posterior){list(
+                                                W = rep(1/nclusters, nclusters),
+                                                K = rep(1, ndata) # all in one cluster at first
+                                            )},
+        if(casualinitvalues & posterior){list(
+                                             W = rdirch(1, alpha=rep(1,nclusters)),
+                                             K = sample(1:nclusters, ndata, replace=TRUE)
+                                         )}
+    )}
 
 
 ##
@@ -1145,3 +1160,37 @@ sqrt(sum((xgrid-me)^2*f(xgrid))/sum(f(xgrid)))
 
 
 tplot(xgrid,dbeta((xgrid-min(xgrid))/diff(range(xgrid)), 0.2,0.2))
+
+
+
+
+
+bounds <- c(-1, 1)
+tra1 <- function(x){
+    x[x<=bounds[1]] <- bounds[1]
+    x[x>=bounds[2]] <- bounds[2]
+    x
+}
+##
+tra2 <- function(x){
+    lx <- length(x)
+    ind <- rinterval(lx, x, bounds)
+    bounds[1]*(ind==0)+bounds[2]*(ind==2)+x*(ind==1)
+}
+
+
+bounds <- ((-2):(2-1))+0.5
+itra0 <- function(x){
+    rowSums(sapply(bounds, function(i){x>=i}))
+}
+##
+itra1 <- function(x){
+    boundse <- c(-Inf, bounds, Inf)
+    rowSums(sapply(2:length(boundse), function(i){
+        (x>boundse[i-1] & x<=boundse[i])*i
+    }))-2
+}
+##
+itra2 <- function(x){
+    rinterval(length(x), x, bounds)
+}
