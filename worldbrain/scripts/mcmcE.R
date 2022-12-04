@@ -1,9 +1,12 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-04T13:04:43+0100
-################
-## Exchangeable-probability calculation (non-parametric density regression)
-################
+## Last-Updated: 2022-12-04T13:47:47+0100
+#########################################
+## Inference of exchangeable variates (nonparametric density regression)
+## using effectively-infinite mixture of product kernels
+## Monte Carlo sampling
+#########################################
+
 
 #### USER INPUTS AND CHOICES ####
 baseversion <- '_testfun2' # *** ## Base name of output directory
@@ -367,8 +370,7 @@ datapoints = c(
 ## calculation of some constants
 Imaxn <- max(varinfo[Ivariates, 'n']) - 1
 Iintervals0 <- t(sapply(Ivariates, function(v){
-    inn <- varinfo[v, 'n']
-    c( qnorm((1:(inn-1))/inn), rep(+Inf, Imaxn-(inn-1)) )
+    createbounds(n=varinfo[v, 'n'], nmax=Imaxn)
 }))
 Iauxinit <- t( qnorm(
     (t(data0[,..Ivariates]) - varinfo[Ivariates, 'min'])/varinfo[Ivariates, 'scale']
@@ -1171,7 +1173,7 @@ tra1 <- function(x){
     x[x>=bounds[2]] <- bounds[2]
     x
 }
-##
+## slower:
 tra2 <- function(x){
     lx <- length(x)
     ind <- rinterval(lx, x, bounds)
@@ -1180,17 +1182,18 @@ tra2 <- function(x){
 
 
 bounds <- ((-2):(2-1))+0.5
+##
+itra2 <- function(x){
+    rinterval(length(x), x, bounds)
+}
+## slower:
 itra0 <- function(x){
     rowSums(sapply(bounds, function(i){x>=i}))
 }
-##
+## slower:
 itra1 <- function(x){
     boundse <- c(-Inf, bounds, Inf)
     rowSums(sapply(2:length(boundse), function(i){
         (x>boundse[i-1] & x<=boundse[i])*i
     }))-2
-}
-##
-itra2 <- function(x){
-    rinterval(length(x), x, bounds)
 }
