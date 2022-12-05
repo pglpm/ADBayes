@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-05T07:58:22+0100
+## Last-Updated: 2022-12-05T11:15:28+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -10,9 +10,9 @@
 
 #### USER INPUTS AND CHOICES ####
 baseversion <- '_testfun2' # *** ## Base name of output directory
-datafile <- 'data_ep.csv' #***
+datafile <- 'ingrid_data_nogds6.csv' #***
 predictors <- 'predictors.csv'
-varinfofile <- 'metadata_realint_noSW.csv' #***
+varinfofile <- 'varinfo.csv' #***
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
 ## ndata <- 5 # set this if you want to use fewer data
@@ -26,10 +26,7 @@ plotmeans <- FALSE # plot frequency averages
 ##
 niter0 <- 1024L * 1L # 3L # iterations burn-in
 nclusters <- 64L
-alpha <- 1
-compoundgamma <- TRUE # use beta-prime distribution for variance instead of gamma
-compoundgammapars <- c(1,1)/2
-categoryprior <- 1 # choices: 'Haldane' (1/n) or a number
+alpha0 <- c(0.5, 1, 2)
 casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
 family <- 'Palatino'
@@ -75,76 +72,28 @@ library('nimble')
 ## NB: also requires libraries 'LaplacesDemon' and 'extraDistr'
 
 
-#### EXTRACT INFORMATION ABOUT THE VARIATES AND THEIR PRIOR PARAMETERS
+###############################################
+## READ DATA, META-INFORMATION, HYPERPARAMETERS
+###############################################
 
 if(Sys.info()['nodename']=='luca-HP-Z2-G9'){origdir <- '../'}else{origdir <- ''}
-source(paste0(origdir,'functions_mcmc.R')) # load functions for post-MCMC calculations
-variateinfo <- fread(paste0(origdir,variateinfofile))
-## variateinfo <- do.call(rbind, list(
-##     ##	 'variate',			'type',		'min',	'max',	'precision')
-##     data.table('REANAME',		'real',		-100,	100,	NA)
-## ,   data.table('BINNAME',		'binary',	0,	1,	NA)
-## ,   data.table('INTNAME',		'integer',	0,	9,	NA)
-## ,   data.table('CATNAME',		'category',	1,	10,	NA)
-## ))
-## colnames(variateinfo) <- c('variate', 'type', 'min', 'max', 'precision')
+source(paste0(origdir,'functions_mcmcE.R')) # load functions for post-MCMC calculations
+varinfo <- data.matrix(read.csv(paste0(origdir,varinfofile), row.names=1))
 
-## Effects of shape parameter:
-## 1/8 (broader):
-## > testdata <- log10(rinvgamma(n=10^7, shape=1/8, scale=1^2))/2 ; 10^sort(c(quantile(testdata, c(1,7)/8), summary(testdata)))
-##         Min.        12.5%      1st Qu.       Median         Mean      3rd Qu. 
-## 2.878554e-01 1.937961e+00 3.903828e+00 2.034059e+01 6.641224e+01 3.260648e+02 
-##        87.5%         Max. 
-## 5.220388e+03 5.266833e+27 
-##
-## 1/4:
-## > testdata <- log10(rinvgamma(n=10^7, shape=1/4, scale=1^2))/2 ; 10^sort(c(quantile(testdata, c(1,7)/8), summary(testdata)))
-##         Min.        12.5%      1st Qu.       Median         Mean      3rd Qu. 
-## 2.881895e-01 1.274590e+00 1.960271e+00 4.784803e+00 8.283664e+00 1.946374e+01 
-##        87.5%         Max. 
-## 7.795913e+01 4.670417e+14
-##
-## 1/2 (narrower):
-## > testdata <- log10(rinvgamma(n=10^7, shape=1/2, scale=1^2))/2 ; 10^sort(c(quantile(testdata, c(1,7)/8), summary(testdata)))
-##         Min.        12.5%      1st Qu.       Median         Mean      3rd Qu. 
-## 2.571008e-01 9.218967e-01 1.229980e+00 2.098062e+00 2.670157e+00 4.440326e+00 
-##        87.5%         Max. 
-## 8.995125e+00 6.364370e+06 
+variate <- lapply(variatetypes, function(x)rownames(varinfo)[varinfo[,'type']==x])
+len <- lapply(variate,length)
 
-##
-varNames <- variateinfo$variate
-varTypes <- variateinfo$type
-varMins <- variateinfo$min
-varMaxs <- variateinfo$max
-names(varTypes) <- names(varMins) <- names(varMaxs) <- varNames
-realVars <- varNames[varTypes=='real']
-categoryVars <- varNames[varTypes=='categorical']
-binaryVars <- varNames[varTypes=='binary']
-##
-nrvars <- length(realVars)
-ncvars <- length(categoryVars)
-nbvars <- length(binaryVars)
-nvars <- length(varNames)
-##
-realNums <- sort(unclass(factor(realVars))); names(realNums) <- realVars
-categoryNums <- sort(unclass(factor(categoryVars))); names(categoryNums) <- categoryVars
-binaryNums <- sort(unclass(factor(binaryVars))); names(binaryNums) <- binaryVars
-varNums <- c(realNums, integerNums, categoryNums, binaryNums)
-typeNums <- c('real'=0, 'categorical'=1, 'binary'=2, 'integer'=3)
+nalpha <- length(alpha0)
 
-###########################################
-## READ DATA AND SETUP SOME HYPERPARAMETERS
-###########################################
-
-alldata <- fread(paste0(origdir,datafile), sep=',')
-if(!all(varNames %in% names(alldata))){cat('\nERROR: variates missing from datafile')}
-alldata <- alldata[, ..varNames]
+data0 <- fread(paste0(origdir,datafile), sep=',')
+if(!all(unlist(variate) %in% colnames(data0))){cat('\nERROR: variates missing from datafile')}
+data0 <- data0[, unlist(variate), with=F]
 ## shuffle data
-if(exists('shuffledata') && shuffledata){alldata <- alldata[sample(1:nrow(alldata))]}
-if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(alldata)}
-alldata <- alldata[1:ndata]
+if(exists('shuffledata') && shuffledata){data0 <- data0[sample(1:nrow(data0))]}
+if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(data0)}
+data0 <- data0[1:ndata]
 
-basename <- paste0(baseversion,'-V',length(varNames),'-D',ndata,'-K',nclusters,'-I',nsamples)
+basename <- paste0(baseversion,'-V',sum(unlist(len)),'-D',ndata,'-K',nclusters,'-I',nsamples)
 ##
 if(Sys.info()['nodename']=='luca-HP-Z2-G9'){
     dirname <- ''
@@ -153,221 +102,34 @@ if(Sys.info()['nodename']=='luca-HP-Z2-G9'){
     dir.create(dirname)
 }
 
-## Copy this script to output directory
-## if(Sys.info()['nodename']=='luca-HP-Z2-G9'){
-##     initial.options <- commandArgs(trailingOnly = FALSE)
-##     thisscriptname <- sub('--file=', "", initial.options[grep('--file=', initial.options)])
-##     if(mcmcseed==1){file.copy(from=thisscriptname, to=paste0(dirname,'/script-R',baseversion,'-V',length(varNames),'-D',ndata,'-K',nclusters,'.Rscript'))
-##     }
-## }
-
-#### Get missing metadata from data
-## categories
-if(any(is.na(varMins[categoryVars]))){
-    cat('\nWARNING: missing min for some category variates; using min from data')
-    nanames <- categoryVars[is.na(varMins[categoryVars])]
-    for(avar in nanames){
-        varMins[avar] <- min(alldata[[avar]], na.rm=T)
-    }
-}
-if(any(is.na(varMaxs[categoryVars]))){
-    cat('\nWARNING: missing max for some category variates; using max from data')
-    nanames <- categoryVars[is.na(varMaxs[categoryVars])]
-    for(avar in nanames){
-        varMaxs[avar] <- max(alldata[[avar]], na.rm=T)
-    }
-}
-
-
-
-## Normalization and standardization of real variates and calculation of hyperparams
-sd2iqr <- 0.5/qnorm(0.75)
-##
-if(mcmcseed==1){
-    graphics.off()
-    pdff(paste0(dirname,'densities_variances'),'a4')
-}
-varinfo <- NULL
-for(avar in varNames){
-    pars <- c(NA,NA)
-    ##
-    datum <- alldata[[avar]]
-    datamin <- min(datum, na.rm=TRUE)
-    datamax <- max(datum, na.rm=TRUE)
-    datamedian <- quantile(datum, 0.5, type=8, na.rm=TRUE)
-    dataQ1 <- quantile(datum, 0.25, type=8, na.rm=TRUE)
-    dataQ2 <- quantile(datum, 0.75, type=8, na.rm=TRUE)
-    ##
-    if(avar %in% realVars){
-        alocation <- median(datum)
-        ascale <- IQR(datum) * sd2iqr
-        if(ascale==0){ascale <- 1L}
-        ## shift and rescale data
-        datum <- (datum-alocation)/ascale
-        rg <- diff(range(datum, na.rm=T))
-        if(is.na(variateinfo[variate==avar, precision])){
-            dmin <- min(diff(sort(unique(datum))))
-        }else{
-            dmin <- variateinfo[variate==avar, precision]/ascale
-        }
-        ##
-        ## ## > ss <- 2; ss2 <- 1/2 ; test <- log10(rinvgamma(1e6, shape=ss, rate=rinvgamma(1e6, shape=ss2, scale=1)))/2; htest <- thist(test); testg <- seq(min(htest$breaks),max(htest$breaks),length.out=256) ; testo <- extraDistr::dbetapr(exp(log(10)*(-2*testg)),shape1=ss,shape2=ss2)*2*log(10)*exp(log(10)*(-2*testg)) ; tplot(list(htest$mids,testg),list(htest$density,testo))
-        ## qts <- c(2^-14, 1-2^-14)
-        ## fn <- function(p, target){
-        ##     sum((log(extraDistr::qbetapr(qts,shape1=p[1],shape2=p[2]))/2 -log(target))^2)
-        ##     }
-        ## resu <- optim(par=c(2,1/2), fn=fn, target=c(dmin/2,rg*3))
-        ## pars <- signif(resu$par, 3)
-        ## vals <- sqrt(extraDistr::qbetapr(qts, shape1=pars[1], shape2=pars[2]))
-        ## if(abs(vals[1] - dmin/2)/(vals[1] + dmin/2)*200 > 5 |
-        ##    abs(vals[2] - rg*3)/(vals[2] + rg*3)*200 > 5
-        ##    ){cat(paste0('WARNING ', avar, ': bad parameters'))}
-        ##
-        ## Parameters and plot
-        sgrid <- seq(log10(dmin/2), log10(rg*3), length.out=256)
-        vv <- exp(log(10)*2*sgrid)
-        ##
-        if(compoundgamma){
-            pars <- compoundgammapars
-            ##pars <- c(1,1)
-            test <- thist(log10(rinvgamma(1e6, shape=pars[2], rate=rinvgamma(1e6, shape=pars[1], scale=1)))/2)
-            vdistr <- extraDistr::dbetapr(x=vv, shape1=pars[1], shape2=pars[2])*vv*2*log(10)
-        }else{
-            pars <- c(signif(2^4.5,3), 1/2)
-            test <- thist(log10(rinvgamma(1e6, shape=pars[2], rate=pars[1]))/2)
-            vdistr <- dinvgamma(x=vv, rate=pars[1], shape=pars[2])*vv*2*log(10)
-        }
-        ##
-if(mcmcseed==1){
-    tplot(x=list(test$mids,sgrid), y=list(test$density,vdistr),
-          xlab=expression(lg~sigma), ylim=c(0,NA), ylab=NA,
-          main=paste0(avar, ': shape1/rate = ', pars[1],', shape2/shape = ',pars[2]),
-          xlim=log10(c(dmin/2/10, rg*3*10)))
-    abline(v=log10(c(dmin/2, dmin, IQR(datum)*sd2iqr, rg, rg*3)), col=yellow, lwd=3)
-}
-        ##
-        rm('test','sgrid','vdistr')
-    }else if((avar %in% integerVars) | (avar %in% binaryVars)){
-        alocation <- varMins[avar] # integer and binary start from 0
-        ascale <- 1L
-        dmin <- 1L
-        ## shift and rescale data
-        datum <- (datum-alocation)
-    }else if(avar %in% categoryVars){
-        alocation <- varMins[avar] - 1L # category start from 1
-        ascale <- 1L
-        dmin <- 1L
-        ## shift and rescale data
-        datum <- (datum-alocation)
-    }
-    ##
-    varinfo <- rbind(varinfo,
-                               cbind(type=typeNums[varTypes[avar]],
-                                     index=varNums[avar],
-                                     location=alocation, scale=ascale,
-                                     precision=dmin,
-                                     min=min(datum, na.rm=T), max=max(datum, na.rm=T),
-                                     shape1rate=pars[1], shape2shape=pars[2],
-                                     datamin=datamin, datamax=datamax,
-                                     datamedian=datamedian,
-                                     dataQ1=dataQ1, dataQ2=dataQ2,
-                                     thmin=varMins[avar], thmax=varMaxs[avar]
-                                     ))
-}
-rownames(varinfo) <- varNames
-##
-if(mcmcseed==1){
-    dev.off()
-    fwrite(cbind(data.table(variate=varNames),varinfo), file=paste0(dirname,'varinfo.csv'))
-}
-##
-locvarMins <- varMins-varinfo[,'location']
-locvarMaxs <- varMaxs-varinfo[,'location']
-
-
 #################################
 ## Setup for Monte Carlo sampling
 #################################
 
 if(!exists('stagestart')){stagestart <- 0L}
 if(stagestart>0){
-    resume <- paste0('_finalstate-R',baseversion,'-V',length(varNames),'-D',ndata,'-K',nclusters,'-I',nsamples,'--',stagestart-1,'-',mcmcseed,'.rds')
+    resume <- paste0('_finalstate-R',baseversion,'-V',sum(unlist(len)),'-D',ndata,'-K',nclusters,'-I',nsamples,'--',stagestart-1,'-',mcmcseed,'.rds')
 }else{
     resume <- FALSE
 }
 ##
 
-
-for(obj in c('constants', 'dat', 'inits', 'finitemix', 'finitemixnimble', 'Cfinitemixnimble', 'confnimble', 'mcsampler', 'Cmcsampler')){if(exists(obj)){do.call(rm,list(obj))}}
+for(obj in c('constants', 'datapoints', 'inits', 'finitemix', 'finitemixnimble', 'Cfinitemixnimble', 'confnimble', 'mcsampler', 'Cmcsampler')){if(exists(obj)){do.call(rm,list(obj))}}
 gc()
 
-
-
-
-
-## Data (standardized for real variates)
-dat <- list()
-if(nrvars>0){ dat$Real=transform[varinfo[realVars,'transform']](t((t(data.matrix(alldata[, ..realVars])) - varinfo[realVars,'location'])/varinfo[realVars,'scale'])) }
-if(ncvars>0){ dat$Category=t((t(data.matrix(alldata[, ..categoryVars])) - varinfo[categoryVars,'location']))}
-## if(nbvars>0){ dat$Binary=data.matrix(alldata[, ..binaryVars])}
-if(nbvars>0){ dat$Binary=t((t(data.matrix(alldata[, ..binaryVars])) - varinfo[binaryVars,'location']))}
-
-
-####  CONSTANTS, PRIOR PARAMETERS, INITIAL VALUES
-##
-## In previous versions some statistics of the data were computed
-## to decide on the hyperparameters.
-## Now this is not done, because wrong in principle
-## and because it can lead to silly hyperparameters
-##
-## Find max number of categories in data
-nCat <- varinfo[categoryVars,'max'] - varinfo[categoryVars,'min'] + 1
-if(ncvars > 0){
-    ncategories <- max(nCat)
-    calphapad <- array(2^(-40), dim=c(ncvars, ncategories), dimnames=list(categoryVars,NULL))
-    for(avar in categoryVars){
-        if(categoryprior=='Haldane'){
-            calphapad[avar,1:ncat[avar]] <- 1/locvarMaxs[avar]
-        }else{
-            calphapad[avar,1:ncat[avar]] <- categoryprior
-        }
-    }
-}
-#################################################################
-#################################################################
-#################################################################
-#################################################################
-#################################################################
-
-#####################################################
-## READ DATA AND SETUP CONSTANTS AND  HYPERPARAMETERS
-#####################################################
-variate <- lapply(variatetypes, function(x)rownames(varinfo)[varinfo['type']==x])
-len <- lapply(variate,length)
-
-
-data0 <- fread(paste0(origdir,datafile), sep=',')
-if(!all(unlist(variate) %in% names(data0))){cat('\nERROR: variates missing from datafile')}
-data0 <- data0[, unlist(variate), with=F]
-## shuffle data
-if(exists('shuffledata') && shuffledata){data0 <- data0[sample(1:nrow(data0))]}
-if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(data0)}
-data0 <- data0[1:ndata]
-
-##
 ## data
 datapoints = c(
     ## real
     if(len$R > 0){list( Rdata = transfdir(data0[,variate$R,with=F], varinfo) )},
     ## logarithmic
     if(len$L > 0){list( Ldata = transfdir(data0[,variate$L,with=F], varinfo) )},
-    ## integer
-    if(len$I > 0){list( Idata = transfdir(data0[,variate$I,with=F], varinfo, Iinit=FALSE) )},
     ## Two-bounded
     if(len$T > 0){list(
-                   Tdata = transfdir(data0[,variate$I,with=F], varinfo, Tout='data'),
-                   Taux = transfdir(data0[,variate$I,with=F], varinfo, Tout='aux')
+                   Tdata = transfdir(data0[,variate$T,with=F], varinfo, Tout='data'),
+                   Taux = transfdir(data0[,variate$T,with=F], varinfo, Tout='aux')
                   )},
+    ## integer
+    if(len$I > 0){list( Idata = transfdir(data0[,variate$I,with=F], varinfo, Iinit=FALSE) )},
     ## binary
     if(len$B > 0){list( Bdata = transfdir(data0[,variate$B,with=F], varinfo) )},
     ## categorical
@@ -376,11 +138,11 @@ datapoints = c(
 
 ##
 ## calculation of some constants
-Imaxn <- max(varinfo[variate$I, 'n']) - 1
+Imaxn <- max(varinfo[variate$I, 'n'])-1
 Iintervals0 <- t(sapply(variate$I, function(v){
-    createbounds(n=varinfo[v, 'n'], nmax=Imaxn)
+    createbounds(n=varinfo[v, 'n'], nmax=Imaxn+1)
 }))
-Iauxinit <- Idata = transfdir(data0[,variate$I,with=F], varinfo, Iinit=TRUE)
+Iauxinit <- transfdir(data0[,variate$I,with=F], varinfo, Iinit=TRUE)
 ##
 Tmaxn <- 2
 Tintervals0 <- t(sapply(variate$T, function(v){ createbounds(n=varinfo[v, 'n']) }))
@@ -396,17 +158,18 @@ constants <- c(
     if(len$C > 0){ list(Cn = len$C, Cmaxn = Cmaxn) },
     if(posterior){ list(ndata = ndata)}
 )
+
 ##
 ## hyperparameters and some initial values
 initsFunction <- function(){
     c(
         if(nalpha > 1){list( # distribution over concentration parameter
-                         probalpha0 = rep(1/nalpha, nalpha),
-                         walpha0 = matrix(c(0.5, 1, 2)/nclusters,
-                                          nrow=nalpha, ncol=nclusters)
-                     )}else{list(
-                                walpha0 = rep(1/nclusters, nclusters)
-                            )},
+                           probalpha0 = rep(1/nalpha, nalpha),
+                           walpha0 = matrix(alpha0/nclusters,
+                                            nrow=nalpha, ncol=nclusters)
+                       )}else{list(
+                                  walpha0 = rep(1/nclusters, nclusters)
+                              )},
         if(len$R > 0){list( # real variate
                      Rmean0 = varinfo[variate$R, 'mean'],
                      Rvar0 = varinfo[variate$R, 'sd']^2,
@@ -434,8 +197,8 @@ initsFunction <- function(){
                      Ishapeout0 = varinfo[variate$I, 'shapeout'],
                      Ishapein0 = varinfo[variate$I, 'shapein'],
                      Ivarscale0 = varinfo[variate$I, 'varscale']^2,
-                     Iaux = t((t(datapoints$Idata) + 0.5)/varinfo[variate$I, 'n'])
-                 )},
+                     Iaux = Iauxinit
+                     )},
         if(len$B > 0){list( # real variate
                      Bshapeout0 = varinfo[variate$B, 'shapeout'],
                      Bshapein0 = varinfo[variate$B, 'shapein']
@@ -461,7 +224,7 @@ initsFunction <- function(){
 #### Mathematical representation of long-run frequency distributions
 finitemix <- nimbleCode({
     if(nalpha > 1){# distribution over concentration parameter
-        Alpha <- dcat(prob=probalpha0[1:nalpha])
+        Alpha ~ dcat(prob=probalpha0[1:nalpha])
         W[1:nclusters] ~ ddirch(alpha=walpha0[Alpha, 1:nclusters])
     }else{
         W[1:nclusters] ~ ddirch(alpha=walpha0[1:nclusters])
@@ -479,12 +242,12 @@ finitemix <- nimbleCode({
         }
     if(len$T > 0){# bounded continuous variates
             for(v in 1:Tn){
-                Trate[v] ~ dinvgamma(shape=Tshapein0[v], scale=Tscale0[v])
+                Trate[v] ~ dinvgamma(shape=Tshapein0[v], scale=Tvarscale0[v])
             }
         }
     if(len$I > 0){# integer variates
             for(v in 1:In){
-                Irate[v] ~ dinvgamma(shape=Ishapein0[v], scale=Iscale0[v])
+                Irate[v] ~ dinvgamma(shape=Ishapein0[v], scale=Ivarscale0[v])
             }
         }
     ##
@@ -503,13 +266,13 @@ finitemix <- nimbleCode({
         }
         if(len$T > 0){# bounded continuous variates
             for(v in 1:Tn){
-                Tmean[v, k] ~ dnorm(mean=Tmeanmean0[v], var=Tmeanvar0[v])
+                Tmean[v, k] ~ dnorm(mean=Tmean0[v], var=Tvar0[v])
                 Tvar[v, k] ~ dinvgamma(shape=Tshapeout0[v], rate=Trate[v])
             }
         }
         if(len$I > 0){# bounded continuous variates
             for(v in 1:In){
-                Imean[v, k] ~ dnorm(mean=Imeanmean0[v], var=Imeanvar0[v])
+                Imean[v, k] ~ dnorm(mean=Imean0[v], var=Ivar0[v])
                 Ivar[v, k] ~ dinvgamma(shape=Ishapeout0[v], rate=Irate[v])
             }
         }
@@ -520,7 +283,7 @@ finitemix <- nimbleCode({
         }
         if(len$C > 0){# categorical variates
             for(v in 1:Cn){
-                Cprob[v, k, 1:nmaxcategories] ~ ddirch(alpha=Calpha0[v, 1:Cnmaxcategories])
+                Cprob[v, k, 1:Cmaxn] ~ ddirch(alpha=Calpha0[v, 1:Cmaxn])
             }
         }
     }
@@ -568,66 +331,129 @@ finitemix <- nimbleCode({
 ##
 timecount <- Sys.time()
 ##
-if(posterior){
-    finitemixnimble <- nimbleModel(code=finitemix, name='finitemixnimble1', constants=constants,
-                         inits=initsFunction(), data=dat,
-                         dimensions=c(
-                             list(q=nclusters),
-                             (if(nrvars > 0){list(meanR=c(nrvars,nclusters), tauR=c(nrvars,nclusters))}),
-                             (if(nivars > 0){list(probI=c(nivars,nclusters))}),
-                             (if(ncvars > 0){list(probC=c(ncvars,nclusters,ncategories))}),
-                             (if(nbvars > 0){list(probB=c(nbvars,nclusters))}),
-                             list(C=ndata),
-                             if(compoundgamma){list(varRrate=nrvars)})
-                         )
-}else{
-    finitemixnimble <- nimbleModel(code=finitemix, name='finitemixnimble1', constants=constants,
-                         inits=initsFunction(), data=list(),
-                         dimensions=c(
-                             list(q=nclusters),
-                             (if(nrvars > 0){list(meanR=c(nrvars,nclusters), tauR=c(nrvars,nclusters))}),
-                             (if(nivars > 0){list(probI=c(nivars,nclusters))}),
-                             (if(ncvars > 0){list(probC=c(ncvars,nclusters,ncategories))}),
-                             (if(nbvars > 0){list(probB=c(nbvars,nclusters))}),
-                             if(compoundgamma){list(varRrate=nrvars)})
-                         )
-}
+finitemixnimble <- nimbleModel(code=finitemix, name='finitemixnimble1',
+                               constants=constants,
+                               inits=initsFunction(),
+                               data=(if(posterior){datapoints}else{list()}),
+                               dimensions=c(
+                                   list(W=nclusters),
+                                   if(nalpha > 1){list(
+                                                      walpha0=c(nalpha,nclusters)
+                                                  )}else{list(
+                                                             walpha0=nclusters
+                                                         )},
+                                   if(len$R > 0){list(
+                                                     Rrate=len$R,
+                                                     Rmean=c(len$R,nclusters),
+                                                     Rvar=c(len$R,nclusters)
+                                                 )},
+                                   if(len$L > 0){list(
+                                                     Lrate=len$L,
+                                                     Lmean=c(len$L,nclusters),
+                                                     Lvar=c(len$L,nclusters)
+                                                 )},
+                                   if(len$T > 0){list(
+                                                     Trate=len$T,
+                                                     Tmean=c(len$T,nclusters),
+                                                     Tvar=c(len$T,nclusters)
+                                                 )},
+                                   if(len$I > 0){list(
+                                                     Irate=len$I,
+                                                     Imean=c(len$I,nclusters),
+                                                     Ivar=c(len$I,nclusters)
+                                                 )},
+                                   if(len$B > 0){list(
+                                                     Bprob=c(len$B,nclusters)
+                                                 )},
+                                   if(len$C > 0){list(
+                                                     Cprob=c(len$C,nclusters,Cmaxn)
+                                                 )},
+                                   if(posterior){c(
+                                       list(K=ndata),
+                                       if(len$R > 0){list(Rdata=c(ndata,len$R))},
+                                       if(len$L > 0){list(Ldata=c(ndata,len$L))},
+                                       if(len$T > 0){list(
+                                                         Tdata=c(ndata,len$T),
+                                                         Taux=c(ndata,len$T)
+                                                     )},
+                                       if(len$I > 0){list(
+                                                         Idata=c(ndata,len$I),
+                                                         Iaux=c(ndata,len$I)
+                                                     )},
+                                       if(len$B > 0){list(Bdata=c(ndata,len$B))},
+                                       if(len$C > 0){list(Cdata=c(ndata,len$C))}
+                                   )}
+                               )
+                               )
+
 Cfinitemixnimble <- compileNimble(finitemixnimble, showCompilerOutput=FALSE)
 gc()
 
 
 ##
 if(posterior){# Samplers for posterior sampling
-    confnimble <- configureMCMC(Cfinitemixnimble, nodes=NULL,
-                               monitors=c('q',
-                                          if(nrvars > 0){c('meanR', 'varR')},
-                                          if(nivars > 0){c('probI', 'sizeI')},
-                                          if(ncvars > 0){c('probC')},
-                                          if(nbvars > 0){c('probB')}
+    confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
+                               monitors=c('W',
+                                          if(len$R > 0){c('Rmean', 'Rvar')},
+                                          if(len$L > 0){c('Lmean', 'Lvar')},
+                                          if(len$T > 0){c('Tmean', 'Tvar')},
+                                          if(len$I > 0){c('Imean', 'Ivar')},
+                                          if(len$B > 0){c('Bprob')},
+                                          if(len$C > 0){c('Cprob')}
                                           ),
-                               monitors2=c('C',
-                                           if(compoundgamma & nrvars > 0){c('varRrate')}
-                                           )
+                               monitors2=c('K')
                                )
     ##
-    for(adatum in 1:ndata){
-        confnimble$addSampler(target=paste0('C[', adatum, ']'), type='categorical')
+    for(d in 1:ndata){
+        confnimble$addSampler(target=paste0('K[',d,']'), type='categorical')
     }
-    if(compoundgamma & nrvars>0){
-        for(avar in 1:nrvars){
-            confnimble$addSampler(target=paste0('varRrate[', avar, ']'), type='conjugate')
+    for(v in seq(along=variate$R)){
+            confnimble$addSampler(target=paste0('Rrate[',v,']'), type='conjugate')
+        }
+    for(v in seq(along=variate$L)){
+            confnimble$addSampler(target=paste0('Lrate[',v,']'), type='conjugate')
+        }
+    for(v in seq(along=variate$T)){
+            confnimble$addSampler(target=paste0('Trate[',v,']'), type='conjugate')
+        }
+    for(v in seq(along=variate$I)){
+            confnimble$addSampler(target=paste0('Irate[',v,']'), type='conjugate')
+        }
+    for(k in 1:nclusters){
+    for(v in seq(along=variate$R)){
+            confnimble$addSampler(target=paste0('Rvar[',v,', ',k,']'), type='conjugate')
+            confnimble$addSampler(target=paste0('Rmean[',v,', ',k,']'), type='conjugate')
+        }
+    for(v in seq(along=variate$L)){
+            confnimble$addSampler(target=paste0('Lvar[',v,', ',k,']'), type='conjugate')
+            confnimble$addSampler(target=paste0('Lmean[',v,', ',k,']'), type='conjugate')
+        }
+    for(v in seq(along=variate$T)){
+            confnimble$addSampler(target=paste0('Tvar[',v,', ',k,']'), type='conjugate')
+            confnimble$addSampler(target=paste0('Tmean[',v,', ',k,']'), type='conjugate')
+        }
+    for(v in seq(along=variate$I)){
+            confnimble$addSampler(target=paste0('Ivar[',v,', ',k,']'), type='conjugate')
+            confnimble$addSampler(target=paste0('Imean[',v,', ',k,']'), type='conjugate')
+        }
+    for(v in seq(along=variate$B)){
+            confnimble$addSampler(target=paste0('Bprob[',v,', ',k,']'), type='conjugate')
+        }
+    for(v in seq(along=variate$C)){
+            confnimble$addSampler(target=paste0('Cprob[',v,', ',k,', 1:',Cmaxn,']'), type='conjugate')
         }
     }
-    for(acluster in 1:nclusters){
-        if(nrvars>0){
-            for(avar in 1:nrvars){
-                confnimble$addSampler(target=paste0('varR[', avar, ', ', acluster, ']'), type='conjugate')
-                confnimble$addSampler(target=paste0('meanR[', avar, ', ', acluster, ']'), type='conjugate')
-            }
-        }
-        if(nivars>0){
-            for(avar in 1:nivars){
-                confnimble$addSampler(target=paste0('probI[', avar, ', ', acluster, ']'), type='conjugate')
+    ##
+    confnimble$addSampler(target=paste0('W[1:', nclusters, ']'), type='conjugate')
+    if(nalpha > 1){
+        confnimble$addSampler(target='Alpha', type='categorical')
+    }
+}
+
+
+
+    
+    confnimble$addSampler(target=paste0('probI[', avar, ', ', acluster, ']'), type='conjugate')
                 confnimble$addSampler(target=paste0('sizeI[', avar, ', ', acluster, ']'), type='categorical')
             }
         }

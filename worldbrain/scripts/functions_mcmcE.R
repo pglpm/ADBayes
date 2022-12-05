@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-05T07:52:38+0100
+## Last-Updated: 2022-12-05T10:20:49+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -9,7 +9,7 @@
 
 sd2iqr <- 0.5/qnorm(0.75)
 
-variatetypes <- c( R=0, I=1, B=2, C=3, L=-1, T=-2 )
+variatetypes <- c( R=0, L=-1, T=-2, I=1, B=2, C=3 )
 
 ## Create interval bounds for transformed integer variates; pad with +Inf
 createbounds <- function(n, nmax=n){

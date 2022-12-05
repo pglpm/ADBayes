@@ -2,9 +2,12 @@ library('data.table')
 library('png')
 library('foreach')
 
+Tprob <- 2^-6
+
 dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
 varinfo <- read.csv('~/repositories/ADBayes/worldbrain/scripts/varinfo.csv', row.names=1)
 varnames <- rownames(varinfo)
+
 
 variate <- lapply(variatetypes, function(x)rownames(varinfo)[varinfo['type']==x])
 len <- lapply(variate,length)
@@ -44,10 +47,9 @@ varinfo[variate$I,'plotmax'] <- sapply(variate$I,function(v){
     min(varinfo[v,'max'], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
     })
 ##
-ddd <- 2^-6
-varinfo[variate$T,'scale'] <- (varinfo[variate$T,'max']-varinfo[variate$T,'min'])/(1-2*ddd)
-varinfo[variate$T,'location'] <- varinfo[variate$T,'min']-ddd*varinfo[variate$T,'scale']
-varinfo[variate$T,'n'] <- ddd
+varinfo[variate$T,'scale'] <- (varinfo[variate$T,'max']-varinfo[variate$T,'min'])/(1-2*Tprob)
+varinfo[variate$T,'location'] <- varinfo[variate$T,'min']-Tprob*varinfo[variate$T,'scale']
+varinfo[variate$T,'n'] <- Tprob
 varinfo[variate$T,'plotmin'] <- sapply(variate$T,function(v){
     dat <- dt[[v]]
     max(varinfo[v,'min'], min(dat, na.rm=T) - diff(tquant(dat, c(0.25,0.5))))
@@ -62,6 +64,45 @@ varinfo[variate$T,'plotmax'] <- sapply(variate$T,function(v){
 varinfo[varnames,'Q1'] <- apply(dt[,..varnames], 2, tquant, 0.25)
 varinfo[varnames,'Q2'] <- apply(dt[,..varnames], 2, tquant, 0.5)
 varinfo[varnames,'Q3'] <- apply(dt[,..varnames], 2, tquant, 0.75)
+
+
+varinfo[variate$R,'mean'] <- 0L
+varinfo[variate$L,'mean'] <- 0L
+varinfo[variate$T,'mean'] <- 0L
+varinfo[variate$I,'mean'] <- 0L
+varinfo[variate$B,'mean'] <- NA
+varinfo[variate$C,'mean'] <- NA
+##
+varinfo[variate$R,'sd'] <- 3 #***
+varinfo[variate$L,'sd'] <- 3 #***
+varinfo[variate$T,'sd'] <- 1
+varinfo[variate$I,'sd'] <- 7/8
+varinfo[variate$B,'sd'] <- NA
+varinfo[variate$C,'sd'] <- NA
+##
+varinfo[variate$R,'shapeout'] <- 0.5 #***
+varinfo[variate$L,'shapeout'] <- 0.5 #***
+varinfo[variate$T,'shapeout'] <- 1
+varinfo[variate$I,'shapeout'] <- 1
+varinfo[variate$B,'shapeout'] <- 1
+varinfo[variate$C,'shapeout'] <- 1
+##
+varinfo[variate$R,'shapein'] <- 0.5 #***
+varinfo[variate$L,'shapein'] <- 0.5 #***
+varinfo[variate$T,'shapein'] <- 1
+varinfo[variate$I,'shapein'] <- 1
+varinfo[variate$B,'shapein'] <- 1
+varinfo[variate$C,'shapein'] <- NA
+##
+varinfo[variate$R,'varscale'] <- 1 #***
+varinfo[variate$L,'varscale'] <- 1 #***
+varinfo[variate$T,'varscale'] <- 1/4
+varinfo[variate$I,'varscale'] <- 1/4
+varinfo[variate$B,'varscale'] <- NA
+varinfo[variate$C,'varscale'] <- NA
+
+
+varinfo[variate$L,'mean'] <- apply(data.matrix(dt)[,variate$R,drop=F], 2, median, na.rm=T)
 
 
 
