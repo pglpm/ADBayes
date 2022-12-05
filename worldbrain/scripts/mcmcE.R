@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-05T20:08:09+0100
+## Last-Updated: 2022-12-05T22:13:28+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -401,6 +401,7 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
                                        if(len$C > 0){c('Cprob')}
                                        ),
                             monitors2=c(
+                                if(nalpha > 1){'Alpha'},
                                 if(posterior){'K'},
                                 if(posterior && len$R > 0){'Rdata'},
                                 if(posterior && len$L > 0){'Ldata'},
@@ -421,7 +422,7 @@ newsampleorder <- unlist(sapply(mysampleorder, function(v){which(norde == v)}))
 confnimble$setSamplerExecutionOrder(newsampleorder)
 ##
 confnimble$printSamplers(executionOrder=TRUE)
-
+if(!all(sort(orde)==sort(newsampleorder))){warning('sampler mismatch')}
 
 
 mcsampler <- buildMCMC(confnimble)
@@ -444,6 +445,7 @@ confnimble <- configureMCMC(Cfinitemixnimble,
                                        if(len$C > 0){c('Cprob')}
                                        ),
                             monitors2=c(
+                                if(nalpha > 1){'Alpha'},
                                 if(posterior){'K'},
                                 if(posterior && len$R > 0){'Rdata'},
                                 if(posterior && len$L > 0){'Ldata'},
@@ -466,8 +468,14 @@ newmcsamples2 <- as.matrix(Cmcsampler$mvSamples2)
 
 pdff('test_comparehistograms')
 for(v in colnames(newmcsamples2)){
-    hisa <- thist(newmcsamples2[,v],n=min(10,length(unique(newmcsamples2[,v])))+1)
-    hisb <- thist(newmcsamples2b[,v],n=min(10,length(unique(newmcsamples2b[,v])))+1)
+    hisa <- thist(newmcsamples2[,v],n=min(10,max(2,length(unique(newmcsamples2[,v])))))
+    hisb <- thist(newmcsamples2b[,v],n=min(10,max(2,length(unique(newmcsamples2b[,v])))))
+    tplot(x=list(hisa$mids,hisb$mids), y=list(hisa$density,hisb$density),ylim=c(0,NA),
+          main=v)
+}
+for(v in colnames(newmcsamples)){
+    hisa <- thist(newmcsamples[,v],n=min(10,max(2,length(unique(newmcsamples[,v])))))
+    hisb <- thist(newmcsamplesb[,v],n=min(10,max(2,length(unique(newmcsamplesb[,v])))))
     tplot(x=list(hisa$mids,hisb$mids), y=list(hisa$density,hisb$density),ylim=c(0,NA),
           main=v)
 }
