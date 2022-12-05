@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-05T22:13:28+0100
+## Last-Updated: 2022-12-05T22:18:16+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -9,10 +9,10 @@
 rm(ndata,shuffledata)
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testfun2' # *** ## Base name of output directory
-datafile <- 'testdataall.csv' # 'ingrid_data_nonangds6.csv' #***
+baseversion <- '_testfunproper' # *** ## Base name of output directory
+datafile <- 'ingrid_data_nogds6.csv' #***
 predictors <- 'predictors.csv'
-varinfofile <- 'testvarinfoall.csv' #***
+varinfofile <- 'varinfo.csv'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
 ## ndata <- 3 # set this if you want to use fewer data
@@ -25,7 +25,7 @@ showdata <- TRUE # 'histogram' 'scatter' FALSE TRUE
 plotmeans <- FALSE # plot frequency averages
 ##
 niter0 <- 1024L * 1L # 3L # iterations burn-in
-nclusters <- 2L
+nclusters <- 64L
 alpha0 <- c(0.5, 1, 2)
 casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
@@ -411,7 +411,7 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
                                 if(posterior && len$C > 0){'Cdata'}
                             )
                             )
-confnimble$printSamplers(executionOrder=TRUE)
+## confnimble$printSamplers(executionOrder=TRUE)
 ##
 ## takename <- function(x){sub('([^[]+)(.*)','\\1',confnimble$getSamplers(ind=x)[[1]]$target)}
 orde <- confnimble$getSamplerExecutionOrder()
@@ -421,102 +421,8 @@ newsampleorder <- unlist(sapply(mysampleorder, function(v){which(norde == v)}))
 ##
 confnimble$setSamplerExecutionOrder(newsampleorder)
 ##
-confnimble$printSamplers(executionOrder=TRUE)
+## confnimble$printSamplers(executionOrder=TRUE)
 if(!all(sort(orde)==sort(newsampleorder))){warning('sampler mismatch')}
-
-
-mcsampler <- buildMCMC(confnimble)
-Cmcsampler <- compileNimble(mcsampler, resetFunctions = TRUE)
-set.seed(123)
-Cfinitemixnimble$setInits(initsFunction())
-none <- Cmcsampler$run(niter=10000, thin=1, thin2=1, nburnin=0, time=T)
-newmcsamplesb <- as.matrix(Cmcsampler$mvSamples)
-newmcsamples2b <- as.matrix(Cmcsampler$mvSamples2)
-
-
-
-confnimble <- configureMCMC(Cfinitemixnimble, 
-                            monitors=c('W',
-                                       if(len$R > 0){c('Rmean', 'Rvar')},
-                                       if(len$L > 0){c('Lmean', 'Lvar')},
-                                       if(len$T > 0){c('Tmean', 'Tvar')},
-                                       if(len$I > 0){c('Imean', 'Ivar')},
-                                       if(len$B > 0){c('Bprob')},
-                                       if(len$C > 0){c('Cprob')}
-                                       ),
-                            monitors2=c(
-                                if(nalpha > 1){'Alpha'},
-                                if(posterior){'K'},
-                                if(posterior && len$R > 0){'Rdata'},
-                                if(posterior && len$L > 0){'Ldata'},
-                                if(posterior && len$T > 0){c('Taux', 'Tdata')},
-                                if(posterior && len$I > 0){c('Iaux', 'Idata')},
-                                if(posterior && len$B > 0){'Bdata'},
-                                if(posterior && len$C > 0){'Cdata'}
-                            )
-                            )
-confnimble$printSamplers(executionOrder=TRUE)
-
-mcsampler <- buildMCMC(confnimble)
-Cmcsampler <- compileNimble(mcsampler, resetFunctions = TRUE)
-set.seed(123)
-Cfinitemixnimble$setInits(initsFunction())
-none <- Cmcsampler$run(niter=10000, thin=1, thin2=1, nburnin=0, time=T)
-newmcsamples <- as.matrix(Cmcsampler$mvSamples)
-newmcsamples2 <- as.matrix(Cmcsampler$mvSamples2)
-
-
-pdff('test_comparehistograms')
-for(v in colnames(newmcsamples2)){
-    hisa <- thist(newmcsamples2[,v],n=min(10,max(2,length(unique(newmcsamples2[,v])))))
-    hisb <- thist(newmcsamples2b[,v],n=min(10,max(2,length(unique(newmcsamples2b[,v])))))
-    tplot(x=list(hisa$mids,hisb$mids), y=list(hisa$density,hisb$density),ylim=c(0,NA),
-          main=v)
-}
-for(v in colnames(newmcsamples)){
-    hisa <- thist(newmcsamples[,v],n=min(10,max(2,length(unique(newmcsamples[,v])))))
-    hisb <- thist(newmcsamplesb[,v],n=min(10,max(2,length(unique(newmcsamplesb[,v])))))
-    tplot(x=list(hisa$mids,hisb$mids), y=list(hisa$density,hisb$density),ylim=c(0,NA),
-          main=v)
-}
-dev.off()
-    
-    confnimble$addSampler(target=paste0('probI[', avar, ', ', acluster, ']'), type='conjugate')
-                confnimble$addSampler(target=paste0('sizeI[', avar, ', ', acluster, ']'), type='categorical')
-            }
-        }
-        if(ncvars>0){
-            for(avar in 1:ncvars){
-                confnimble$addSampler(target=paste0('probC[', avar, ', ', acluster, ', 1:', ncategories, ']'), type='conjugate')
-            }
-        }
-        if(nbvars>0){
-            for(avar in 1:nbvars){
-                confnimble$addSampler(target=paste0('probB[', avar, ', ', acluster, ']'), type='conjugate')
-            }
-        }
-    }
-    confnimble$addSampler(target=paste0('q[1:', nclusters, ']'), type='conjugate')
-##
-}else{# sampler for prior sampling
-    confnimble <- configureMCMC(Cfinitemixnimble, 
-                               monitors=c('q',
-                                          if(nrvars>0){c('meanR', 'varR')},
-                                          if(nivars>0){c('probI', 'sizeI')},
-                                          if(ncvars>0){c('probC')},
-                                          if(nbvars>0){c('probB')}
-                                          ),
-                               monitors2=c(if(compoundgamma & nrvars > 0){c('varRrate')}
-                                           )
-                               )
-}
-##
-print(confnimble)
-
-
-mcsampler <- buildMCMC(confnimble)
-Cmcsampler <- compileNimble(mcsampler, resetFunctions = TRUE)
-gc()
 
 cat('\nSetup time: ')
 print(Sys.time() - timecount)
