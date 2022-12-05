@@ -1,18 +1,18 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-05T16:55:48+0100
+## Last-Updated: 2022-12-05T20:08:09+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
 ## Monte Carlo sampling
 #########################################
-
+rm(ndata,shuffledata)
 
 #### USER INPUTS AND CHOICES ####
 baseversion <- '_testfun2' # *** ## Base name of output directory
-datafile <- 'testdata.csv' # 'ingrid_data_nonangds6.csv' #***
+datafile <- 'testdataall.csv' # 'ingrid_data_nonangds6.csv' #***
 predictors <- 'predictors.csv'
-varinfofile <- 'testvarinfoL.csv' #***
+varinfofile <- 'testvarinfoall.csv' #***
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
 ## ndata <- 3 # set this if you want to use fewer data
@@ -25,7 +25,7 @@ showdata <- TRUE # 'histogram' 'scatter' FALSE TRUE
 plotmeans <- FALSE # plot frequency averages
 ##
 niter0 <- 1024L * 1L # 3L # iterations burn-in
-nclusters <- 4L
+nclusters <- 2L
 alpha0 <- c(0.5, 1, 2)
 casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
@@ -387,85 +387,51 @@ finitemixnimble <- nimbleModel(code=finitemix, name='finitemixnimble1',
                                    )}
                                )
                                )
-
+##
 Cfinitemixnimble <- compileNimble(finitemixnimble, showCompilerOutput=FALSE)
 gc()
 
-
-##
-if(posterior){# Samplers for posterior sampling
-    confnimble <- configureMCMC(Cfinitemixnimble, nodes=NULL,
-                               monitors=c('W',
-                                          if(len$R > 0){c('Rmean', 'Rvar')},
-                                          if(len$L > 0){c('Lmean', 'Lvar')},
-                                          if(len$T > 0){c('Tmean', 'Tvar')},
-                                          if(len$I > 0){c('Imean', 'Ivar')},
-                                          if(len$B > 0){c('Bprob')},
-                                          if(len$C > 0){c('Cprob')}
-                                          ),
-                            monitors2=c('K', 'Idata', 'Iaux')
-##                               monitors2=c('K')
-                               )
-    ##
-    for(d in 1:ndata){
-        confnimble$addSampler(target=paste0('K[',d,']'), type='categorical')
-        for(v in seq(along=variate$I)){
-            confnimble$addSampler(target=paste0('Iaux[',d,', ',v,']'), type='RW')
-        }
-    }
-    for(v in seq(along=variate$R)){
-            confnimble$addSampler(target=paste0('Rrate[',v,']'), type='conjugate')
-        }
-    for(v in seq(along=variate$L)){
-            confnimble$addSampler(target=paste0('Lrate[',v,']'), type='conjugate')
-        }
-    for(v in seq(along=variate$T)){
-            confnimble$addSampler(target=paste0('Trate[',v,']'), type='conjugate')
-        }
-    for(v in seq(along=variate$I)){
-            confnimble$addSampler(target=paste0('Irate[',v,']'), type='conjugate')
-    }
-    for(k in 1:nclusters){
-    for(v in seq(along=variate$R)){
-            confnimble$addSampler(target=paste0('Rvar[',v,', ',k,']'), type='conjugate')
-            confnimble$addSampler(target=paste0('Rmean[',v,', ',k,']'), type='conjugate')
-        }
-    for(v in seq(along=variate$L)){
-            confnimble$addSampler(target=paste0('Lvar[',v,', ',k,']'), type='conjugate')
-            confnimble$addSampler(target=paste0('Lmean[',v,', ',k,']'), type='conjugate')
-        }
-    for(v in seq(along=variate$T)){
-            confnimble$addSampler(target=paste0('Tvar[',v,', ',k,']'), type='conjugate')
-            confnimble$addSampler(target=paste0('Tmean[',v,', ',k,']'), type='conjugate')
-        }
-    for(v in seq(along=variate$I)){
-            confnimble$addSampler(target=paste0('Ivar[',v,', ',k,']'), type='conjugate')
-            confnimble$addSampler(target=paste0('Imean[',v,', ',k,']'), type='conjugate')
-        }
-    for(v in seq(along=variate$B)){
-            confnimble$addSampler(target=paste0('Bprob[',v,', ',k,']'), type='conjugate')
-        }
-    for(v in seq(along=variate$C)){
-            confnimble$addSampler(target=paste0('Cprob[',v,', ',k,', 1:',Cmaxn,']'), type='conjugate')
-        }
-    }
-    ##
-    confnimble$addSampler(target=paste0('W[1:', nclusters, ']'), type='conjugate')
-    if(nalpha > 1){
-        confnimble$addSampler(target='Alpha', type='categorical')
-    }
-}
-print(confnimble)
-
+confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
+                            monitors=c('W',
+                                       if(len$R > 0){c('Rmean', 'Rvar')},
+                                       if(len$L > 0){c('Lmean', 'Lvar')},
+                                       if(len$T > 0){c('Tmean', 'Tvar')},
+                                       if(len$I > 0){c('Imean', 'Ivar')},
+                                       if(len$B > 0){c('Bprob')},
+                                       if(len$C > 0){c('Cprob')}
+                                       ),
+                            monitors2=c(
+                                if(posterior){'K'},
+                                if(posterior && len$R > 0){'Rdata'},
+                                if(posterior && len$L > 0){'Ldata'},
+                                if(posterior && len$T > 0){c('Taux', 'Tdata')},
+                                if(posterior && len$I > 0){c('Iaux', 'Idata')},
+                                if(posterior && len$B > 0){'Bdata'},
+                                if(posterior && len$C > 0){'Cdata'}
+                            )
+                            )
 confnimble$printSamplers(executionOrder=TRUE)
+##
+## takename <- function(x){sub('([^[]+)(.*)','\\1',confnimble$getSamplers(ind=x)[[1]]$target)}
+orde <- confnimble$getSamplerExecutionOrder()
+norde <- sapply(orde,function(i){sub('([^[]+)(.*)','\\1',confnimble$getSamplers(ind=i)[[1]]$target)})
+mysampleorder <- c( 'Rdata', 'Ldata', 'Taux', 'Tdata', 'Iaux', 'Idata', 'Bdata', 'Cdata', 'K', 'Rrate', 'Lrate', 'Trate', 'Irate', 'Rvar', 'Rmean', 'Lvar', 'Lmean', 'Tvar', 'Tmean', 'Ivar', 'Imean', 'Bprob', 'Cprob', 'W', 'Alpha' )
+newsampleorder <- unlist(sapply(mysampleorder, function(v){which(norde == v)}))
+##
+confnimble$setSamplerExecutionOrder(newsampleorder)
+##
+confnimble$printSamplers(executionOrder=TRUE)
+
+
 
 mcsampler <- buildMCMC(confnimble)
 Cmcsampler <- compileNimble(mcsampler, resetFunctions = TRUE)
 set.seed(123)
 Cfinitemixnimble$setInits(initsFunction())
-none <- Cmcsampler$run(niter=100, thin=10, thin2=10, nburnin=0, time=T)
+none <- Cmcsampler$run(niter=10000, thin=1, thin2=1, nburnin=0, time=T)
 newmcsamplesb <- as.matrix(Cmcsampler$mvSamples)
 newmcsamples2b <- as.matrix(Cmcsampler$mvSamples2)
+
 
 
 confnimble <- configureMCMC(Cfinitemixnimble, 
@@ -477,24 +443,35 @@ confnimble <- configureMCMC(Cfinitemixnimble,
                                        if(len$B > 0){c('Bprob')},
                                        if(len$C > 0){c('Cprob')}
                                        ),
-                            monitors2=c('K', 'Ldata')
+                            monitors2=c(
+                                if(posterior){'K'},
+                                if(posterior && len$R > 0){'Rdata'},
+                                if(posterior && len$L > 0){'Ldata'},
+                                if(posterior && len$T > 0){c('Taux', 'Tdata')},
+                                if(posterior && len$I > 0){c('Iaux', 'Idata')},
+                                if(posterior && len$B > 0){'Bdata'},
+                                if(posterior && len$C > 0){'Cdata'}
                             )
-
-print(confnimble)
-
+                            )
 confnimble$printSamplers(executionOrder=TRUE)
-
-
 
 mcsampler <- buildMCMC(confnimble)
 Cmcsampler <- compileNimble(mcsampler, resetFunctions = TRUE)
 set.seed(123)
 Cfinitemixnimble$setInits(initsFunction())
-none <- Cmcsampler$run(niter=100, thin=10, thin2=10, nburnin=0, time=T)
+none <- Cmcsampler$run(niter=10000, thin=1, thin2=1, nburnin=0, time=T)
 newmcsamples <- as.matrix(Cmcsampler$mvSamples)
 newmcsamples2 <- as.matrix(Cmcsampler$mvSamples2)
 
 
+pdff('test_comparehistograms')
+for(v in colnames(newmcsamples2)){
+    hisa <- thist(newmcsamples2[,v],n=min(10,length(unique(newmcsamples2[,v])))+1)
+    hisb <- thist(newmcsamples2b[,v],n=min(10,length(unique(newmcsamples2b[,v])))+1)
+    tplot(x=list(hisa$mids,hisb$mids), y=list(hisa$density,hisb$density),ylim=c(0,NA),
+          main=v)
+}
+dev.off()
     
     confnimble$addSampler(target=paste0('probI[', avar, ', ', acluster, ']'), type='conjugate')
                 confnimble$addSampler(target=paste0('sizeI[', avar, ', ', acluster, ']'), type='categorical')
