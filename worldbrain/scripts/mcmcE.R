@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-05T11:58:47+0100
+## Last-Updated: 2022-12-05T16:55:48+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -12,7 +12,7 @@
 baseversion <- '_testfun2' # *** ## Base name of output directory
 datafile <- 'testdata.csv' # 'ingrid_data_nonangds6.csv' #***
 predictors <- 'predictors.csv'
-varinfofile <- 'testvarinfo.csv' #***
+varinfofile <- 'testvarinfoL.csv' #***
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
 ## ndata <- 3 # set this if you want to use fewer data
@@ -305,13 +305,13 @@ finitemix <- nimbleCode({
             }
             if(len$I > 0){# integer variates
                 for(v in 1:In){
-                    Idata[d, v] ~ dinterval(t=Iaux[v, K[d]], c=Iintervals0[v, 1:Imaxn])
+                    Idata[d, v] ~ dinterval(t=Iaux[d, v], c=Iintervals0[v, 1:Imaxn])
                     Iaux[d, v] ~ dnorm(mean=Imean[v, K[d]], var=Ivar[v, K[d]])
                 }
             }
             if(len$T > 0){# bounded continuous variates
                 for(v in 1:Tn){
-                    Taux[d, v] ~ dinterval(t=Tdata[v, K[d]], c=Tintervals0[v, 1:Tmaxn])
+                    Taux[d, v] ~ dinterval(t=Tdata[d, v], c=Tintervals0[v, 1:Tmaxn])
                     Tdata[d, v] ~ dnorm(mean=Tmean[v, K[d]], var=Tvar[v, K[d]])
                 }
             }
@@ -340,9 +340,10 @@ finitemixnimble <- nimbleModel(code=finitemix, name='finitemixnimble1',
                                    list(W=nclusters),
                                    if(nalpha > 1){list(
                                                       walpha0=c(nalpha,nclusters)
-                                                  )}else{list(
-                                                             walpha0=nclusters
-                                                         )},
+                                                  )},
+                                   if(nalpha ==1){list(
+                                                      walpha0=nclusters
+                                                  )},
                                    if(len$R > 0){list(
                                                      Rrate=len$R,
                                                      Rmean=c(len$R,nclusters),
@@ -402,11 +403,15 @@ if(posterior){# Samplers for posterior sampling
                                           if(len$B > 0){c('Bprob')},
                                           if(len$C > 0){c('Cprob')}
                                           ),
-                               monitors2=c('K')
+                            monitors2=c('K', 'Idata', 'Iaux')
+##                               monitors2=c('K')
                                )
     ##
     for(d in 1:ndata){
         confnimble$addSampler(target=paste0('K[',d,']'), type='categorical')
+        for(v in seq(along=variate$I)){
+            confnimble$addSampler(target=paste0('Iaux[',d,', ',v,']'), type='RW')
+        }
     }
     for(v in seq(along=variate$R)){
             confnimble$addSampler(target=paste0('Rrate[',v,']'), type='conjugate')
@@ -454,18 +459,40 @@ print(confnimble)
 
 confnimble$printSamplers(executionOrder=TRUE)
 
+mcsampler <- buildMCMC(confnimble)
+Cmcsampler <- compileNimble(mcsampler, resetFunctions = TRUE)
+set.seed(123)
+Cfinitemixnimble$setInits(initsFunction())
+none <- Cmcsampler$run(niter=100, thin=10, thin2=10, nburnin=0, time=T)
+newmcsamplesb <- as.matrix(Cmcsampler$mvSamples)
+newmcsamples2b <- as.matrix(Cmcsampler$mvSamples2)
 
-    confnimble <- configureMCMC(Cfinitemixnimble, 
-                               monitors=c('W',
-                                          if(len$R > 0){c('Rmean', 'Rvar')},
-                                          if(len$L > 0){c('Lmean', 'Lvar')},
-                                          if(len$T > 0){c('Tmean', 'Tvar')},
-                                          if(len$I > 0){c('Imean', 'Ivar')},
-                                          if(len$B > 0){c('Bprob')},
-                                          if(len$C > 0){c('Cprob')}
-                                          ),
-                               monitors2=c('K')
-                               )
+
+confnimble <- configureMCMC(Cfinitemixnimble, 
+                            monitors=c('W',
+                                       if(len$R > 0){c('Rmean', 'Rvar')},
+                                       if(len$L > 0){c('Lmean', 'Lvar')},
+                                       if(len$T > 0){c('Tmean', 'Tvar')},
+                                       if(len$I > 0){c('Imean', 'Ivar')},
+                                       if(len$B > 0){c('Bprob')},
+                                       if(len$C > 0){c('Cprob')}
+                                       ),
+                            monitors2=c('K', 'Ldata')
+                            )
+
+print(confnimble)
+
+confnimble$printSamplers(executionOrder=TRUE)
+
+
+
+mcsampler <- buildMCMC(confnimble)
+Cmcsampler <- compileNimble(mcsampler, resetFunctions = TRUE)
+set.seed(123)
+Cfinitemixnimble$setInits(initsFunction())
+none <- Cmcsampler$run(niter=100, thin=10, thin2=10, nburnin=0, time=T)
+newmcsamples <- as.matrix(Cmcsampler$mvSamples)
+newmcsamples2 <- as.matrix(Cmcsampler$mvSamples2)
 
 
     
