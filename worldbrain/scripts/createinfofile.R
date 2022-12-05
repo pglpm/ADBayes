@@ -7,7 +7,7 @@ varinfo <- read.csv('~/repositories/ADBayes/worldbrain/scripts/varinfo.csv', row
 varnames <- rownames(varinfo)
 
 variate <- lapply(variatetypes, function(x)rownames(varinfo)[varinfo['type']==x])
-n <- lapply(variate,length)
+len <- lapply(variate,length)
 
 ## real
 varinfo[variate$R,'location'] <- apply(dt[,variate$R,with=F],2,median,na.rm=T)

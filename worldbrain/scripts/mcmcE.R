@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-04T22:24:54+0100
+## Last-Updated: 2022-12-05T07:58:22+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -342,6 +342,9 @@ if(ncvars > 0){
 #####################################################
 ## READ DATA AND SETUP CONSTANTS AND  HYPERPARAMETERS
 #####################################################
+variate <- lapply(variatetypes, function(x)rownames(varinfo)[varinfo['type']==x])
+len <- lapply(variate,length)
+
 
 data0 <- fread(paste0(origdir,datafile), sep=',')
 if(!all(unlist(variate) %in% names(data0))){cat('\nERROR: variates missing from datafile')}
@@ -355,63 +358,20 @@ data0 <- data0[1:ndata]
 ## data
 datapoints = c(
     ## real
-    if(n$R>0){list( Rdata = transfdir(data0[,variate$R,with=F], varinfo) )},
+    if(len$R > 0){list( Rdata = transfdir(data0[,variate$R,with=F], varinfo) )},
     ## logarithmic
-    if(n$L>0){list( Ldata = transfdir(data0[,variate$L,with=F], varinfo) )},
+    if(len$L > 0){list( Ldata = transfdir(data0[,variate$L,with=F], varinfo) )},
     ## integer
-    if(n$I>0){list( Idata = transfdir(data0[,variate$I,with=F], varinfo) )},
+    if(len$I > 0){list( Idata = transfdir(data0[,variate$I,with=F], varinfo, Iinit=FALSE) )},
     ## Two-bounded
-    if(n$T>0){ list(
-                   Tdata = transfdir(data0[,variate$I,with=F], varinfo, Tna=TRUE),
-                   Taux = t( (t(data0[,variate$T,with=F])>varinfo[variate$T,'min']) +
-                            (t(data0[,variate$T,with=F])>=varinfo[variate$T,'max']) )
-              )},
+    if(len$T > 0){list(
+                   Tdata = transfdir(data0[,variate$I,with=F], varinfo, Tout='data'),
+                   Taux = transfdir(data0[,variate$I,with=F], varinfo, Tout='aux')
+                  )},
     ## binary
-    if(n$B>0){list( Bdata = t(
-    (t(data0[,variate$B,with=F]) - varinfo[variate$B, 'location'])/varinfo[variate$B, 'scale']
-    )) },
+    if(len$B > 0){list( Bdata = transfdir(data0[,variate$B,with=F], varinfo) )},
     ## categorical
-    if(n$C>0){list( Cdata = t(
-    (t(data0[,variate$C,with=F]) - varinfo[variate$C, 'location'])/varinfo[variate$C, 'scale']
-     )) }
-)
-
-
-
-
-datapoints = c(
-    ## real
-    if(n$R>0){list( Rdata = transfdir(data0[,variate$R,with=F])
-    (t(data0[,variate$R,with=F]) - varinfo[variate$R, 'location'])/varinfo[variate$R, 'scale']
-    )) },
-    ## logarithmic
-    if(n$L>0){list( Ldata = t(
-    (t(log(data0[,variate$L,with=F])) - varinfo[variate$L, 'location'])/varinfo[variate$L, 'scale']
-    )) },
-    ## integer
-    if(n$I>0){ list(Idata = t( round( 
-    ( t(data0[,variate$I,with=F]) - varinfo[variate$I,'min'] )/varinfo[variate$I,'scale']
-    ))) },
-    ## Two-bounded
-    if(n$T>0){ list(
-                  Tdata = t( qnorm(
-                  ( t(sapply(variate$T, function(v){
-                      dat <- data0[[v]]
-                      dat[dat<=varinfo[v,'min'] | dat>=varinfo[v,'max']] <- NA
-                      dat
-                      })) - varinfo[v, 'location'] )/varinfo[v, 'scale']
-                  ) ),
-                  Taux = t( (t(data0[,variate$T,with=F])>varinfo[variate$T,'min']) +
-                            (t(data0[,variate$T,with=F])>=varinfo[variate$T,'max']) )
-              )},
-    ## binary
-    if(n$B>0){list( Bdata = t(
-    (t(data0[,variate$B,with=F]) - varinfo[variate$B, 'location'])/varinfo[variate$B, 'scale']
-    )) },
-    ## categorical
-    if(n$C>0){list( Cdata = t(
-    (t(data0[,variate$C,with=F]) - varinfo[variate$C, 'location'])/varinfo[variate$C, 'scale']
-     )) }
+    if(len$C > 0){list( Cdata = transfdir(data0[,variate$C,with=F], varinfo) )}
 )
 
 ##
@@ -420,76 +380,55 @@ Imaxn <- max(varinfo[variate$I, 'n']) - 1
 Iintervals0 <- t(sapply(variate$I, function(v){
     createbounds(n=varinfo[v, 'n'], nmax=Imaxn)
 }))
-Iauxinit <- t( qnorm(
-    (t(data0[,variate$I,with=F]) - varinfo[variate$I, 'min'])/varinfo[variate$I, 'scale']
-)
-
-    t(sapply(variate$I, function(v){
-    inn <- varinfo[v, 'n']
-    qnorm((0.5:(inn-0.5))/inn)
-}))
+Iauxinit <- Idata = transfdir(data0[,variate$I,with=F], varinfo, Iinit=TRUE)
 ##
 Tmaxn <- 2
-Tintervals0 <- t(sapply(variate$T, function(v){
-    pp <- varinfo[v, 'n']
-    qnorm(c(pp, 1-pp))
-}))
+Tintervals0 <- t(sapply(variate$T, function(v){ createbounds(n=varinfo[v, 'n']) }))
 ## constants
 constants <- c(
     list(nclusters = nclusters),
-    if(nalpha>0){ list(nalpha = nalpha) },
-    if(n$R>0){ list(Rn = n$R) },
-    if(n$L>0){ list(Ln = n$L) },
-    if(n$T>0){
-        list(Tn = n$T,
-             Tintervals0 = Tintervals0,
-             Tmaxn = Tmaxn)
-    },
-    if(n$I>0){
-        list(In = n$I,
-             Iintervals0 = Iintervals0,
-             Imaxn = Imaxn)
-    },
-    if(n$B>0){ list(Bn = n$B) },
-    if(n$C>0){
-        list(Cn = n$C,
-             Cmaxn = Cmaxn)
-    },
+    if(nalpha > 0){ list(nalpha = nalpha) },
+    if(len$R > 0){ list(Rn = len$R) },
+    if(len$L > 0){ list(Ln = len$L) },
+    if(len$T > 0){ list(Tn = len$T, Tintervals0 = Tintervals0, Tmaxn = Tmaxn) },
+    if(len$I > 0){ list(In = len$I, Iintervals0 = Iintervals0, Imaxn = Imaxn) },
+    if(len$B > 0){ list(Bn = len$B) },
+    if(len$C > 0){ list(Cn = len$C, Cmaxn = Cmaxn) },
     if(posterior){ list(ndata = ndata)}
 )
 ##
 ## hyperparameters and some initial values
 initsFunction <- function(){
     c(
-        if(nalpha>1){list( # distribution over concentration parameter
+        if(nalpha > 1){list( # distribution over concentration parameter
                          probalpha0 = rep(1/nalpha, nalpha),
                          walpha0 = matrix(c(0.5, 1, 2)/nclusters,
                                           nrow=nalpha, ncol=nclusters)
                      )}else{list(
                                 walpha0 = rep(1/nclusters, nclusters)
                             )},
-        if(n$R>0){list( # real variate
+        if(len$R > 0){list( # real variate
                      Rmean0 = varinfo[variate$R, 'mean'],
                      Rvar0 = varinfo[variate$R, 'sd']^2,
                      Rshapeout0 = varinfo[variate$R, 'shapeout'],
                      Rshapein0 = varinfo[variate$R, 'shapein'],
                      Rvarscale0 = varinfo[variate$R, 'varscale']^2
                  )},
-        if(n$L>0){list( # logarithmic variate
+        if(len$L > 0){list( # logarithmic variate
                      Lmean0 = varinfo[variate$L, 'mean'],
                      Lvar0 = varinfo[variate$L, 'sd']^2,
                      Lshapeout0 = varinfo[variate$L, 'shapeout'],
                      Lshapein0 = varinfo[variate$L, 'shapein'],
                      Lvarscale0 = varinfo[variate$L, 'varscale']^2
                  )},
-        if(n$T>0){list( # real variate
+        if(len$T > 0){list( # real variate
                      Tmean0 = varinfo[variate$T, 'mean'],
                      Tvar0 = varinfo[variate$T, 'sd']^2,
                      Tshapeout0 = varinfo[variate$T, 'shapeout'],
                      Tshapein0 = varinfo[variate$T, 'shapein'],
                      Tvarscale0 = varinfo[variate$T, 'varscale']^2
                  )},
-        if(n$I>0){list( # real variate
+        if(len$I > 0){list( # real variate
                      Imean0 = varinfo[variate$I, 'mean'],
                      Ivar0 = varinfo[variate$I, 'sd']^2,
                      Ishapeout0 = varinfo[variate$I, 'shapeout'],
@@ -497,11 +436,11 @@ initsFunction <- function(){
                      Ivarscale0 = varinfo[variate$I, 'varscale']^2,
                      Iaux = t((t(datapoints$Idata) + 0.5)/varinfo[variate$I, 'n'])
                  )},
-        if(n$B>0){list( # real variate
+        if(len$B > 0){list( # real variate
                      Bshapeout0 = varinfo[variate$B, 'shapeout'],
                      Bshapein0 = varinfo[variate$B, 'shapein']
                  )},
-        if(n$C>0){list( # real variate
+        if(len$C > 0){list( # real variate
                      Calpha0 = t(sapply(variate$B, function(v){
                          c( rep(varinfo[v, 'shapeout'], varinfo[v, 'max']),
                            rep(2^(-40), Cmaxn-varinfo[v, 'max']) )
@@ -521,65 +460,65 @@ initsFunction <- function(){
 ##
 #### Mathematical representation of long-run frequency distributions
 finitemix <- nimbleCode({
-    if(nalpha>1){# distribution over concentration parameter
+    if(nalpha > 1){# distribution over concentration parameter
         Alpha <- dcat(prob=probalpha0[1:nalpha])
         W[1:nclusters] ~ ddirch(alpha=walpha0[Alpha, 1:nclusters])
     }else{
         W[1:nclusters] ~ ddirch(alpha=walpha0[1:nclusters])
     }
     ##
-    if(n$R>0){# real variates
+    if(len$R > 0){# real variates
             for(v in 1:Rn){
                 Rrate[v] ~ dinvgamma(shape=Rshapein0[v], scale=Rvarscale0[v])
             }
         }
-    if(n$L>0){# logarithmic variates
+    if(len$L > 0){# logarithmic variates
             for(v in 1:Ln){
                 Lrate[v] ~ dinvgamma(shape=Lshapein0[v], scale=Lvarscale0[v])
             }
         }
-    if(n$T>0){# bounded continuous variates
+    if(len$T > 0){# bounded continuous variates
             for(v in 1:Tn){
                 Trate[v] ~ dinvgamma(shape=Tshapein0[v], scale=Tscale0[v])
             }
         }
-    if(n$I>0){# integer variates
+    if(len$I > 0){# integer variates
             for(v in 1:In){
                 Irate[v] ~ dinvgamma(shape=Ishapein0[v], scale=Iscale0[v])
             }
         }
     ##
     for(k in 1:nclusters){
-        if(n$R>0){# real variates
+        if(len$R > 0){# real variates
             for(v in 1:Rn){
                 Rmean[v, k] ~ dnorm(mean=Rmean0[v], var=Rvar0[v])
                 Rvar[v, k] ~ dinvgamma(shape=Rshapeout0[v], rate=Rrate[v])
             }
         }
-        if(n$L>0){# logarithmic variates
+        if(len$L > 0){# logarithmic variates
             for(v in 1:Ln){
                 Lmean[v, k] ~ dnorm(mean=Lmean0[v], var=Lvar0[v])
                 Lvar[v, k] ~ dinvgamma(shape=Lshapeout0[v], rate=Lrate[v])
             }
         }
-        if(n$T>0){# bounded continuous variates
+        if(len$T > 0){# bounded continuous variates
             for(v in 1:Tn){
                 Tmean[v, k] ~ dnorm(mean=Tmeanmean0[v], var=Tmeanvar0[v])
                 Tvar[v, k] ~ dinvgamma(shape=Tshapeout0[v], rate=Trate[v])
             }
         }
-        if(n$I>0){# bounded continuous variates
+        if(len$I > 0){# bounded continuous variates
             for(v in 1:In){
                 Imean[v, k] ~ dnorm(mean=Imeanmean0[v], var=Imeanvar0[v])
                 Ivar[v, k] ~ dinvgamma(shape=Ishapeout0[v], rate=Irate[v])
             }
         }
-        if(n$B>0){# binary variates
+        if(len$B > 0){# binary variates
             for(v in 1:Bn){
                 Bprob[v, k] ~ dbeta(shape1=Bshapein0[v], shape2=Bshapeout0[v])
             }
         }
-        if(n$C>0){# categorical variates
+        if(len$C > 0){# categorical variates
             for(v in 1:Cn){
                 Cprob[v, k, 1:nmaxcategories] ~ ddirch(alpha=Calpha0[v, 1:Cnmaxcategories])
             }
@@ -590,34 +529,34 @@ finitemix <- nimbleCode({
         for(d in 1:ndata){
             K[d] ~ dcat(prob=W[1:nclusters])
             ##
-            if(n$R>0){# real variates
+            if(len$R > 0){# real variates
                 for(v in 1:Rn){
                     Rdata[d, v] ~ dnorm(mean=Rmean[v, K[d]], var=Rvar[v, K[d]])
                 }
             }
-            if(n$L>0){# logarithmic variates
+            if(len$L > 0){# logarithmic variates
                 for(v in 1:Ln){
                     Ldata[d, v] ~ dnorm(mean=Lmean[v, K[d]], var=Lvar[v, K[d]])
                 }
             }
-            if(n$I>0){# integer variates
+            if(len$I > 0){# integer variates
                 for(v in 1:In){
                     Idata[d, v] ~ dinterval(t=Iaux[v, K[d]], c=Iintervals0[v, 1:Imaxn])
                     Iaux[d, v] ~ dnorm(mean=Imean[v, K[d]], var=Ivar[v, K[d]])
                 }
             }
-            if(n$T>0){# bounded continuous variates
+            if(len$T > 0){# bounded continuous variates
                 for(v in 1:Tn){
                     Taux[d, v] ~ dinterval(t=Tdata[v, K[d]], c=Tintervals0[v, 1:Tmaxn])
                     Tdata[d, v] ~ dnorm(mean=Tmean[v, K[d]], var=Tvar[v, K[d]])
                 }
             }
-            if(n$B>0){# binary variates
+            if(len$B > 0){# binary variates
                 for(v in 1:Bn){
                     Bdata[d, v] ~ dbern(prob=Bprob[v, K[d]])
                 }
             }
-            if(n$C>0){# categorical variates
+            if(len$C > 0){# categorical variates
                 for(v in 1:Cn){
                     Cdata[d, v] ~ dcat(prob=Cprob[v, K[d], 1:Cmaxn])
                 }
@@ -634,10 +573,10 @@ if(posterior){
                          inits=initsFunction(), data=dat,
                          dimensions=c(
                              list(q=nclusters),
-                             (if(nrvars>0){list(meanR=c(nrvars,nclusters), tauR=c(nrvars,nclusters))}),
-                             (if(nivars>0){list(probI=c(nivars,nclusters))}),
-                             (if(ncvars>0){list(probC=c(ncvars,nclusters,ncategories))}),
-                             (if(nbvars>0){list(probB=c(nbvars,nclusters))}),
+                             (if(nrvars > 0){list(meanR=c(nrvars,nclusters), tauR=c(nrvars,nclusters))}),
+                             (if(nivars > 0){list(probI=c(nivars,nclusters))}),
+                             (if(ncvars > 0){list(probC=c(ncvars,nclusters,ncategories))}),
+                             (if(nbvars > 0){list(probB=c(nbvars,nclusters))}),
                              list(C=ndata),
                              if(compoundgamma){list(varRrate=nrvars)})
                          )
@@ -646,10 +585,10 @@ if(posterior){
                          inits=initsFunction(), data=list(),
                          dimensions=c(
                              list(q=nclusters),
-                             (if(nrvars>0){list(meanR=c(nrvars,nclusters), tauR=c(nrvars,nclusters))}),
-                             (if(nivars>0){list(probI=c(nivars,nclusters))}),
-                             (if(ncvars>0){list(probC=c(ncvars,nclusters,ncategories))}),
-                             (if(nbvars>0){list(probB=c(nbvars,nclusters))}),
+                             (if(nrvars > 0){list(meanR=c(nrvars,nclusters), tauR=c(nrvars,nclusters))}),
+                             (if(nivars > 0){list(probI=c(nivars,nclusters))}),
+                             (if(ncvars > 0){list(probC=c(ncvars,nclusters,ncategories))}),
+                             (if(nbvars > 0){list(probB=c(nbvars,nclusters))}),
                              if(compoundgamma){list(varRrate=nrvars)})
                          )
 }

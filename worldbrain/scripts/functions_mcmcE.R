@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-04T19:52:02+0100
+## Last-Updated: 2022-12-05T07:52:38+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -12,27 +12,40 @@ sd2iqr <- 0.5/qnorm(0.75)
 variatetypes <- c( R=0, I=1, B=2, C=3, L=-1, T=-2 )
 
 ## Create interval bounds for transformed integer variates; pad with +Inf
-createbounds <- function(n, nmax=n){ c( qnorm((1:(n-1))/n), rep(+Inf, nmax-n+1) ) }
+createbounds <- function(n, nmax=n){
+    if(n>1){ c( qnorm((1:(n-1))/n), rep(+Inf, nmax-n) ) } else {qnorm(c(n, 1-n))}
+}
 
 ## WARNING:
 ## transfdir() and transfinv() are not each other's inverse for all variate types
 
 ## Transformation from variate to internal variable
-transfdir <- function(x, varinfo, Tna=FALSE){
+transfdir <- function(x, varinfo, Tout='in', Iinit=FALSE){ # 'in' 'data' 'aux'
     sapply(colnames(x), function(v){
         datum <- data.matrix(x)[,v,drop=F]
         info <- varinfo[v,]
         type <- info['type']
         ##
-        if(type==-1){datum <- log(datum)} # strictly positive
+        if(type == -1){datum <- log(datum)} # strictly positive
+        ##
         datum <- (datum-info['location'])/info['scale']
-        if(type==-2){
-            datum <- qnorm(datum)
-            if(Tna){
-                datum[data.matrix(x)[,v]<=info['min']] <- NA
-                datum[data.matrix(x)[,v]>=info['max']] <- NA
+        ##
+        if(type == 1 & Iinit){ # integer, discrete ordinal
+            datum <- qnorm((datum+0.5)/info['n'])
+        } else if(type == -2){ # continuous doubly-bounded
+            if(Tout == 'in'){
+                datum <- qnorm(datum)
+                datum[data.matrix(x)[,v] <= info['min']] <- -Inf
+                datum[data.matrix(x)[,v] >= info['max']] <- Inf
+            } else if(Tout == 'data'){
+                datum <- qnorm(datum)
+                datum[data.matrix(x)[,v] <= info['min']] <- NA
+                datum[data.matrix(x)[,v] >= info['max']] <- NA
+            } else if(Tout == 'aux'){
+                datum <- (data.matrix(x)[,v] > info['min']) +
+                    (data.matrix(x)[,v] >= info['max'])
             }
-        } ## continuous doubly-bounded
+        }
         datum
     })
 }
@@ -43,19 +56,19 @@ transfinv <- function(y, varinfo){
         datum <- data.matrix(y)[,v,drop=F]
         info <- varinfo[v,]
         type <- info['type']
-        if(type==1){ # integer, discrete ordinal
+        if(type == 1){ # integer, discrete ordinal
             datum <- nimble::rinterval(n=length(datum), t=datum, c=createbounds(info['n'])) + 0L*datum
-        }else if(type==-2){ # continuous doubly bounded
+        }else if(type == -2){ # continuous doubly bounded
             datum <- pnorm(datum)
         }
         ##
         datum <- datum*info['scale'] + info['location']
         ##
-        if(type==-1){ # continuous strictly positive
+        if(type == -1){ # continuous strictly positive
             datum <- exp(datum)
-        }else if(type==-2){ # continuous doubly bounded
-            datum[datum<=info['min']] <- info['min']
-            datum[datum>=info['max']] <- info['max']
+        }else if(type == -2){ # continuous doubly bounded
+            datum[datum <= info['min']] <- info['min']
+            datum[datum >= info['max']] <- info['max']
         }
         datum
     })
@@ -67,14 +80,14 @@ recjacobian <- function(x, varinfo){
         datum <- data.matrix(x)[,v,drop=F]
         info <- varinfo[v,]
         type <- info['type']
-        if(type==0){ # real
+        if(type == 0){ # real
             datum <- info['scale'] + 0L*datum
-        }else if(type==-1){ # continuous strictly positive
+        }else if(type == -1){ # continuous strictly positive
             datum <- datum*info['scale']
-        }else if(type==-2){ # continuous doubly bounded
+        }else if(type == -2){ # continuous doubly bounded
             datum <- dnorm(transfdir(datum, varinfo))*info['scale']
-            datum[data.matrix(x)[,v]<=info['min']] <- 1L
-            datum[data.matrix(x)[,v]>=info['max']] <- 1L
+            datum[data.matrix(x)[,v] <= info['min']] <- 1L
+            datum[data.matrix(x)[,v] >= info['max']] <- 1L
         }else{ # other types
             datum <- 1L + 0L*datum
         }
@@ -157,19 +170,19 @@ mcsamples2parmlist <- function(mcsamples, realVars, integerVars, categoryVars, b
     ##
     parmList <- foreach(var=parmNames)%do%{
         out <- mcsamples[,grepl(paste0('^',var,'\\['), colnames(mcsamples))]
-        if((var=='meanR'||var=='varR')){
+        if((var == 'meanR'||var == 'varR')){
             dim(out) <- c(nrow(mcsamples), nrcovs, nclusters)
             dimnames(out) <- list(NULL, realVars, NULL)
-        } else if((var=='probI'||var=='sizeI')){
+        } else if((var == 'probI'||var == 'sizeI')){
             dim(out) <- c(nrow(mcsamples), nicovs, nclusters)
             dimnames(out) <- list(NULL, integerVars, NULL)
-        } else if((var=='probC')){
+        } else if((var == 'probC')){
             dim(out) <- c(nrow(mcsamples), nccovs, nclusters, ncategories)
             dimnames(out) <- list(NULL, categoryVars, NULL, NULL)
-        } else if((var=='probB')){
+        } else if((var == 'probB')){
             dim(out) <- c(nrow(mcsamples), nbcovs, nclusters)
             dimnames(out) <- list(NULL, binaryVars, NULL)
-        } else if(var=='q'){
+        } else if(var == 'q'){
             dim(out) <- c(nrow(mcsamples), nclusters)
         } else {NULL}
             out
@@ -189,24 +202,24 @@ finalstate2list <- function(finalstate, realVars, integerVars, categoryVars, bin
     nbcovs <- length(binaryVars)
     ##
     parmNames <- c('q',
-    (if(nrcovs>0){c('meanR', 'varR', (if(compoundgamma){'varRrate'}))}),
-    (if(nicovs>0){c('probI', 'sizeI')}),
-    (if(nccovs>0){'probC'}),
-    (if(nbcovs>0){'probB'}),
+    (if(nrcovs > 0){c('meanR', 'varR', (if(compoundgamma){'varRrate'}))}),
+    (if(nicovs > 0){c('probI', 'sizeI')}),
+    (if(nccovs > 0){'probC'}),
+    (if(nbcovs > 0){'probB'}),
     'C'
     )
     parmList <- foreach(var=parmNames)%do%{
         out <- finalstate[grepl(paste0('^',var,'\\['), names(finalstate))]
-        if(var=='meanR'||var=='varR'){
+        if(var == 'meanR'||var == 'varR'){
             dim(out) <- c(nrcovs, nclusters)
             dimnames(out) <- list(realVars, NULL)
-        }else if(var=='probI'||var=='sizeI'){
+        }else if(var == 'probI'||var == 'sizeI'){
             dim(out) <- c(nicovs, nclusters)
             dimnames(out) <- list(integerVars, NULL)
-        }else if(var=='probC'){
+        }else if(var == 'probC'){
             dim(out) <- c(nccovs, nclusters, ncategories)
             dimnames(out) <- list(categoryVars, NULL, NULL)
-        }else if(var=='probB'){
+        }else if(var == 'probB'){
             dim(out) <- c(nbcovs, nclusters)
             dimnames(out) <- list(binaryVars, NULL)
         } # 'q' and 'C' and 'varRrate' are vectors with no names
@@ -237,20 +250,20 @@ llSamples <- function(dat, parmList){
                 t(vapply(seq_len(ncol(q)), function(acluster){
                     #### rows: variates, columns: data
                     ## real variates
-                    (if(nrcovs>0){
+                    (if(nrcovs > 0){
                         colSums(dnorm(t(dat$Real), mean=parmList$meanR[asample,,acluster], sd=sqrt(parmList$varR[asample,,acluster]), log=TRUE), na.rm=T)
                         }else{0}) +
                         ## integer variates
-                        (if(nicovs>0){
+                        (if(nicovs > 0){
                             colSums(dbinom(t(dat$Integer), prob=parmList$probI[asample,,acluster], size=parmList$sizeI[asample,,acluster], log=TRUE), na.rm=T)
                             }else{0}) +
                         ## category variates
-                        (if(nccovs>0){
+                        (if(nccovs > 0){
                             rowSums(log(sapply(seq_len(nccovs), function(acov){
                                 parmList$probC[asample,acov,acluster,dat$Category[,acov]]})), na.rm=T)
                             }else{0}) +
                     ## binary variates
-                    (if(nbcovs>0){
+                    (if(nbcovs > 0){
                             colSums(log(
                                 parmList$probB[asample,,acluster] * t(dat$Binary) +
                                 (1-parmList$probB[asample,,acluster]) * (1-t(dat$Binary))
@@ -274,21 +287,21 @@ llSamplesmc <- function(dat, mcsamples){
     Qi <- grep('q',colnames(mcsamples))
     nclusters <- length(Qi)
     sclusters <- seq_len(nclusters)
-    if(nrcovs>0){
+    if(nrcovs > 0){
         meanRi <- grep('meanR',colnames(mcsamples))
         varRi <- grep('varR',colnames(mcsamples))
         dim(meanRi) <- dim(varRi) <- c(nrcovs, nclusters)
         }
-    if(nicovs>0){
+    if(nicovs > 0){
         probIi <- grep('probI',colnames(mcsamples))
         sizeIi <- grep('sizeI',colnames(mcsamples))
         dim(probIi) <- dim(sizeIi) <- c(nicovs,nclusters)
         }
-    if(nccovs>0){
+    if(nccovs > 0){
         probCi <- grep('probC',colnames(mcsamples))
         dim(probCi) <- c(nccovs,nclusters,length(probCi)/nccovs/nclusters)
         }
-    if(nbcovs>0){
+    if(nbcovs > 0){
         probBi <- grep('probB',colnames(mcsamples))
         dim(probBi) <- c(nbcovs,nclusters)
         }
@@ -300,20 +313,20 @@ llSamplesmc <- function(dat, mcsamples){
                 t(vapply(sclusters, function(acluster){
                     #### rows: variates, columns: data
                     ## real variates
-                    (if(nrcovs>0){
+                    (if(nrcovs > 0){
                          colSums(dnorm(t(dat$Real), mean=asample[meanRi[,acluster]], sd=sqrt(asample[varRi[,acluster]]), log=TRUE), na.rm=T)
                         }else{0}) +
                         ## integer variates
-                        (if(nicovs>0){
+                        (if(nicovs > 0){
                             colSums(dbinom(t(dat$Integer), prob=asample[probIi[,acluster]], size=asample[sizeIi[,acluster]], log=TRUE), na.rm=T)
                             }else{0}) +
                         ## category variates
-                        (if(nccovs>0){
+                        (if(nccovs > 0){
                              rowSums(log(sapply(seq_len(nccovs), function(acov){
                                  asample[probCi[acov,acluster,dat$Category[,acov]]]})), na.rm=T)
                             }else{0}) +
                     ## binary variates
-                    (if(nbcovs>0){
+                    (if(nbcovs > 0){
                          colSums(log(
                              asample[probBi[,acluster]] * t(dat$Binary) +
                              (1-asample[probBi[,acluster]]) * (1-t(dat$Binary))
@@ -346,32 +359,32 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
         Xnames <- intersect(Xnames,allvariates)
         X <- X[,Xnames,drop=F]
     }
-    if(length(intersect(Ynames,Xnames))>0){
+    if(length(intersect(Ynames,Xnames)) > 0){
         warning('*Predictor and predictand have variates in common.*')
         warning(paste0('*Discarding: ',paste0(intersect(Ynames,Xnames),collapse=' '),' from predictor'))
         Xnames <- setdiff(Xnames,Ynames)
     }
-    if(length(Xnames)==0){
+    if(length(Xnames) == 0){
         X <- Xnames <- NULL
     }
     ##
     YXnames <- c(Ynames, Xnames)
     ## variateparameters <- variateparameters[YXnames,,drop=F]
     ##
-    rY <- Ynames[variateparameters[Ynames,'type']==0]
-    iY <- Ynames[variateparameters[Ynames,'type']==3]
-    cY <- Ynames[variateparameters[Ynames,'type']==1]
-    bY <- Ynames[variateparameters[Ynames,'type']==2]
+    rY <- Ynames[variateparameters[Ynames,'type'] == 0]
+    iY <- Ynames[variateparameters[Ynames,'type'] == 3]
+    cY <- Ynames[variateparameters[Ynames,'type'] == 1]
+    bY <- Ynames[variateparameters[Ynames,'type'] == 2]
     cNamesY <- c(rY, iY, cY, bY)
     nrY <- length(rY)
     niY <- length(iY)
     ncY <- length(cY)
     nbY <- length(bY)
     ##
-    rX <- Xnames[variateparameters[Xnames,'type']==0]
-    iX <- Xnames[variateparameters[Xnames,'type']==3]
-    cX <- Xnames[variateparameters[Xnames,'type']==1]
-    bX <- Xnames[variateparameters[Xnames,'type']==2]
+    rX <- Xnames[variateparameters[Xnames,'type'] == 0]
+    iX <- Xnames[variateparameters[Xnames,'type'] == 3]
+    cX <- Xnames[variateparameters[Xnames,'type'] == 1]
+    bX <- Xnames[variateparameters[Xnames,'type'] == 2]
     ## cNamesX <- c(rX, iX, cX, bX)
     nrX <- length(rX)
     niX <- length(iX)
@@ -398,21 +411,21 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
     Qi <- grep('q',colnames(mcsamples))
     nclusters <- length(Qi)
     sclusters <- seq_len(nclusters)
-    if(nrY>0){
+    if(nrY > 0){
         totake <- variateparameters[rY,'index']
         YmeanRi <- sapply(paste0('meanR\\[',totake,','),grep,colnames(mcsamples))
         YvarRi <- sapply(paste0('varR\\[',totake,','),grep,colnames(mcsamples))
         dim(YmeanRi) <- dim(YvarRi) <- c(nclusters,nrY)
         colnames(YmeanRi) <- colnames(YvarRi) <- rY
     }
-    if(niY>0){
+    if(niY > 0){
         totake <- variateparameters[iY,'index']
         YprobIi <- sapply(paste0('probI\\[',totake,','),grep,colnames(mcsamples))
         YsizeIi <- sapply(paste0('sizeI\\[',totake,','),grep,colnames(mcsamples))
         dim(YprobIi) <- dim(YsizeIi) <- c(nclusters,niY)
         colnames(YprobIi) <- colnames(YsizeIi) <- iY
     }
-    if(ncY>0){
+    if(ncY > 0){
         totake <- variateparameters[cY,'index']
         YprobCi <- t(sapply(paste0('probC\\[',totake,','),grep,colnames(mcsamples)))
         ncategories <- length(YprobCi)/ncY/nclusters
@@ -422,7 +435,7 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
         colnames(YprobCi) <- cY
         scategories <- seq_len(ncategories)
     }
-    if(nbY>0){
+    if(nbY > 0){
         totake <- variateparameters[bY,'index']
         YprobBi <- sapply(paste0('probB\\[',totake,','),grep,colnames(mcsamples))
         dim(YprobBi) <- c(nclusters,nbY)
@@ -430,21 +443,21 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
         ## sbins <- 0:1
     }
     ##
-    if(nrX>0){
+    if(nrX > 0){
         totake <- variateparameters[rX,'index']
         XmeanRi <- t(sapply(paste0('meanR\\[',totake,','),grep,colnames(mcsamples)))
         XvarRi <- t(sapply(paste0('varR\\[',totake,','),grep,colnames(mcsamples)))
         ## dim(meanRi) <- dim(varRi) <- c(nrcovs, nclusters)
         ## rownames(meanRi) <- rownames(varRi) <- rCovs
     }
-    if(niX>0){
+    if(niX > 0){
         totake <- variateparameters[iX,'index']
         XprobIi <- t(sapply(paste0('probI\\[',totake,','),grep,colnames(mcsamples)))
         XsizeIi <- t(sapply(paste0('sizeI\\[',totake,','),grep,colnames(mcsamples)))
         dim(XprobIi) <- dim(XsizeIi) <- c(niX,nclusters)
         rownames(XprobIi) <- rownames(XsizeIi) <- iX
     }
-    if(ncX>0){
+    if(ncX > 0){
         totake <- variateparameters[cX,'index']
         XprobCi <- t(sapply(paste0('probC\\[',totake,','),grep,colnames(mcsamples)))
         if(!exists('ncategories')){
@@ -454,7 +467,7 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
             scategories <- seq_len(ncategories)
         }
     }
-    if(nbX>0){
+    if(nbX > 0){
         totake <- variateparameters[bX,'index']
         XprobBi <- t(sapply(paste0('probB\\[',totake,','),grep,colnames(mcsamples)))
         ## dim(probBi) <- c(nbcovs,nclusters)
@@ -466,7 +479,7 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
         if(inorder){
             fromsamples <- round(seq(1, nrow(mcsamples), length.out=fromsamples))
         }else{
-            fromsamples <- sample(1:nrow(mcsamples),fromsamples,replace=(fromsamples>nrow(mcsamples)))
+            fromsamples <- sample(1:nrow(mcsamples),fromsamples,replace=(fromsamples > nrow(mcsamples)))
         }
     }
     mcsamples <- t(mcsamples[fromsamples,,drop=F])
@@ -480,20 +493,20 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
                 log(q) + t(#rows=clusters
                 vapply(sclusters, function(acluster){#cols=clusters
                     ## real covariates (rows)
-                    (if(nrX>0){
+                    (if(nrX > 0){
                         colSums(dnorm(x=X[rX,,drop=F], mean=mcsamples[XmeanRi[,acluster],,drop=F], sd=sqrt(mcsamples[XvarRi[,acluster],,drop=F]), log=TRUE), na.rm=TRUE)
                     }else{0}) +
                         ## integer covariates (rows)
-                        (if(niX>0){
+                        (if(niX > 0){
                             colSums(dbinom(x=X[iX,,drop=FALSE], prob=mcsamples[XprobIi[,acluster],,drop=F], size=mcsamples[XsizeIi[,acluster],,drop=F], log=TRUE), na.rm=TRUE)
                         }else{0}) +
                         ## category variates (cols)
-                        (if(ncX>0){
+                        (if(ncX > 0){
                              rowSums(sapply(cX,function(acov){
                                  extraDistr::dcat(x=X[acov,], prob=t(mcsamples[XprobCi[acov,acluster,],,drop=F]), log=TRUE)}), na.rm=TRUE)
                             }else{0}) +
                         ## binary covariates (rows)
-                        (if(nbX>0){
+                        (if(nbX > 0){
                              colSums(matrix(log(
                                  c(mcsamples[XprobBi[,acluster],]) * c(X[bX,]) +
                                  c(1-mcsamples[XprobBi[,acluster],])* c(1-X[bX,])
@@ -509,7 +522,7 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
     ## 
     ## mcsamples <- t(mcsamples)
     ##
-    if(nrY>0){
+    if(nrY > 0){
         rM <- t(sapply(rY, function(acov){
             out <- mcsamples[YmeanRi[,acov],]
             rbind(out2 <- colSums(pX*out),
@@ -517,7 +530,7 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
         })) # Y, moments, samples
     }else{rM <- NULL}
     ##
-    if(niY>0){
+    if(niY > 0){
         iM <- t(sapply(iY, function(acov){
             out <- mcsamples[YprobIi[,acov],]*mcsamples[YsizeIi[acov,],]
             rbind(out2 <- colSums(pX*out),
@@ -526,7 +539,7 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
         })) # Y, moments, samples
     }else{iM <- NULL}
     ##
-    if(ncY>0){
+    if(ncY > 0){
         cM <- t(sapply(cY, function(acov){
             out <- matrix(mcsamples[YprobCi[,acov],],nrow=ncategories)*scategories
             rbind(colSums(pX*colSums(out)),
@@ -535,7 +548,7 @@ samplesMVmc <- function(Ynames=NULL, X=NULL, mcsamples, variateparameters, froms
     }else{cM <- NULL}
     if(exists('out')){rm(out)}
     ##
-    if(nbY>0){
+    if(nbY > 0){
         bM <- t(sapply(bY, function(acov){
             rbind(out2 <- colSums(pX*mcsamples[YprobBi[,acov],]),
                   out2*(1-out2))
@@ -573,14 +586,14 @@ moments12Samples <- function(parmList){
     ncovs <- length(covNames)
     q <- t(parmList$q)
     ##
-if(length(realCovs)>0){
+if(length(realCovs) > 0){
     meansr <- aperm(parmList$meanR, c(3, 1, 2))
     quadr <- aperm(1/parmList$tauR + parmList$meanR * parmList$meanR, c(3, 1, 2))
 }else{
     meansr <- NULL
     quadr <- NULL
 }
-    if(length(integerCovs)>0){
+    if(length(integerCovs) > 0){
     meansi <- aperm(parmList$probI * parmList$sizeI, c(3, 1, 2))
     quadi <- aperm(parmList$probI * parmList$sizeI *
                     (1 + parmList$probI * (parmList$sizeI - 1)), c(3, 1, 2))
@@ -588,7 +601,7 @@ if(length(realCovs)>0){
         meansi <- NULL
         quadi <- NULL
 }
-    if(length(binaryCovs)>0){
+    if(length(binaryCovs) > 0){
     meansb <- aperm(parmList$probB, c(3, 1, 2))
     quadb <- aperm(parmList$probB * parmList$probB, c(3, 1, 2))
     }else{
@@ -626,10 +639,10 @@ if(length(realCovs)>0){
 ## uses mcsamples
 samplesFmc <- function(Y, X=NULL, mcsamples, variateparameters, fromsamples=nrow(mcsamples), inorder=FALSE){
     ##
-    rCovs <- rownames(variateparameters)[variateparameters[,'type']==0]
-    iCovs <- rownames(variateparameters)[variateparameters[,'type']==3]
-    cCovs <- rownames(variateparameters)[variateparameters[,'type']==1]
-    bCovs <- rownames(variateparameters)[variateparameters[,'type']==2]
+    rCovs <- rownames(variateparameters)[variateparameters[,'type'] == 0]
+    iCovs <- rownames(variateparameters)[variateparameters[,'type'] == 3]
+    cCovs <- rownames(variateparameters)[variateparameters[,'type'] == 1]
+    bCovs <- rownames(variateparameters)[variateparameters[,'type'] == 2]
     cNames <- c(rCovs, iCovs, cCovs, bCovs)
     nrcovs <- length(rCovs)
     nicovs <- length(iCovs)
@@ -668,26 +681,26 @@ samplesFmc <- function(Y, X=NULL, mcsamples, variateparameters, fromsamples=nrow
         }
         X <- t((t(X[,cnX,drop=F])-locations[cnX])/scales[cnX])
         rX <- cnX[cnX %in% rCovs]
-        if(length(intersect(rX,rY))>0){
+        if(length(intersect(rX,rY)) > 0){
             warning('*WARNING: predictor and predictand have real variates in common. Removing from predictor*')
             rX <- setdiff(rX,rY)
         }
         iX <- cnX[cnX %in% iCovs]
-        if(length(intersect(iX,iY))>0){
+        if(length(intersect(iX,iY)) > 0){
             warning('*WARNING: predictor and predictand have integer variates in common. Removing from predictor*')
             iX <- setdiff(iX,iY)
         }
         cX <- cnX[cnX %in% cCovs]
-        if(length(intersect(cX,cY))>0){
+        if(length(intersect(cX,cY)) > 0){
             warning('*WARNING: predictor and predictand have category variates in common. Removing from predictor*')
             cX <- setdiff(cX,cY)
         }
         bX <- cnX[cnX %in% bCovs]
-        if(length(intersect(bX,bY))>0){
+        if(length(intersect(bX,bY)) > 0){
             warning('*WARNING: predictor and predictand have binary variates in common. Removing from predictor*')
             bX <- setdiff(bX,bY)
         }
-        if(length(c(rX,iX,cX,bX))==0){X <- NULL}
+        if(length(c(rX,iX,cX,bX)) == 0){X <- NULL}
     }
     ##
     if(!is.null(X)){
@@ -705,24 +718,24 @@ samplesFmc <- function(Y, X=NULL, mcsamples, variateparameters, fromsamples=nrow
     Qi <- grep('q',colnames(mcsamples))
     nclusters <- length(Qi)
     sclusters <- seq_len(nclusters)
-    if(nrcovs>0){
+    if(nrcovs > 0){
         meanRi <- grep('meanR',colnames(mcsamples))
         varRi <- grep('varR',colnames(mcsamples))
         dim(meanRi) <- dim(varRi) <- c(nrcovs, nclusters)
         rownames(meanRi) <- rownames(varRi) <- rCovs
         }
-    if(nicovs>0){
+    if(nicovs > 0){
         probIi <- grep('probI',colnames(mcsamples))
         sizeIi <- grep('sizeI',colnames(mcsamples))
         dim(probIi) <- dim(sizeIi) <- c(nicovs,nclusters)
         rownames(probIi) <- rownames(sizeIi) <- iCovs
         }
-    if(nccovs>0){
+    if(nccovs > 0){
         probCi <- grep('probC',colnames(mcsamples))
         dim(probCi) <- c(nccovs,nclusters,length(probCi)/nccovs/nclusters)
         dimnames(probCi) <- list(cCovs, NULL, NULL)
         }
-    if(nbcovs>0){
+    if(nbcovs > 0){
         probBi <- grep('probB',colnames(mcsamples))
         dim(probBi) <- c(nbcovs,nclusters)
         rownames(probBi) <- bCovs
@@ -732,7 +745,7 @@ samplesFmc <- function(Y, X=NULL, mcsamples, variateparameters, fromsamples=nrow
         if(inorder){
             fromsamples <- round(seq(1, nrow(mcsamples), length.out=fromsamples))
         }else{
-            fromsamples <- sample(1:nrow(mcsamples),fromsamples,replace=(fromsamples>nrow(mcsamples)))
+            fromsamples <- sample(1:nrow(mcsamples),fromsamples,replace=(fromsamples > nrow(mcsamples)))
         }
     }
     ##
