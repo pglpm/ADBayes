@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-05T11:15:28+0100
+## Last-Updated: 2022-12-05T11:58:47+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -10,12 +10,12 @@
 
 #### USER INPUTS AND CHOICES ####
 baseversion <- '_testfun2' # *** ## Base name of output directory
-datafile <- 'ingrid_data_nogds6.csv' #***
+datafile <- 'testdata.csv' # 'ingrid_data_nonangds6.csv' #***
 predictors <- 'predictors.csv'
-varinfofile <- 'varinfo.csv' #***
+varinfofile <- 'testvarinfo.csv' #***
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
-## ndata <- 5 # set this if you want to use fewer data
+## ndata <- 3 # set this if you want to use fewer data
 ## shuffledata <- TRUE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
@@ -25,7 +25,7 @@ showdata <- TRUE # 'histogram' 'scatter' FALSE TRUE
 plotmeans <- FALSE # plot frequency averages
 ##
 niter0 <- 1024L * 1L # 3L # iterations burn-in
-nclusters <- 64L
+nclusters <- 4L
 alpha0 <- c(0.5, 1, 2)
 casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
@@ -164,6 +164,7 @@ constants <- c(
 initsFunction <- function(){
     c(
         if(nalpha > 1){list( # distribution over concentration parameter
+                           Alpha = 2,
                            probalpha0 = rep(1/nalpha, nalpha),
                            walpha0 = matrix(alpha0/nclusters,
                                             nrow=nalpha, ncol=nclusters)
@@ -184,14 +185,14 @@ initsFunction <- function(){
                      Lshapein0 = varinfo[variate$L, 'shapein'],
                      Lvarscale0 = varinfo[variate$L, 'varscale']^2
                  )},
-        if(len$T > 0){list( # real variate
+        if(len$T > 0){list( # doubly-bounded variate
                      Tmean0 = varinfo[variate$T, 'mean'],
                      Tvar0 = varinfo[variate$T, 'sd']^2,
                      Tshapeout0 = varinfo[variate$T, 'shapeout'],
                      Tshapein0 = varinfo[variate$T, 'shapein'],
                      Tvarscale0 = varinfo[variate$T, 'varscale']^2
                  )},
-        if(len$I > 0){list( # real variate
+        if(len$I > 0){list( # integer ordinal variate
                      Imean0 = varinfo[variate$I, 'mean'],
                      Ivar0 = varinfo[variate$I, 'sd']^2,
                      Ishapeout0 = varinfo[variate$I, 'shapeout'],
@@ -199,21 +200,21 @@ initsFunction <- function(){
                      Ivarscale0 = varinfo[variate$I, 'varscale']^2,
                      Iaux = Iauxinit
                      )},
-        if(len$B > 0){list( # real variate
+        if(len$B > 0){list( # binay variate
                      Bshapeout0 = varinfo[variate$B, 'shapeout'],
                      Bshapein0 = varinfo[variate$B, 'shapein']
                  )},
-        if(len$C > 0){list( # real variate
+        if(len$C > 0){list( # categorical variate
                      Calpha0 = t(sapply(variate$B, function(v){
                          c( rep(varinfo[v, 'shapeout'], varinfo[v, 'max']),
                            rep(2^(-40), Cmaxn-varinfo[v, 'max']) )
                      }))
                  )},
-        if((!casualinitvalues) & posterior){list(
-                                                W = rep(1/nclusters, nclusters),
-                                                K = rep(1, ndata) # all in one cluster at first
+        if((!casualinitvalues) && posterior){list(
+                                                 W = rep(1/nclusters, nclusters),
+                                                 K = rep(1, ndata) # all in one cluster at first
                                             )},
-        if(casualinitvalues & posterior){list(
+        if(casualinitvalues && posterior){list(
                                              W = rdirch(1, alpha=rep(1,nclusters)),
                                              K = sample(1:nclusters, ndata, replace=TRUE)
                                          )}
@@ -392,7 +393,7 @@ gc()
 
 ##
 if(posterior){# Samplers for posterior sampling
-    confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
+    confnimble <- configureMCMC(Cfinitemixnimble, nodes=NULL,
                                monitors=c('W',
                                           if(len$R > 0){c('Rmean', 'Rvar')},
                                           if(len$L > 0){c('Lmean', 'Lvar')},
@@ -418,7 +419,7 @@ if(posterior){# Samplers for posterior sampling
         }
     for(v in seq(along=variate$I)){
             confnimble$addSampler(target=paste0('Irate[',v,']'), type='conjugate')
-        }
+    }
     for(k in 1:nclusters){
     for(v in seq(along=variate$R)){
             confnimble$addSampler(target=paste0('Rvar[',v,', ',k,']'), type='conjugate')
@@ -449,7 +450,22 @@ if(posterior){# Samplers for posterior sampling
         confnimble$addSampler(target='Alpha', type='categorical')
     }
 }
+print(confnimble)
 
+confnimble$printSamplers(executionOrder=TRUE)
+
+
+    confnimble <- configureMCMC(Cfinitemixnimble, 
+                               monitors=c('W',
+                                          if(len$R > 0){c('Rmean', 'Rvar')},
+                                          if(len$L > 0){c('Lmean', 'Lvar')},
+                                          if(len$T > 0){c('Tmean', 'Tvar')},
+                                          if(len$I > 0){c('Imean', 'Ivar')},
+                                          if(len$B > 0){c('Bprob')},
+                                          if(len$C > 0){c('Cprob')}
+                                          ),
+                               monitors2=c('K')
+                               )
 
 
     
@@ -484,6 +500,7 @@ if(posterior){# Samplers for posterior sampling
 }
 ##
 print(confnimble)
+
 
 mcsampler <- buildMCMC(confnimble)
 Cmcsampler <- compileNimble(mcsampler, resetFunctions = TRUE)
