@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-06T20:32:57+0100
+## Last-Updated: 2022-12-06T21:55:46+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -309,8 +309,11 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
     }
     ##
     if(!is.null(X)){
-    testre <- foreach(x=t(X), y=t(Y), .combine=list)%do%{
-        probX <- log(W) + # rows: clusters, cols: MCsamples
+            X2 <- transfdir(X,varinfo,Tout='in', Iout='in')
+            Y2 <- transfdir(Y,varinfo,Tout='in', Iout='in')
+        testre <- foreach(x=t(X2), y=t(Y2), .combine=rbind)%do%{
+            probX <- t( # rows: MCsamples, cols: clusters
+            log(W) + 
                 (if(Xn$T > 0){
                      colSums(
                          array(
@@ -372,9 +375,11 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                              })),
                              dim=c(Xn$I, nclusters, length(subsamples))),
                          na.rm=TRUE)
-                     }else{0})
+                 }else{0})
+            )
         ##
-        probY <- (if(Yn$T > 0){ # rows: clusters, cols: MCsamples
+        probY <- t( # rows: MCsamples, cols: clusters
+        (if(Yn$T > 0){
                      colSums(
                          array(
                              t(sapply(Yv$T, function(v){
@@ -435,15 +440,32 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                              })),
                              dim=c(Yn$I, nclusters, length(subsamples))),
                          na.rm=TRUE)
-                     }else{0})
-##
-        eprobX <- t(exp(t(probX) - apply(probX,2,max,na.rm=T)))
-        
-
-
-
-
-
+                 }else{0})
+        )
+        ## This seems to minimize roundoff error
+        probX <- probX - apply(probX, 1, max, na.rm=T)
+        rowSums(exp(probX+probY))/rowSums(exp(probX))
+        ##
+        ## ## Other approaches tested for roundoff error
+        ## testc2 <- rowSums(exp(probX2 + probY - log(rowSums(exp(probX2)))))
+        ##
+        ## maxp <- apply(probX2 + probY - log(rowSums(exp(probX2))),1,max,na.rm=T)
+        ## testc2f <- exp(maxp)*rowSums(exp(probX2 + probY - log(rowSums(exp(probX2)))-maxp))
+        ##
+        ## testc1d <- rowSums(exp(probX+probY))/rowSums(exp(probX))
+        ##        
+        ## testc1 <- rowSums(exp(probX + probY - log(rowSums(exp(probX)))))
+        ##
+        ## maxp <- apply(probX + probY - log(rowSums(exp(probX))),1,max,na.rm=T)
+        ## testc1f <- exp(maxp)*rowSums(exp(probX + probY - log(rowSums(exp(probX)))-maxp))
+        ##
+        ## ## Comparison using Rmpfr library
+        ## dprobX <- mpfr(probX, precBits=200)
+        ## dprobY <- mpfr(probY, precBits=200)
+        ##
+        ## dtestc1 <- rowSums(exp(dprobX + dprobY - log(rowSums(exp(dprobX)))))
+        ## dtestc1d <- rowSums(exp(dprobX+dprobY))/rowSums(exp(dprobX))
+}
 
 
 
