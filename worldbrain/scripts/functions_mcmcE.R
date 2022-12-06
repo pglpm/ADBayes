@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-06T06:12:50+0100
+## Last-Updated: 2022-12-06T08:15:04+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -145,6 +145,187 @@ proposethinning <- function(x){
     Rec.Thin[which(is.na(Rec.Thin))] <- nrow(acf.temp)
     Rec.Thin
 }
+
+samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nrow(mcsamples)){
+    Yv <- colnames(Y)
+    Yvn <- length(Yv)
+    Xv <- colnames(X)
+    Xvn <- length(Xv)
+    Vv <- rownames(varinfo)
+    if(length(intersect(Yv, Xv)) > 0){warning(overlap in Y and X variates)}
+    if(!all(Yv %in% Vv)){warning(unknown Y variates)}
+    if(!all(Xv %in% Vv)){warning(unknown X variates)}
+    ##
+    variate <- lapply(variatetypes, function(x)rownames(varinfo)[varinfo[,'type']==x])
+    len <- lapply(variate,length)
+    Yv <- lapply(variatetypes, function(x)Yv[varinfo[Yv,'type']==x])
+    Yn <- lapply(Yv,length)
+    Xv <- lapply(variatetypes, function(x)Xv[varinfo[Xv,'type']==x])
+    Xn <- lapply(Xv,length)
+    ##
+    Wi <- grep('W',colnames(mcsamples))
+    nclusters <- length(Wi)
+    seqclusters <- seq_len(nclusters)
+    ##
+
+    if(Yn$C > 0){## categorical
+    totake <- sapply(Yv$C,function(x)which(variate$C == x))
+    YCprob <- apply(paste0('Cprob\\[',totake,','),
+                            grep,colnames(mcsamples))
+    ncategories <- length(YCprob)/length(totake)/nclusters
+    seqcategories <- seq_len(ncategories)
+    YCprob <- aperm(array(YCprob,
+                           dim=c(nclusters,ncategories,length(totake)),
+                           dimnames=list(NULL,NULL,Yv$C)),
+                    c(2,1,3))
+    }
+    if(Yn$B > 0){## binary
+    totake <- sapply(Yv$B,function(x)which(variate$B == x))
+    YBprob <- array(vapply(paste0('Bprob\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Yv$B))
+    }
+    if(Yn$I > 0){## integer ordinal
+    totake <- sapply(Yv$I,function(x)which(variate$I == x))
+    YImean <- array(vapply(paste0('Imean\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Yv$I))
+    YIvar <- array(vapply(paste0('Ivar\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Yv$I))
+    }
+    if(Yn$R > 0){## real
+    totake <- sapply(Yv$R,function(x)which(variate$R == x))
+    YRmean <- array(vapply(paste0('Rmean\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Yv$R))
+    YRvar <- array(vapply(paste0('Rvar\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Yv$R))
+    }
+    if(Yn$L > 0){## logarithmic
+    totake <- sapply(Yv$L,function(x)which(variate$L == x))
+    YLmean <- array(vapply(paste0('Lmean\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Yv$L))
+    YLvar <- array(vapply(paste0('Lvar\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Yv$L))
+    }
+    if(Yn$T > 0){## two-bounded
+    totake <- sapply(Yv$T,function(x)which(variate$T == x))
+    YTmean <- array(vapply(paste0('Tmean\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Yv$T))
+    YTvar <- array(vapply(paste0('Tvar\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Yv$T))
+    }
+    ##
+    if(Xn$C > 0){## categorical
+    totake <- sapply(Xv$C,function(x)which(variate$C == x))
+    XCprob <- apply(paste0('Cprob\\[',totake,','),
+                            grep,colnames(mcsamples))
+    ncategories <- length(XCprob)/length(totake)/nclusters
+    seqcategories <- seq_len(ncategories)
+    XCprob <- aperm(array(XCprob,
+                           dim=c(nclusters,ncategories,length(totake)),
+                           dimnames=list(NULL,NULL,Xv$C)),
+                    c(2,1,3))
+    }
+    if(Xn$B > 0){## binary
+    totake <- sapply(Xv$B,function(x)which(variate$B == x))
+    XBprob <- array(vapply(paste0('Bprob\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Xv$B))
+    }
+    if(Xn$I > 0){## integer ordinal
+    totake <- sapply(Xv$I,function(x)which(variate$I == x))
+    XImean <- array(vapply(paste0('Imean\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Xv$I))
+    XIvar <- array(vapply(paste0('Ivar\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Xv$I))
+    }
+    if(Xn$R > 0){## real
+    totake <- sapply(Xv$R,function(x)which(variate$R == x))
+    XRmean <- array(vapply(paste0('Rmean\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Xv$R))
+    XRvar <- array(vapply(paste0('Rvar\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Xv$R))
+    }
+    if(Xn$L > 0){## logarithmic
+    totake <- sapply(Xv$L,function(x)which(variate$L == x))
+    XLmean <- array(vapply(paste0('Lmean\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Xv$L))
+    XLvar <- array(vapply(paste0('Lvar\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Xv$L))
+    }
+    if(Xn$T > 0){## two-bounded
+    totake <- sapply(Xv$T,function(x)which(variate$T == x))
+    XTmean <- array(vapply(paste0('Tmean\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Xv$T))
+    XTvar <- array(vapply(paste0('Tvar\\[',totake,','), grep,
+                           matrix(0,nclusters,length(totake)),
+                           colnames(mcsamples)),
+                     dim=c(nclusters,length(totake)), dimnames=list(NULL,Xv$T))
+    }
+    ##
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##
 ## Construct a list of parameter samples from the raw MCMC samples
 mcsamples2parmlist <- function(mcsamples, realVars, integerVars, categoryVars, binaryVars){
