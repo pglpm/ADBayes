@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-05T22:18:16+0100
+## Last-Updated: 2022-12-06T19:35:33+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -129,7 +129,7 @@ datapoints = c(
                    Taux = transfdir(data0[,variate$T,with=F], varinfo, Tout='aux')
                   )},
     ## integer
-    if(len$I > 0){list( Idata = transfdir(data0[,variate$I,with=F], varinfo, Iinit=FALSE) )},
+    if(len$I > 0){list( Idata = transfdir(data0[,variate$I,with=F], varinfo, Iout='data') )},
     ## binary
     if(len$B > 0){list( Bdata = transfdir(data0[,variate$B,with=F], varinfo) )},
     ## categorical
@@ -142,7 +142,7 @@ Imaxn <- max(varinfo[variate$I, 'n'])-1
 Iintervals0 <- t(sapply(variate$I, function(v){
     createbounds(n=varinfo[v, 'n'], nmax=Imaxn+1)
 }))
-Iauxinit <- transfdir(data0[,variate$I,with=F], varinfo, Iinit=TRUE)
+Iauxinit <- transfdir(data0[,variate$I,with=F], varinfo, Iout='aux')
 ##
 Tmaxn <- 2
 Tintervals0 <- t(sapply(variate$T, function(v){ createbounds(n=varinfo[v, 'n']) }))

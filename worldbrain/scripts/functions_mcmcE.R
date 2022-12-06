@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-06T18:52:50+0100
+## Last-Updated: 2022-12-06T20:32:57+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -20,7 +20,7 @@ createbounds <- function(n, nmax=n){
 ## transfdir() and transfinv() are not each other's inverse for all variate types
 
 ## Transformation from variate to internal variable
-transfdir <- function(x, varinfo, Tout='in', Iinit=FALSE){ # 'in' 'data' 'aux'
+transfdir <- function(x, varinfo, Tout='in', Iout='data'){ # 'in' 'data' 'aux'
     sapply(colnames(x), function(v){
         datum <- data.matrix(x)[,v,drop=F]
         info <- varinfo[v,]
@@ -30,18 +30,24 @@ transfdir <- function(x, varinfo, Tout='in', Iinit=FALSE){ # 'in' 'data' 'aux'
         ##
         datum <- (datum-info['location'])/info['scale']
         ##
-        if(type == 1 & Iinit){ # integer, discrete ordinal
-            datum <- qnorm((datum+0.5)/info['n'])
+        if(type == 1){ # integer, discrete ordinal
+            if(Iout == 'in'){ # in sampling functions
+                datum <- round(datum) + 1L
+            } else if(Iout == 'data'){ # as data for MCMC
+                datum <- round(datum)
+            } else if(Iout == 'aux'){ # auxiliary init values
+                datum <- qnorm((round(datum)+0.5)/info['n'])
+            }
         } else if(type == -2){ # continuous doubly-bounded
-            if(Tout == 'in'){
-                datum <- qnorm(datum)
-                datum[data.matrix(x)[,v] <= info['min']] <- -Inf
-                datum[data.matrix(x)[,v] >= info['max']] <- Inf
-            } else if(Tout == 'data'){
+            if(Tout == 'in'){ # in sampling functions
                 datum <- qnorm(datum)
                 datum[data.matrix(x)[,v] <= info['min']] <- -Inf
                 datum[data.matrix(x)[,v] >= info['max']] <- +Inf
-            } else if(Tout == 'aux'){
+            } else if(Tout == 'data'){ # as data for MCMC
+                datum <- qnorm(datum)
+                datum[data.matrix(x)[,v] <= info['min']] <- NA
+                datum[data.matrix(x)[,v] >= info['max']] <- NA
+            } else if(Tout == 'aux'){ # in auxiliary variable
                 datum <- (data.matrix(x)[,v] > info['min']) +
                     (data.matrix(x)[,v] >= info['max'])
             }
@@ -200,6 +206,7 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                            numeric(nclusters),
                            rownames(mcsamples))),
                      dim=c(length(totake),nclusters), dimnames=list(Yv$I,NULL))
+    YIbounds <- sapply(Yv$I,function(v){c(-Inf,createbounds(varinfo[v,'n']),+Inf)})
     }
     if(Yn$R > 0){## real
     totake <- sapply(Yv$R,function(x)which(variate$R == x))
@@ -264,6 +271,7 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                            numeric(nclusters),
                            rownames(mcsamples))),
                      dim=c(length(totake),nclusters), dimnames=list(Xv$I,NULL))
+    XIbounds <- sapply(Xv$I,function(v){c(-Inf,createbounds(varinfo[v,'n']),+Inf)})
     }
     if(Xn$R > 0){## real
     totake <- sapply(Xv$R,function(x)which(variate$R == x))
@@ -300,9 +308,9 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
     XTbounds <- sapply(Xv$T,function(v){createbounds(varinfo[v,'n'])[1]})
     }
     ##
+    if(!is.null(X)){
     testre <- foreach(x=t(X), y=t(Y), .combine=list)%do%{
-        if(!is.null(X)){
-            log(W) +
+        probX <- log(W) + # rows: clusters, cols: MCsamples
                 (if(Xn$T > 0){
                      colSums(
                          array(
@@ -338,31 +346,99 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                                      sd=sqrt(mcsamples[XRvar,]),log=T),
                                dim=c(Xn$R, nclusters, length(subsamples))),
                          na.rm=TRUE)
-                 }else{0} +
+                 }else{0}) +
                 (if(Xn$B > 0){
                      colSums(
-                         array(log( x[Xv$B,]*mcsamples[XBmean,] +
-                               (1-x[Xv$B,])*(1-mcsamples[XBmean,]) )
+                         array(log( x[Xv$B,]*mcsamples[XBprob,] +
+                               (1-x[Xv$B,])*(1-mcsamples[XBprob,]) ),
                                dim=c(Xn$B, nclusters, length(subsamples))),
                          na.rm=TRUE)
-                 }else{0} +
+                 }else{0}) +
                 (if(Xn$I > 0){
                      colSums(
                          array(
-
-
-
-
-                             log( x[Xv$I,]*mcsamples[XImean,] +
-                               (1-x[Xv$I,])*(1-mcsamples[XImean,]) )
-                               dim=c(Xn$I, nclusters, length(subsamples))),
+                             t(sapply(Xv$I, function(v){
+                                 x1 <- XIbounds[[v]][x[v,]]
+                                 x2 <- XIbounds[[v]][x[v,]+1]
+                                 t(pnorm(q=x2,
+                                         mean=mcsamples[XImean[v,],],
+                                         sd=sqrt(mcsamples[XIvar[v,],]), log.p=T) +
+                                   log1p(-pnorm(q=x1,
+                                                mean=mcsamples[XImean[v,],],
+                                                sd=sqrt(mcsamples[XIvar[v,],]))/
+                                         pnorm(q=x2,
+                                               mean=mcsamples[XImean[v,],],
+                                               sd=sqrt(mcsamples[XIvar[v,],]))))
+                             })),
+                             dim=c(Xn$I, nclusters, length(subsamples))),
                          na.rm=TRUE)
-                 
-                
-    }
+                     }else{0})
+        ##
+        probY <- (if(Yn$T > 0){ # rows: clusters, cols: MCsamples
+                     colSums(
+                         array(
+                             t(sapply(Yv$T, function(v){
+                                 xx <- y[v,]
+                                 if(is.finite(xx)){
+                                     t(dnorm(x=xx,
+                                             mean=mcsamples[YTmean[v,],],
+                                             sd=sqrt(mcsamples[YTvar[v,],]),log=T))
+                                 }else{
+                                     t(pnorm(q=YTbounds[v],
+                                             mean=mcsamples[YTmean[v,],],
+                                             sd=sqrt(mcsamples[YTvar[v,],]),
+                                             lower.tail=xx<0,
+                                             log.p=T))
+                                 }
+                             })),
+                             dim=c(Yn$T, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                 }else{0}) +
+                (if(Yn$L > 0){
+                     colSums(
+                         array(dnorm(x=y[Yv$L,],
+                                     mean=mcsamples[YLmean,],
+                                     sd=sqrt(mcsamples[YLvar,]),log=T),
+                               dim=c(Yn$L, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                 }else{0}) +
+                (if(Yn$R > 0){
+                     colSums(
+                         array(dnorm(x=y[Yv$R,],
+                                     mean=mcsamples[YRmean,],
+                                     sd=sqrt(mcsamples[YRvar,]),log=T),
+                               dim=c(Yn$R, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                 }else{0}) +
+                (if(Yn$B > 0){
+                     colSums(
+                         array(log( y[Yv$B,]*mcsamples[YBprob,] +
+                               (1-y[Yv$B,])*(1-mcsamples[YBprob,]) ),
+                               dim=c(Yn$B, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                 }else{0}) +
+                (if(Yn$I > 0){
+                     colSums(
+                         array(
+                             t(sapply(Yv$I, function(v){
+                                 x1 <- YIbounds[[v]][y[v,]]
+                                 x2 <- YIbounds[[v]][y[v,]+1]
+                                 t(pnorm(q=x2,
+                                         mean=mcsamples[YImean[v,],],
+                                         sd=sqrt(mcsamples[YIvar[v,],]), log.p=T) +
+                                   log1p(-pnorm(q=x1,
+                                                mean=mcsamples[YImean[v,],],
+                                                sd=sqrt(mcsamples[YIvar[v,],]))/
+                                         pnorm(q=x2,
+                                               mean=mcsamples[YImean[v,],],
+                                               sd=sqrt(mcsamples[YIvar[v,],]))))
+                             })),
+                             dim=c(Yn$I, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                     }else{0})
+##
+        eprobX <- t(exp(t(probX) - apply(probX,2,max,na.rm=T)))
         
-}
-
 
 
 
