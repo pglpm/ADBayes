@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-07T07:24:41+0100
+## Last-Updated: 2022-12-07T09:10:11+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -80,8 +80,8 @@ transfinv <- function(y, varinfo){
     })
 }
 
-## Reciprocal of Jacobian, in terms of original variate
-recjacobian <- function(x, varinfo){
+## Inverse of Jacobian, in terms of original variate
+invjacobian <- function(x, varinfo){
     sapply(colnames(x), function(v){
         datum <- data.matrix(x)[,v,drop=F]
         info <- varinfo[v,]
@@ -503,7 +503,8 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
             probX <- probX - apply(probX, 1, max, na.rm=T)
             rowSums(exp(probX+probY))/rowSums(exp(probX))
         }
-    }
+    } * exp(rowSums(log(invjacobian(Y, varinfo)), na.rm=T))
+    
 }
 
 

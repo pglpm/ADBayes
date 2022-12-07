@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-07T07:30:56+0100
+## Last-Updated: 2022-12-07T09:03:24+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -400,14 +400,14 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
                                        if(len$C > 0){c('Cprob')}
                                        ),
                             monitors2=c(
+                                ## if(posterior && len$R > 0){'Rdata'},
+                                ## if(posterior && len$L > 0){'Ldata'},
+                                ## if(posterior && len$T > 0){c('Taux', 'Tdata')},
+                                ## if(posterior && len$I > 0){c('Iaux', 'Idata')},
+                                ## if(posterior && len$B > 0){'Bdata'},
+                                ## if(posterior && len$C > 0){'Cdata'},
                                 if(nalpha > 1){'Alpha'},
-                                if(posterior){'K'},
-                                if(posterior && len$R > 0){'Rdata'},
-                                if(posterior && len$L > 0){'Ldata'},
-                                if(posterior && len$T > 0){c('Taux', 'Tdata')},
-                                if(posterior && len$I > 0){c('Iaux', 'Idata')},
-                                if(posterior && len$B > 0){'Bdata'},
-                                if(posterior && len$C > 0){'Cdata'}
+                                if(posterior){'K'}
                             )
                             )
 ## confnimble$printSamplers(executionOrder=TRUE)
@@ -422,6 +422,9 @@ confnimble$setSamplerExecutionOrder(newsampleorder)
 ##
 ## confnimble$printSamplers(executionOrder=TRUE)
 if(!all(sort(orde)==sort(newsampleorder))){warning('sampler mismatch')}
+
+mcsampler <- buildMCMC(confnimble)
+Cmcsampler <- compileNimble(mcsampler, resetFunctions = TRUE)
 
 cat('\nSetup time: ')
 print(Sys.time() - timecount)
@@ -488,7 +491,7 @@ while(continue){
     finalstate <- c(newmcsamples[nrow(newmcsamples),], finalstate[nrow(finalstate),])
     ##
     ## Check how many "clusters" were occupied. Warns if too many
-    occupations <- finalstate[grepl('^C\\[', names(finalstate))]
+    occupations <- finalstate[grepl('^K\\[', names(finalstate))]
     usedclusters <- length(unique(occupations))
     if(usedclusters > nclusters-5){cat('\nWARNING: TOO MANY CLUSTERS OCCUPIED')}
     cat(paste0('\nOCCUPIED CLUSTERS: ', usedclusters, ' OF ', nclusters))
