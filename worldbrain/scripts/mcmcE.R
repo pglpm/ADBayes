@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-07T19:14:13+0100
+## Last-Updated: 2022-12-07T21:46:39+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,11 +8,11 @@
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testE1' # *** ## Base name of output directory
+baseversion <- '_testE1TI' # *** ## Base name of output directory
 datafile <- 'ingrid_data_nogds6.csv' #***
-predictorfile <- 'predictors.csv'
+predictorfile <- 'predictorsTI.csv'
 predictandfile <- NULL # 'predictors.csv'
-varinfofile <- 'varinfo.csv'
+varinfofile <- 'varinfoTI.csv'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
 ndata <- NULL # set this if you want to use fewer data
@@ -21,8 +21,9 @@ posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
 savetempsamples <- TRUE # save temporary MCMC samples
 plottempdistributions <- TRUE # plot temporary sampled distributions
-showdata <- TRUE # 'histogram' 'scatter' FALSE TRUE
-plotmeans <- FALSE # plot frequency averages
+showdata <- 'histogram' # 'histogram' 'scatter' FALSE TRUE
+plotmeans <- TRUE # plot frequency averages
+totsamples <- 100 # number of samples if plotting frequency averages
 ##
 niter0 <- 1024L * 1L # 3L # iterations burn-in
 nclusters <- 64L
@@ -496,7 +497,7 @@ while(continue){
     occupations <- finalstate[grepl('^K\\[', names(finalstate))]
     usedclusters <- length(unique(occupations))
     if(usedclusters > nclusters-5){cat('\nWARNING: TOO MANY CLUSTERS OCCUPIED')}
-    cat(paste0('\nOCCUPIED CLUSTERS: ', usedclusters, ' OF ', nclusters))
+    cat(paste0('\nOCCUPIED CLUSTERS: ', usedclusters, ' OF ', nclusters),'\n')
 ##    saveRDS(finalstate2list(finalstate, realVars=realVars, integerVars=integerVars, categoryVars=categoryVars, binaryVars=binaryVars, compoundgamma=compoundgamma), file=paste0(dirname,'_finalstate-R',basename,'--',mcmcseed,'-',stage,'.rds'))
     ##
     ## SAVE THE PARAMETERS
@@ -520,7 +521,8 @@ while(continue){
         flagll <- FALSE
         if(!posterior && !any(is.finite(ll))){
             flagll <- TRUE
-            ll <- rep(0, length(ll))}
+            ll <- rep(0, length(ll))
+        }
         condprobsd <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictands]), X=data.matrix(data0[,..predictors]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) + sum(log(invjacobian(data.matrix(data0[,..predictands]), varinfo)), na.rm=T)
         condprobsi <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictors]), X=data.matrix(data0[,..predictands]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) + sum(log(invjacobian(data.matrix(data0[,..predictors]), varinfo)), na.rm=T)
         ##
@@ -530,23 +532,23 @@ while(continue){
                               'mean of direct logprobabilities'=condprobsd,
                               'mean of inverse logprobabilities'=condprobsi)
                         )
-        badcols <- foreach(i=1:ncol(traces), .combine=c)%do%{if(all(is.na(traces[,i]))){i}else{NULL}}
-        if(!is.null(badcols)){traces <- traces[,-badcols]}
+        traces2 <- traces[apply(traces,1,function(x){all(is.finite(x))}),]
         saveRDS(traces,file=paste0(dirname,'_mctraces-R',basename,'--',mcmcseed,'-',stage,'.rds'))
+        flagll <- nrow(traces) != nrow(traces2)
         ##
-        if(nrow(traces)>=1000){
+        if(nrow(traces2)>=1000){
             funMCSE <- function(x){LaplacesDemon::MCSE(x, method='batch.means')$se}
         }else{
             funMCSE <- function(x){LaplacesDemon::MCSE(x)}
         }
-        diagnESS <- LaplacesDemon::ESS(traces * (abs(traces) < Inf))
-        diagnIAT <- apply(traces, 2, function(x){LaplacesDemon::IAT(x[is.finite(x)])})
-        diagnBMK <- LaplacesDemon::BMK.Diagnostic(traces, batches=4)[,1]
-        diagnMCSE <- 100*apply(traces, 2, function(x){funMCSE(x)/sd(x)})
-        diagnStat <- apply(traces, 2, function(x){LaplacesDemon::is.stationary(as.matrix(x,ncol=1))})
-        diagnBurn <- apply(traces, 2, function(x){LaplacesDemon::burnin(matrix(x[1:(10*trunc(length(x)/10))], ncol=1))})
-        diagnBurn2 <- proposeburnin(traces, batches=10)
-        diagnThin <- proposethinning(traces)
+        diagnESS <- LaplacesDemon::ESS(traces2)
+        diagnIAT <- apply(traces2, 2, function(x){LaplacesDemon::IAT(x)})
+        diagnBMK <- LaplacesDemon::BMK.Diagnostic(traces2[1:(4*trunc(nrow(traces2)/4)),], batches=4)[,1]
+        diagnMCSE <- 100*apply(traces2, 2, function(x){funMCSE(x)/sd(x)})
+        diagnStat <- apply(traces2, 2, function(x){LaplacesDemon::is.stationary(as.matrix(x,ncol=1))})
+        diagnBurn <- apply(traces2, 2, function(x){LaplacesDemon::burnin(matrix(x[1:(10*trunc(length(x)/10))], ncol=1))})
+        diagnBurn2 <- proposeburnin(traces2, batches=10)
+        diagnThin <- proposethinning(traces2)
         ##
         cat(paste0('\nESSs (',requiredESS,'): ',paste0(round(diagnESS), collapse=', ')))
         cat(paste0('\nIATs: ',paste0(round(diagnIAT), collapse=', ')))
@@ -555,7 +557,7 @@ while(continue){
         cat(paste0('\nStationary: ',paste0(diagnStat, collapse=', ')))
         cat(paste0('\nBurn-in I: ',paste0(diagnBurn, collapse=', ')))
         cat(paste0('\nBurn-in II: ',diagnBurn2))
-        cat(paste0('\nProposed thinning: ',paste0(diagnThin, collapse=', ')))
+        cat(paste0('\nProposed thinning: ',paste0(diagnThin, collapse=', ')),'\n')
         ##
         #########################################
         #### CHECK IF WE NEED TO SAMPLE MORE ####
@@ -626,7 +628,7 @@ while(continue){
                    paste0('STAGE ',stage),
                    paste0('Occupied clusters: ', usedclusters, ' of ', nclusters),
                    paste0('LL:  ( ', signif(mean(traces[,1]),3), ' +- ', signif(sd(traces[,1]),3),' ) dHart'),
-                   'WARNINGS:',
+                   'NOTES:',
                    if(any(is.na(mcsamples))){'some NA MC outputs'},
                    if(any(!is.finite(mcsamples))){'some infinite MC outputs'},
                    if(usedclusters > nclusters-5){'too many clusters occupied'},
@@ -665,7 +667,7 @@ dev.off()
         pdff(paste0(dirname,'mcmcdistributions-R',basename,'--',mcmcseed,'-',stage),'a4')
         for(v in unlist(variate)){#cat(avar)
             contvar <- varinfo[v,'type'] %in% variatetypes[c('R','L','T')]
-            rg <- signif(varinfo[v,c('plotmin','plotmax')], 2)
+            rg <- varinfo[v,c('plotmin','plotmax')]
             if(contvar){
                 Xgrid <- cbind(seq(rg[1], rg[2], length.out=256))
             }else{
@@ -674,23 +676,56 @@ dev.off()
             }
             colnames(Xgrid) <- v
             plotsamples <- samplesFDistribution(Y=Xgrid, mcsamples=mcsamples, varinfo=varinfo, subsamples=round(seq(1,nrow(mcsamples),length.out=nfsamples)), jacobian=TRUE)
-            fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
             ##
             if(posterior){
                 par(mfrow=c(1,1))
                 ymax <- tquant(apply(plotsamples[,subsample],2,function(x){tquant(x,99/100)}),99/100, na.rm=T)
-                tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
-                if(plotmeans){
-                    tplot(x=Xgrid, y=rowMeans(plotsamples), type='l', col=paste0(palette()[1], '88'), lty=1, lwd=3, add=T)
+                if(varinfo[v,'type'] != variatetypes['T']){
+                    tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
+                    if(plotmeans){
+                        tplot(x=Xgrid, y=rowMeans(plotsamples, na.rm=T), type='l', col=paste0(palette()[1], '88'), lty=1, lwd=3, add=T)
+                    }
+                }else{ # plot of a continuous doubly-bounded variate
+                    interior <- which(Xgrid > varinfo[v,'min'] & Xgrid < varinfo[v,'max'])
+                    tplot(x=Xgrid[interior], y=plotsamples[interior,subsample], type='l', col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
+                    if(length(interior) < length(Xgrid)){
+                        tplot(x=Xgrid[-interior], y=plotsamples[-interior,subsample,drop=F]*ymax, type='p', pch=1, cex=1, col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family,add=T)
+                        }
+                    if(plotmeans){
+                        tplot(x=Xgrid[interior], y=rowMeans(plotsamples, na.rm=T)[interior], type='l', col=paste0(palette()[1], '88'), lty=1, lwd=3, add=T)
+                    if(length(interior) < length(Xgrid)){
+                        tplot(x=Xgrid[-interior], y=rowMeans(plotsamples, na.rm=T)[-interior]*ymax, type='p', pch=2, cex=1, col=paste0(palette()[1], '88'), lty=1, lwd=3, add=T)
+                        }
+                    }
                 }
-                abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
                 ##
-                if((showdata=='histogram')|(showdata==TRUE & !contvar)){
+                if((showdata=='histogram')||(showdata==TRUE && !contvar)){
                     datum <- data0[[v]]
                     datum <- datum[!is.na(datum)]
-                    histo <- thist(datum, n=(if(contvar){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
-                    histomax <- (if(contvar){max(rowMeans(plotsamples))/max(histo$density)}else{1L})
-                    tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                    ## fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
+                    fiven <- fivenum(datum)
+                    if(varinfo[v,'type'] != variatetypes['T']){
+                        histo <- thist(datum, n=(if(contvar){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
+                        histomax <- (if(contvar){max(rowMeans(plotsamples))/max(histo$density)}else{1L})
+                        tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                    }else{ # histogram for a continuous doubly-bounded variate
+                        interior <- which(datum > varinfo[v,'min'] & datum < varinfo[v,'max'])
+                        histo <- thist(datum[interior], n=(if(contvar){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
+                        histomax <- (if(contvar){max(rowMeans(plotsamples))/max(histo$density)}else{1L})
+                        tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                        tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                        ##
+                        pborder <- sum(datum <= varinfo[v,'min'])/length(datum)
+                        if(pborder > 0){
+                            tplot(x=rep(varinfo[v,'min'],2), y=c(0,pborder*ymax), type='l', col=grey, alpha=0.75, lty=1, lwd=1.5, family=family, ylim=c(0,NA), add=TRUE)
+                        }
+                        ##
+                        pborder <- sum(datum >= varinfo[v,'max'])/length(datum)
+                        if(pborder > 0){
+                            tplot(x=rep(varinfo[v,'max'],2), y=c(0,pborder*ymax), type='l', col=grey, alpha=0.75, lty=1, lwd=1.5, family=family, ylim=c(0,NA), add=TRUE)
+                        }
+                    }
+                    abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
                 }else if((showdata=='scatter')|(showdata==TRUE & contvar)){
                     datum <- data0[[v]]
                     datum <- datum[!is.na(datum)]
