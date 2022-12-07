@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-07T10:25:48+0100
+## Last-Updated: 2022-12-07T10:57:11+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -653,40 +653,39 @@ dev.off()
         cat('\nPlotting samples of frequency distributions')
         graphics.off()
         pdff(paste0(dirname,'mcmcdistributions-R',basename,'--',mcmcseed,'-',stage),'a4')
-        for(avar in varNames){#cat(avar)
-            if(avar %in% realVars){
-                rg <- signif((varinfo[avar,c('thmin','thmax')] + 
-                              7*varinfo[avar,c('datamin','datamax')])/8, 2)
-                if(!is.finite(rg[1])){rg[1] <- diff(varinfo[avar,c('scale','datamin')])}
-                if(!is.finite(rg[2])){rg[2] <- sum(varinfo[avar,c('scale','datamax')])}
+        for(v in unlist(variate)){#cat(avar)
+            contvar <- varinfo[v,'type'] %in% variatetypes[c('R','L','T')]
+            rg <- signif(varinfo[v,c('plotmin','plotmax')], 2)
+            if(contvar){
                 Xgrid <- cbind(seq(rg[1], rg[2], length.out=256))
             }else{
-                rg <- (varinfo[avar,c('thmin','thmax')] + 
-                       7*varinfo[avar,c('datamin','datamax')])/8
-                rg <- c(floor(rg[1]), ceiling(rg[2]))
-                Xgrid <- cbind(rg[1]:rg[2])
+                Xgrid <- seq(varinfo[v,'min'], varinfo[v,'max'], length.out=varinfo[v,'n'])
+                Xgrid <- cbind(Xgrid[Xgrid >= rg[1] & Xgrid <= rg[2]])
             }
-            colnames(Xgrid) <- avar
-            plotsamples <- samplesFmc(Y=Xgrid, mcsamples=mcsamples, fromsamples=round(seq(1,nrow(mcsamples),length.out=nfsamples)), inorder=FALSE, varinfo=varinfo)
-            fiven <- varinfo[avar,c('datamin','dataQ1','datamedian','dataQ2','datamax')]
+            colnames(Xgrid) <- v
+            plotsamples <- samplesFDistribution(Y=Xgrid, mcsamples=mcsamples, varinfo=varinfo, subsamples=round(seq(1,nrow(mcsamples),length.out=nfsamples)), jacobian=TRUE)
+            fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
             ##
             if(posterior){
                 par(mfrow=c(1,1))
                 ymax <- tquant(apply(plotsamples[,subsample],2,function(x){tquant(x,99/100)}),99/100, na.rm=T)
-                tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=paste0(avar,' (',variateinfo[variate==avar,type],')'), ylab=paste0('frequency',if(avar %in% realVars){' density'}), ylim=c(0, ymax), family=family)
+                tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
                 if(plotmeans){
                     tplot(x=Xgrid, y=rowMeans(plotsamples), type='l', col=paste0(palette()[1], '88'), lty=1, lwd=3, add=T)
                 }
                 abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
                 ##
-                if((showdata=='histogram')|(showdata==TRUE & !(avar %in% realVars))){
-                    datum <- alldata[[avar]]
-                    histo <- thist(datum, n=(if(avar %in% realVars){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
-                    histomax <- (if(avar %in% realVars){max(rowMeans(plotsamples))/max(histo$density)}else{1L})
+                if((showdata=='histogram')|(showdata==TRUE & !contvar)){
+                    datum <- data0[[v]]
+                    datum <- datum[!is.na(datum)]
+                    histo <- thist(datum, n=(if(contvar){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
+                    histomax <- (if(contvar){max(rowMeans(plotsamples))/max(histo$density)}else{1L})
                     tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
-                }else if((showdata=='scatter')|(showdata==TRUE & (avar %in% realVars))){
-                    datum <- alldata[[avar]]
-                    scatteraxis(side=1, n=NA, alpha='88', ext=8, x=datum+rnorm(length(datum),mean=0,sd=prod(varinfo[avar,c('precision','scale')])/(if(avar %in% binaryVars){16}else{16})),col=yellow)
+                }else if((showdata=='scatter')|(showdata==TRUE & contvar)){
+                    datum <- data0[[v]]
+                    datum <- datum[!is.na(datum)]
+                    diffdatum <- c(apply(cbind(c(0,diff(datum)),c(diff(datum),0)),1,min))/2
+                    scatteraxis(side=1, n=NA, alpha='88', ext=8, x=rnorm(length(datum),mean=datum,sd=diffdatum),col=yellow)
                 }
             }else{
                 par(mfrow=c(8,8),mar = c(0,0,0,0))
@@ -694,18 +693,18 @@ dev.off()
                       xticks=NA, yticks=NA,
                       mar=c(1,1,1,1))
                 abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'))
-                text(sum(range(Xgrid))/2, par('usr')[4]*0.9, avar)
+                text(sum(range(Xgrid))/2, par('usr')[4]*0.9, v)
                 ##
                 for(aplot in 1:63){
                     tplot(x=list(Xgrid,Xgrid), y=list(plotsamples[,subsample[aplot]], rep(0,length(Xgrid))), type='l', col=c(paste0(palette()[1], 'FF'), '#bbbbbb80'), lty=1, lwd=c(1,1), xlab=NA, ylab=NA, ylim=c(0, NA), family=family,
                           xticks=NA, yticks=NA,
                           mar=c(1,1,1,1))
                     abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'))
-                    if(aplot==1){ text(Xgrid[1], par('usr')[4]*0.9, variateinfo[variate==avar,type], pos=4)}
+                    ## if(aplot==1){ text(Xgrid[1], par('usr')[4]*0.9, variateinfo[variate==avar,type], pos=4)}
                     if(aplot==2){ text(Xgrid[1], par('usr')[4]*0.9, paste(signif(c(rg,diff(rg)),2),collapse=' -- '), pos=4)}
                 }
             }
-        }
+            }
     dev.off()
     }
     ##

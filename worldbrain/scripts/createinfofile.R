@@ -107,7 +107,7 @@ varinfo[variate$L,'mean'] <- apply(data.matrix(dt)[,variate$R,drop=F], 2, median
 predictors <- setdiff(unlist(variate),'Subgroup_num_')
 
 ## write.csv(varinfo, 'varinfo.csv')
-## write.csv(predictors, 'predictors.csv')
+## write.table(predictors, 'predictors.csv', row.names=F, col.names=F)
 ## varinfo <- data.matrix(read.csv('varinfo.csv', row.names=1))
 
 summary(dt)
