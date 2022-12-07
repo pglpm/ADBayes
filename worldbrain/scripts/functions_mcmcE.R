@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-06T21:55:46+0100
+## Last-Updated: 2022-12-07T06:25:26+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -21,7 +21,7 @@ createbounds <- function(n, nmax=n){
 
 ## Transformation from variate to internal variable
 transfdir <- function(x, varinfo, Tout='in', Iout='data'){ # 'in' 'data' 'aux'
-    sapply(colnames(x), function(v){
+    array(sapply(colnames(x), function(v){
         datum <- data.matrix(x)[,v,drop=F]
         info <- varinfo[v,]
         type <- info['type']
@@ -53,7 +53,7 @@ transfdir <- function(x, varinfo, Tout='in', Iout='data'){ # 'in' 'data' 'aux'
             }
         }
         datum
-    })
+    }),dim=dim(x),dimnames=dimnames(x))
 }
 
 ## Transformation from internal variable to variate
@@ -206,7 +206,7 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                            numeric(nclusters),
                            rownames(mcsamples))),
                      dim=c(length(totake),nclusters), dimnames=list(Yv$I,NULL))
-    YIbounds <- sapply(Yv$I,function(v){c(-Inf,createbounds(varinfo[v,'n']),+Inf)})
+    YIbounds <- sapply(Yv$I,function(v){c(-Inf,createbounds(varinfo[v,'n']),+Inf)},simplify=F)
     }
     if(Yn$R > 0){## real
     totake <- sapply(Yv$R,function(x)which(variate$R == x))
@@ -271,7 +271,7 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                            numeric(nclusters),
                            rownames(mcsamples))),
                      dim=c(length(totake),nclusters), dimnames=list(Xv$I,NULL))
-    XIbounds <- sapply(Xv$I,function(v){c(-Inf,createbounds(varinfo[v,'n']),+Inf)})
+    XIbounds <- sapply(Xv$I,function(v){c(-Inf,createbounds(varinfo[v,'n']),+Inf)},simplify=F)
     }
     if(Xn$R > 0){## real
     totake <- sapply(Xv$R,function(x)which(variate$R == x))
@@ -308,11 +308,22 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
     XTbounds <- sapply(Xv$T,function(v){createbounds(varinfo[v,'n'])[1]})
     }
     ##
+    Y2 <- transfdir(Y,varinfo,Tout='in', Iout='in')
     if(!is.null(X)){
-            X2 <- transfdir(X,varinfo,Tout='in', Iout='in')
-            Y2 <- transfdir(Y,varinfo,Tout='in', Iout='in')
-        testre <- foreach(x=t(X2), y=t(Y2), .combine=rbind)%do%{
-            probX <- t( # rows: MCsamples, cols: clusters
+        X2 <- transfdir(X,varinfo,Tout='in', Iout='in')
+        if(nrow(X2) < nrow(Y2)){
+            warning('*Note: X has fewer data than Y. Recycling*')
+            X2 <- t(matrix(rep(t(X2), ceiling(nrow(Y2)/nrow(X2))), nrow=ncol(X2), dimnames=list(colnames(X2),NULL)))[1:nrow(Y2),,drop=FALSE]
+        }
+        if(nrow(X2) > nrow(Y2)){
+            warning('*Note: X has more data than Y. Recycling*')
+            Y2 <- t(matrix(rep(t(Y2), ceiling(nrow(X2)/nrow(Y2))), nrow=ncol(Y2), dimnames=list(colnames(Y2),NULL)))[1:nrow(X2),,drop=FALSE]
+        }
+    }
+    ndata <- nrow(Y2)
+    ##
+    foreach(x=t(X2), y=t(Y2), .combine=rbind, .inorder=T)%do%{
+        probX <- t( # rows: MCsamples, cols: clusters
             log(W) + 
                 (if(Xn$T > 0){
                      colSums(
@@ -465,8 +476,8 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
         ##
         ## dtestc1 <- rowSums(exp(dprobX + dprobY - log(rowSums(exp(dprobX)))))
         ## dtestc1d <- rowSums(exp(dprobX+dprobY))/rowSums(exp(dprobX))
+    }
 }
-
 
 
 
