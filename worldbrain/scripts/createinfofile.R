@@ -104,9 +104,10 @@ varinfo[variate$C,'varscale'] <- NA
 
 varinfo[variate$L,'mean'] <- apply(data.matrix(dt)[,variate$R,drop=F], 2, median, na.rm=T)
 
-
+predictors <- setdiff(unlist(variate),'Subgroup_num_')
 
 ## write.csv(varinfo, 'varinfo.csv')
+## write.csv(predictors, 'predictors.csv')
 ## varinfo <- data.matrix(read.csv('varinfo.csv', row.names=1))
 
 summary(dt)

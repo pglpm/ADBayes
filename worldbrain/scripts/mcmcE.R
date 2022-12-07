@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-07T09:03:24+0100
+## Last-Updated: 2022-12-07T10:25:48+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -10,7 +10,7 @@
 #### USER INPUTS AND CHOICES ####
 baseversion <- '_testfunproper' # *** ## Base name of output directory
 datafile <- 'ingrid_data_nogds6.csv' #***
-predictors <- 'predictors.csv'
+predictorfile <- 'predictors.csv'
 varinfofile <- 'varinfo.csv'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
@@ -504,21 +504,15 @@ while(continue){
     ## Diagnostics
     ## Log-likelihood
     if(posterior){
-        ll <- colSums(log(samplesFDistribution(Y=data.matrix(data0), X=NULL, mcsamples=newmcsamples, varinfo=varinfo)))
+        predictors <- as.vector(unlist(read.csv(predictorfile.csv, header=F)))
+        predictands <- setdiff(unlist(variate), predictors)
+        ll <- colSums(log(samplesFDistribution(Y=data.matrix(data0), X=NULL, mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) + sum(log(invjacobian(data.matrix(data0), varinfo)), na.rm=T)
         flagll <- FALSE
         if(!posterior && !any(is.finite(ll))){
             flagll <- TRUE
             ll <- rep(0, length(ll))}
-        condprobsd <- c(logsumsamplesFmc(Y=do.call(cbind,dat)[, mainvar, drop=F],
-                                     X=do.call(cbind,dat)[, setdiff(varNames, mainvar),
-                                                          drop=F],
-                                     mcsamples=newmcsamples,
-                                     varinfo=varinfo, inorder=T))
-        condprobsi <- c(logsumsamplesFmc(Y=do.call(cbind,dat)[, setdiff(varNames, mainvar),
-                                                          drop=F],
-                                     X=do.call(cbind,dat)[, mainvar, drop=F],
-                                     mcsamples=newmcsamples,
-                                     varinfo=varinfo, inorder=T))
+        condprobsd <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictands]), X=data.matrix(data0[,..predictors]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) + sum(log(invjacobian(data.matrix(data0[,..predictands]), varinfo)), na.rm=T)
+        condprobsi <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictors]), X=data.matrix(data0[,..predictands]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) + sum(log(invjacobian(data.matrix(data0[,..predictors]), varinfo)), na.rm=T)
         ##
         traces <- rbind(traces,
                         10/log(10)/ndata *
