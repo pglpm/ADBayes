@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-07T21:46:39+0100
+## Last-Updated: 2022-12-07T22:30:34+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -127,11 +127,11 @@ datapoints = c(
     if(len$L > 0){list( Ldata = transfdir(data0[,variate$L,with=F], varinfo) )},
     ## Two-bounded
     if(len$T > 0){list(
-                   Tdata = transfdir(data0[,variate$T,with=F], varinfo, Tout='data'),
-                   Taux = transfdir(data0[,variate$T,with=F], varinfo, Tout='aux')
+                   Tdatacont = transfdir(data0[,variate$T,with=F], varinfo, Tout='data'),
+                   Tauxint = transfdir(data0[,variate$T,with=F], varinfo, Tout='aux')
                   )},
     ## integer
-    if(len$I > 0){list( Idata = transfdir(data0[,variate$I,with=F], varinfo, Iout='data') )},
+    if(len$I > 0){list( Idataint = transfdir(data0[,variate$I,with=F], varinfo, Iout='data') )},
     ## binary
     if(len$B > 0){list( Bdata = transfdir(data0[,variate$B,with=F], varinfo) )},
     ## categorical
@@ -144,7 +144,7 @@ Imaxn <- max(varinfo[variate$I, 'n'])-1
 Iintervals0 <- t(sapply(variate$I, function(v){
     createbounds(n=varinfo[v, 'n'], nmax=Imaxn+1)
 }))
-Iauxinit <- transfdir(data0[,variate$I,with=F], varinfo, Iout='aux')
+Iauxcontinit <- transfdir(data0[,variate$I,with=F], varinfo, Iout='aux')
 ##
 Tmaxn <- 2
 Tintervals0 <- t(sapply(variate$T, function(v){ createbounds(n=varinfo[v, 'n']) }))
@@ -200,7 +200,7 @@ initsFunction <- function(){
                      Ishapeout0 = varinfo[variate$I, 'shapeout'],
                      Ishapein0 = varinfo[variate$I, 'shapein'],
                      Ivarscale0 = varinfo[variate$I, 'varscale']^2,
-                     Iaux = Iauxinit
+                     Iauxcont = Iauxcontinit
                      )},
         if(len$B > 0){list( # binay variate
                      Bshapeout0 = varinfo[variate$B, 'shapeout'],
@@ -307,14 +307,14 @@ finitemix <- nimbleCode({
             }
             if(len$I > 0){# integer variates
                 for(v in 1:In){
-                    Idata[d, v] ~ dinterval(t=Iaux[d, v], c=Iintervals0[v, 1:Imaxn])
-                    Iaux[d, v] ~ dnorm(mean=Imean[v, K[d]], var=Ivar[v, K[d]])
+                    Idataint[d, v] ~ dinterval(Iauxcont[d, v], Iintervals0[v, 1:Imaxn])
+                    Iauxcont[d, v] ~ dnorm(mean=Imean[v, K[d]], var=Ivar[v, K[d]])
                 }
             }
             if(len$T > 0){# bounded continuous variates
                 for(v in 1:Tn){
-                    Taux[d, v] ~ dinterval(t=Tdata[d, v], c=Tintervals0[v, 1:Tmaxn])
-                    Tdata[d, v] ~ dnorm(mean=Tmean[v, K[d]], var=Tvar[v, K[d]])
+                    Tauxint[d, v] ~ dinterval(Tdatacont[d, v], Tintervals0[v, 1:Tmaxn])
+                    Tdatacont[d, v] ~ dnorm(mean=Tmean[v, K[d]], var=Tvar[v, K[d]])
                 }
             }
             if(len$B > 0){# binary variates
@@ -377,12 +377,12 @@ finitemixnimble <- nimbleModel(code=finitemix, name='finitemixnimble1',
                                        if(len$R > 0){list(Rdata=c(ndata,len$R))},
                                        if(len$L > 0){list(Ldata=c(ndata,len$L))},
                                        if(len$T > 0){list(
-                                                         Tdata=c(ndata,len$T),
-                                                         Taux=c(ndata,len$T)
+                                                         Tdatacont=c(ndata,len$T),
+                                                         Tauxint=c(ndata,len$T)
                                                      )},
                                        if(len$I > 0){list(
-                                                         Idata=c(ndata,len$I),
-                                                         Iaux=c(ndata,len$I)
+                                                         Idataint=c(ndata,len$I),
+                                                         Iauxcont=c(ndata,len$I)
                                                      )},
                                        if(len$B > 0){list(Bdata=c(ndata,len$B))},
                                        if(len$C > 0){list(Cdata=c(ndata,len$C))}
@@ -405,8 +405,8 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
                             monitors2=c(
                                 ## if(posterior && len$R > 0){'Rdata'},
                                 ## if(posterior && len$L > 0){'Ldata'},
-                                ## if(posterior && len$T > 0){c('Taux', 'Tdata')},
-                                ## if(posterior && len$I > 0){c('Iaux', 'Idata')},
+                                ## if(posterior && len$T > 0){c('Tauxint', 'Tdatacont')},
+                                ## if(posterior && len$I > 0){c('Iauxcont', 'Idataint')},
                                 ## if(posterior && len$B > 0){'Bdata'},
                                 ## if(posterior && len$C > 0){'Cdata'},
                                 if(nalpha > 1){'Alpha'},
@@ -416,15 +416,16 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
 ## confnimble$printSamplers(executionOrder=TRUE)
 ##
 ## takename <- function(x){sub('([^[]+)(.*)','\\1',confnimble$getSamplers(ind=x)[[1]]$target)}
-orde <- confnimble$getSamplerExecutionOrder()
-norde <- sapply(orde,function(i){sub('([^[]+)(.*)','\\1',confnimble$getSamplers(ind=i)[[1]]$target)})
-mysampleorder <- c( 'Rdata', 'Ldata', 'Taux', 'Tdata', 'Iaux', 'Idata', 'Bdata', 'Cdata', 'K', 'Rrate', 'Lrate', 'Trate', 'Irate', 'Rvar', 'Rmean', 'Lvar', 'Lmean', 'Tvar', 'Tmean', 'Ivar', 'Imean', 'Bprob', 'Cprob', 'W', 'Alpha' )
-newsampleorder <- unlist(sapply(mysampleorder, function(v){which(norde == v)}))
-##
-confnimble$setSamplerExecutionOrder(newsampleorder)
-##
-## confnimble$printSamplers(executionOrder=TRUE)
-if(!all(sort(orde)==sort(newsampleorder))){warning('sampler mismatch')}
+## orde <- confnimble$getSamplerExecutionOrder()
+## norde <- sapply(orde,function(i){sub('([^[]+)(.*)','\\1',confnimble$getSamplers(ind=i)[[1]]$target)})
+## mysampleorder <- c( 'Rdata', 'Ldata', 'Tauxint', 'Tdatacont', 'Iauxcont', 'Idataint', 'Bdata', 'Cdata', 'K', 'Rrate', 'Lrate', 'Trate', 'Irate', 'Rvar', 'Rmean', 'Lvar', 'Lmean', 'Tvar', 'Tmean', 'Ivar', 'Imean', 'Bprob', 'Cprob', 'W', 'Alpha' )
+## newsampleorder <- unlist(sapply(mysampleorder, function(v){which(norde == v)}))
+## ##
+## confnimble$setSamplerExecutionOrder(newsampleorder)
+## ##
+## ## confnimble$printSamplers(executionOrder=TRUE)
+## if(!all(sort(orde)==sort(newsampleorder))){warning('sampler mismatch')}
+confnimble$setSamplerExecutionOrder(rev(confnimble$getSamplerExecutionOrder()))
 
 mcsampler <- buildMCMC(confnimble)
 Cmcsampler <- compileNimble(mcsampler, resetFunctions = TRUE)
