@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-07T10:57:11+0100
+## Last-Updated: 2022-12-07T19:14:13+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,9 +8,10 @@
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testfunproper' # *** ## Base name of output directory
+baseversion <- '_testE1' # *** ## Base name of output directory
 datafile <- 'ingrid_data_nogds6.csv' #***
 predictorfile <- 'predictors.csv'
+predictandfile <- NULL # 'predictors.csv'
 varinfofile <- 'varinfo.csv'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
@@ -18,8 +19,8 @@ ndata <- NULL # set this if you want to use fewer data
 shuffledata <- FALSE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
-savetempsamples <- FALSE # save temporary MCMC samples
-plottempdistributions <- FALSE # plot temporary sampled distributions
+savetempsamples <- TRUE # save temporary MCMC samples
+plottempdistributions <- TRUE # plot temporary sampled distributions
 showdata <- TRUE # 'histogram' 'scatter' FALSE TRUE
 plotmeans <- FALSE # plot frequency averages
 ##
@@ -100,6 +101,7 @@ if(Sys.info()['nodename']=='luca-HP-Z2-G9'){
     dirname <- paste0(basename,'/')
     dir.create(dirname)
 }
+
 
 #################################
 ## Setup for Monte Carlo sampling
@@ -504,8 +506,16 @@ while(continue){
     ## Diagnostics
     ## Log-likelihood
     if(posterior){
-        predictors <- as.vector(unlist(read.csv(predictorfile.csv, header=F)))
-        predictands <- setdiff(unlist(variate), predictors)
+        if(!is.null(predictorfile) && !is.null(predictandfile)){
+            predictors <- as.vector(unlist(read.csv(predictorfile, header=F)))
+            predictands <- as.vector(unlist(read.csv(predictandfile, header=F)))
+        }else if(!is.null(predictorfile) && is.null(predictandfile)){
+            predictors <- as.vector(unlist(read.csv(predictorfile, header=F)))
+            predictands <- setdiff(unlist(variate), predictors)
+        }else if(is.null(predictorfile) && !is.null(predictandfile)){
+            predictands <- as.vector(unlist(read.csv(predictandfile, header=F)))
+            predictors <- setdiff(unlist(variate), predictands)
+        }else{warning('predictors and predictands both missing')}
         ll <- colSums(log(samplesFDistribution(Y=data.matrix(data0), X=NULL, mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) + sum(log(invjacobian(data.matrix(data0), varinfo)), na.rm=T)
         flagll <- FALSE
         if(!posterior && !any(is.finite(ll))){
