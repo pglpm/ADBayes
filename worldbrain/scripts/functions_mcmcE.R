@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-07T06:25:26+0100
+## Last-Updated: 2022-12-07T07:24:41+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -319,10 +319,30 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
             warning('*Note: X has more data than Y. Recycling*')
             Y2 <- t(matrix(rep(t(Y2), ceiling(nrow(X2)/nrow(Y2))), nrow=ncol(Y2), dimnames=list(colnames(Y2),NULL)))[1:nrow(X2),,drop=FALSE]
         }
-    }
+    }else{X2 <- lapply(seq_len(nrow(Y2)),function(x)NULL)}
     ndata <- nrow(Y2)
     ##
-    foreach(x=t(X2), y=t(Y2), .combine=rbind, .inorder=T)%do%{
+    ##
+    foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
+        if(any(is.na(y))){
+            y <- y[!is.na(y),,drop=F]
+            Yv <- rownames(y)
+            Yvn <- length(Yv)
+            Yv <- lapply(variatetypes, function(x)Yv[varinfo[Yv,'type']==x])
+            Yn <- lapply(Yv,length)
+        }
+        ##            
+        if(is.null(x)){
+                probX <- t(log(W))
+        }else{
+            if(any(is.na(x))){
+                x <- x[!is.na(x),,drop=F]
+                Xv <- rownames(x)
+                Xvn <- length(Xv)
+                Xv <- lapply(variatetypes, function(x)Xv[varinfo[Xv,'type']==x])
+                Xn <- lapply(Xv,length)
+                }
+                ##
         probX <- t( # rows: MCsamples, cols: clusters
             log(W) + 
                 (if(Xn$T > 0){
@@ -387,7 +407,8 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                              dim=c(Xn$I, nclusters, length(subsamples))),
                          na.rm=TRUE)
                  }else{0})
-            )
+        )
+        }
         ##
         probY <- t( # rows: MCsamples, cols: clusters
         (if(Yn$T > 0){
@@ -453,9 +474,6 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                          na.rm=TRUE)
                  }else{0})
         )
-        ## This seems to minimize roundoff error
-        probX <- probX - apply(probX, 1, max, na.rm=T)
-        rowSums(exp(probX+probY))/rowSums(exp(probX))
         ##
         ## ## Other approaches tested for roundoff error
         ## testc2 <- rowSums(exp(probX2 + probY - log(rowSums(exp(probX2)))))
@@ -476,6 +494,15 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
         ##
         ## dtestc1 <- rowSums(exp(dprobX + dprobY - log(rowSums(exp(dprobX)))))
         ## dtestc1d <- rowSums(exp(dprobX+dprobY))/rowSums(exp(dprobX))
+        ##
+        ##
+        ## This seems to minimize roundoff error
+        if(is.null(x)){
+            rowSums(exp(probX+probY))
+        }else{
+            probX <- probX - apply(probX, 1, max, na.rm=T)
+            rowSums(exp(probX+probY))/rowSums(exp(probX))
+        }
     }
 }
 

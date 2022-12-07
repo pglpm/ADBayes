@@ -1,12 +1,11 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-06T19:35:33+0100
+## Last-Updated: 2022-12-07T07:30:56+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
 ## Monte Carlo sampling
 #########################################
-rm(ndata,shuffledata)
 
 #### USER INPUTS AND CHOICES ####
 baseversion <- '_testfunproper' # *** ## Base name of output directory
@@ -15,8 +14,8 @@ predictors <- 'predictors.csv'
 varinfofile <- 'varinfo.csv'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
-## ndata <- 3 # set this if you want to use fewer data
-## shuffledata <- TRUE # useful if subsetting data
+ndata <- NULL # set this if you want to use fewer data
+shuffledata <- FALSE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
 savetempsamples <- FALSE # save temporary MCMC samples
@@ -502,7 +501,7 @@ while(continue){
     ## Diagnostics
     ## Log-likelihood
     if(posterior){
-        ll <- llSamplesmc(dat, newmcsamples)
+        ll <- colSums(log(samplesFDistribution(Y=data.matrix(data0), X=NULL, mcsamples=newmcsamples, varinfo=varinfo)))
         flagll <- FALSE
         if(!posterior && !any(is.finite(ll))){
             flagll <- TRUE
