@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-09T22:52:06+0100
+## Last-Updated: 2022-12-10T00:52:03+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -22,16 +22,31 @@ M <- 100
 n <- 7
 sca <- (M-m)/(n-1)
 loc <- m
+tests <- cbind('test'=c(NA,seq(m,M,length.out=n)))
+testvarinfo <- rbind('test'=c('min'=m, 'max'=M, 'n'=n, 'location'=loc, 'scale'=sca, 'type'=1))
+
+
+m <- 0
+M <- 100
+n <- 2^-6
+sca <- (M-m)/(1-2*n)
+loc <- m-n*sca
+tests <- cbind('test'=c(NA,seq(m,M,length.out=20)))
+testvarinfo <- rbind('test'=c('min'=m, 'max'=M, 'n'=n, 'location'=loc, 'scale'=sca, 'type'=-2))
+cbind(tests,transf(tests,testvarinfo,Tout='left'),transf(tests,testvarinfo,Tout='init'),transf(tests,testvarinfo,Tout='right'))
+
+
+
+
 testc <- function(x){qnorm((round((x-loc)/sca)+0.5)/n)}
 testl <- function(x){qnorm(pmax(0,round((x-loc)/sca))/n)}
 testr <- function(x){qnorm(pmin(n,round((x-loc)/sca)+1)/n)}
-tests <- c(NA,seq(m,M,length.out=n))
 
 ## WARNING:
 ## transfdir() and transfinv() are not each other's inverse for all variate types
 
 ## Transformation from variate to internal variable
-transf <- function(x, varinfo, Tout='in', Iout='data'){ # 'in' 'data' 'aux'
+transf <- function(x, varinfo, Tout='in', Iout='init'){ # 'in' 'data' 'aux'
     array(sapply(colnames(x), function(v){
         datum <- data.matrix(x)[,v,drop=F]
         info <- varinfo[v,]
@@ -39,45 +54,41 @@ transf <- function(x, varinfo, Tout='in', Iout='data'){ # 'in' 'data' 'aux'
         loc <- info['location']
         sca <- info['scale']
         ##
-        if(type == variatetypes['R']){ # strictly positive
+        if(type %in% variatetypes[c('R','B')]){ # strictly positive or binary
             datum <- (datum-loc)/sca
-        }
-        ##
-        if(type == variatetypes['L']){ # strictly positive
+        } else if(type == variatetypes['L']){ # strictly positive
             datum <- (log(datum)-loc)/sca
-        }
-        ##
-        if(type == variatetypes['I']){ # integer, discrete ordinal
+        } else if(type == variatetypes['I']){ # integer, discrete ordinal
             n <- info['n'] 
             if(Iout == 'init'){ # in sampling functions or init MCMC
                 datum[is.na(datum)] <- sum(info[c('min','max')])/2
-                datum <- qnorm(pmin(n,round((x-loc)/sca)+0.5)/n)
+                datum <- qnorm((round((datum-loc)/sca)+0.5)/n)
             } else if(Iout == 'left'){ # as left for MCMC
-                datum <- qnorm(pmax(0,round((x-loc)/sca))/n)
+                datum <- qnorm(pmax(0,round((datum-loc)/sca))/n)
                 datum[is.na(datum)] <- -Inf
             } else if(Iout == 'right'){ # as right for MCMC
-                datum <- qnorm(pmin(n,round((x-loc)/sca)+1)/n)
+                datum <- qnorm(pmin(n,round((datum-loc)/sca)+1)/n)
                 datum[is.na(datum)] <- +Inf
             } else if(Iout == 'preqnorm'){ # as right for MCMC
-                datum <- round((x-loc)/sca)
+                datum <- round((datum-loc)/sca)
             }
-        }
         } else if(type == variatetypes['T']){ # continuous doubly-bounded
-            if(Tout == 'in'){ # in sampling functions
-                datum <- qnorm(datum)
-                datum[data.matrix(x)[,v] <= info['min']] <- -Inf
-                datum[data.matrix(x)[,v] >= info['max']] <- +Inf
-            } else if(Tout == 'data'){ # as data for MCMC
-                datum <- qnorm(datum)
-                datum[data.matrix(x)[,v] <= info['min']] <- NA
-                datum[data.matrix(x)[,v] >= info['max']] <- NA
-            } else if(Tout == 'aux'){ # in auxiliary variable
-                datum <- (data.matrix(x)[,v] > info['min']) +
-                    (data.matrix(x)[,v] >= info['max'])
+            datum <- qnorm((datum-loc)/sca)
+            print(datum)
+            if(Tout == 'left'){ # in sampling functions
+                sel <- is.na(datum) | (data.matrix(x)[,v] < info['max'])
+                datum[sel] <- -Inf
+                datum[!sel] <- qnorm(1-info['n'])
+            } else if(Tout == 'right'){ # in sampling functions
+                sel <- is.na(datum) | (data.matrix(x)[,v] > info['min'])
+                datum[sel] <- +Inf
+                datum[!sel] <- qnorm(info['n'])
+            } else if(Tout == 'init'){ # as init for MCMC
+                datum[is.na(datum) | (data.matrix(x)[,v] >= info['max']) | (data.matrix(x)[,v] <= info['min'])] <- NA
             }
         }
         datum
-    }),dim=dim(x),dimnames=dimnames(x))
+    }),dim=dim(x))
 }
 
 ## Transformation from internal variable to variate
