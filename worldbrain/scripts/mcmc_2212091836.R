@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-10T18:24:50+0100
+## Last-Updated: 2022-12-10T18:43:58+0100
 #########################################
 e## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -488,15 +488,18 @@ while(continue){
         tplot(y=log10(newmcsamples[,v])/2,ylab='Tsds',xlab=NA,lty=1,alpha=0.25)
     dev.off()
 
-    xgrid <- cbind('TRAASCOR_neuro'=seq(0,150,length.out=128))#[120:122,,drop=F]
+    v <- 'TRABSCOR_neuro'
+    vn <- which(variate$T == v)
+    xgrid <- cbind(seq(varinfo[v,'min'],varinfo[v,'max'],length.out=128))
+    colnames(xgrid) <- v
     extremes <- c(1,length(xgrid))
     txgrid <- transf(xgrid,varinfo,Tout='')
     subsamples <- 1:nrow(newmcsamples)
 testt <- sapply(subsamples, function(sam){
     rowSums(sapply(1:nclusters, function(clu){
         dnorm(x=txgrid[-extremes],
-              mean=newmcsamples[sam,paste0('Tmean[1, ',clu,']')],
-              sd=sqrt(newmcsamples[sam,paste0('Tvar[1, ',clu,']')])
+              mean=newmcsamples[sam,paste0('Tmean[',vn,', ',clu,']')],
+              sd=sqrt(newmcsamples[sam,paste0('Tvar[',vn,', ',clu,']')])
               ) *
             newmcsamples[sam,paste0('W[',clu,']')]
     }))
@@ -504,34 +507,36 @@ testt <- sapply(subsamples, function(sam){
 testte <- sapply(subsamples, function(sam){
     rowSums(sapply(1:nclusters, function(clu){
         c(pnorm(q=txgrid[extremes[1]],
-              mean=newmcsamples[sam,paste0('Tmean[1, ',clu,']')],
-              sd=sqrt(newmcsamples[sam,paste0('Tvar[1, ',clu,']')])
+              mean=newmcsamples[sam,paste0('Tmean[',vn,', ',clu,']')],
+              sd=sqrt(newmcsamples[sam,paste0('Tvar[',vn,', ',clu,']')])
               ),
           pnorm(q=txgrid[extremes[2]],
-              mean=newmcsamples[sam,paste0('Tmean[1, ',clu,']')],
-              sd=sqrt(newmcsamples[sam,paste0('Tvar[1, ',clu,']')]),
+              mean=newmcsamples[sam,paste0('Tmean[',vn,', ',clu,']')],
+              sd=sqrt(newmcsamples[sam,paste0('Tvar[',vn,', ',clu,']')]),
               lower.tail=F
               )
           ) * newmcsamples[sam,paste0('W[',clu,']')]
     }))
 })
 
-        tplot(x=txgrid[extremes],y=rowMeans(testte)*max(rowMeans(testrt)[-extremes]),ylim=c(0,NA),lty=1,col=2,type='p',pch=2,add=T)
-tplot(x=txgrid[-extremes],y=rowMeans(testt),ylim=c(0,NA),lty=2,col=2,add=T)
-
-    tplot(x=txgrid,y=rowMeans(testt),ylim=c(0,NA),add=T,col=2,lty=2,alpha=0.25)
-
-    histoT <- thist(transf(data.matrix(data0[,'TRAASCOR_neuro',with=F]),varinfo,Tout=''),n=100)
-tplot(x=histoT$breaks,y=histoT$counts/sum(histoT$counts)*max(rowMeans(testrt)[-extremes]),add=T)
-
     testrt <- testsamplesFDistribution(Y=xgrid,X=NULL,mcsamples=newmcsamples,varinfo=varinfo, subsamples=subsamples, jacobian=F)
     
     tplot(x=txgrid[extremes],y=rowMeans(testrt)[extremes]*max(rowMeans(testrt)[-extremes]),ylim=c(0, max(rowMeans(testrt)[-extremes])),lty=1,col=1,type='p')
-tplot(x=txgrid[-extremes],y=rowMeans(testrt)[-extremes],ylim=c(0,NA),lty=1,col=1,add=T)
+    tplot(x=txgrid[-extremes],y=rowMeans(testrt)[-extremes],ylim=c(0,NA),lty=1,col=1,add=T)
+    
+        tplot(x=txgrid[extremes],y=rowMeans(testte)*max(rowMeans(testrt)[-extremes]),ylim=c(0,NA),lty=1,col=2,type='p',pch=2,add=T)
+tplot(x=txgrid[-extremes],y=rowMeans(testt),ylim=c(0,NA),lty=2,col=2,add=T)
+
+    histoT <- thist(transf(data.matrix(data0[,v,with=F]),varinfo,Tout=''),n=100)
+tplot(x=histoT$breaks,y=histoT$density/max(histoT$density)*max(rowMeans(testrt)[-extremes]),add=T)
 
 
-## integer
-    xgrid <- cbind('GDTOTAL_gds'=seq(0,6,length.out=7))#[120:122,,drop=F]
+
+    ## integer
+    v <- 'AVDEL30MIN_neuro'
+    vn <- which(variate$I == v)
+    xgrid <- cbind(seq(varinfo[v,'min'],varinfo[v,'max'],length.out=varinfo[v,'n']))#[120:122,,drop=F]
+    colnames(xgrid) <- v
     txgrid <- transf(xgrid,varinfo,Iout='init')
     lxgrid <- transf(xgrid,varinfo,Iout='left')
     rxgrid <- transf(xgrid,varinfo,Iout='right')
@@ -539,28 +544,26 @@ tplot(x=txgrid[-extremes],y=rowMeans(testrt)[-extremes],ylim=c(0,NA),lty=1,col=1
 testt <- sapply(subsamples, function(sam){
     rowSums(sapply(1:nclusters, function(clu){
         ( pnorm(q=rxgrid,
-              mean=newmcsamples[sam,paste0('Imean[1, ',clu,']')],
-              sd=sqrt(newmcsamples[sam,paste0('Ivar[1, ',clu,']')])
+              mean=newmcsamples[sam,paste0('Imean[',vn,', ',clu,']')],
+              sd=sqrt(newmcsamples[sam,paste0('Ivar[',vn,', ',clu,']')])
               ) -
          pnorm(q=lxgrid,
-              mean=newmcsamples[sam,paste0('Imean[1, ',clu,']')],
-              sd=sqrt(newmcsamples[sam,paste0('Ivar[1, ',clu,']')])
+              mean=newmcsamples[sam,paste0('Imean[',vn,', ',clu,']')],
+              sd=sqrt(newmcsamples[sam,paste0('Ivar[',vn,', ',clu,']')])
               )) *
             newmcsamples[sam,paste0('W[',clu,']')]
     }))
 })
 
-
-    
-tplot(x=txgrid,y=rowMeans(testt),ylim=c(0,NA),lty=2,col=2,add=T)
-
-
-    histoT <- thist(transf(data.matrix(data0[,'GDTOTAL_gds',with=F]),varinfo,Iout='init'),n=c(-Inf,rxgrid))
-tplot(x=histoT$breaks,y=histoT$counts/sum(histoT$counts),add=T)
-
     testrt <- testsamplesFDistribution(Y=xgrid,X=NULL,mcsamples=newmcsamples,varinfo=varinfo, subsamples=subsamples, jacobian=F)
     
 tplot(x=txgrid,y=rowMeans(testrt),ylim=c(0,NA),lty=1,col=1)
+    
+tplot(x=txgrid,y=rowMeans(test t),ylim=c(0,NA),lty=2,col=2,add=T)
+
+    histoT <- thist(transf(data.matrix(data0[,v,with=F]),varinfo,Iout='init'),n=c(txgrid[1],lxgrid[-1],txgrid[length(txgrid)]+0.01))
+tplot(x=histoT$breaks,y=histoT$counts/sum(histoT$counts),add=T)
+
 
 
 
