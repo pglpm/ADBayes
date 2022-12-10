@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-10T22:45:44+0100
+## Last-Updated: 2022-12-10T18:58:02+0100
 #########################################
 e## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -11,7 +11,7 @@ e## Inference of exchangeable variates (nonparametric density regression)
 baseversion <- '_testIT2' # *** ## Base name of output directory
 ##datafile <- 'testdataIT2.csv'#'ingrid_data_nogds6.csv' #***
 datafile <- 'ingrid_data_nogds6.csv' #***
-predictorfile <- 'predictors.csv'
+predictorfile <- 'predictorsIT.csv'
 predictandfile <- NULL # 'predictors.csv'
 varinfofile <- 'varinfo.rds'
 requiredESS <- 1024*2/20 # required effective sample size
@@ -488,34 +488,6 @@ while(continue){
         tplot(y=log10(newmcsamples[,v])/2,ylab='Tsds',xlab=NA,lty=1,alpha=0.25)
     dev.off()
 
-
-    ## real
-    v <- 'AGE'
-    vn <- which(variate$L == v)
-    xgrid <- cbind(seq(varinfo[v,'plotmin'],varinfo[v,'plotmax'],length.out=128))
-    colnames(xgrid) <- v
-    txgrid <- transf(xgrid,varinfo,Tout='')
-    subsamples <- 1:nrow(newmcsamples)
-testt <- sapply(subsamples, function(sam){
-    rowSums(sapply(1:nclusters, function(clu){
-        dnorm(x=txgrid,
-              mean=newmcsamples[sam,paste0('Lmean[',vn,', ',clu,']')],
-              sd=sqrt(newmcsamples[sam,paste0('Lvar[',vn,', ',clu,']')])
-              ) *
-            newmcsamples[sam,paste0('W[',clu,']')]
-    }))
-})
-
-    testrt <- testsamplesFDistribution(Y=xgrid,X=NULL,mcsamples=newmcsamples,varinfo=varinfo, subsamples=subsamples, jacobian=F)
-    
-    tplot(x=txgrid,y=rowMeans(testrt),ylim=c(0,NA),lty=1,col=1)
-    
-tplot(x=txgrid,y=rowMeans(testt),ylim=c(0,NA),lty=2,col=2,add=T)
-
-    histoT <- thist(transf(data.matrix(data0[,v,with=F]),varinfo,Tout=''),n=50)
-tplot(x=histoT$breaks,y=histoT$density/max(histoT$density)*max(rowMeans(testrt)[-extremes]),add=T)
-
-    ## doubly-bounded
     v <- 'TRABSCOR_neuro'
     vn <- which(variate$T == v)
     xgrid <- cbind(seq(varinfo[v,'min'],varinfo[v,'max'],length.out=128))
@@ -671,14 +643,14 @@ tplot(x=histoT$breaks,y=histoT$counts/sum(histoT$counts),add=T)
             flagll <- TRUE
             ll <- rep(0, length(ll))
         }
-        lld <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictands]), X=data.matrix(data0[,..predictors]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) + sum(log(invjacobian(data.matrix(data0[,..predictands]), varinfo)), na.rm=T)
-        lli <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictors]), X=data.matrix(data0[,..predictands]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) + sum(log(invjacobian(data.matrix(data0[,..predictors]), varinfo)), na.rm=T)
+        condprobsd <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictands]), X=data.matrix(data0[,..predictors]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) + sum(log(invjacobian(data.matrix(data0[,..predictands]), varinfo)), na.rm=T)
+        condprobsi <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictors]), X=data.matrix(data0[,..predictands]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) + sum(log(invjacobian(data.matrix(data0[,..predictors]), varinfo)), na.rm=T)
         ##
         traces <- rbind(traces,
                         10/log(10)/ndata *
                         cbind(loglikelihood=ll,
-                              'mean of direct logprobabilities'=lld,
-                              'mean of inverse logprobabilities'=lli)
+                              'mean of direct logprobabilities'=condprobsd,
+                              'mean of inverse logprobabilities'=condprobsi)
                         )
         traces2 <- traces[apply(traces,1,function(x){all(is.finite(x))}),]
         saveRDS(traces,file=paste0(dirname,'_mctraces-R',basename,'--',mcmcseed,'-',stage,'.rds'))
@@ -829,18 +801,18 @@ dev.off()
                 par(mfrow=c(1,1))
                 ymax <- tquant(apply(plotsamples[,subsample],2,function(x){tquant(x,99/100)}),99/100, na.rm=T)
                 if(varinfo[v,'type'] != variatetypes['T']){
-                    tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=paste0(palette()[5], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
+                    tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
                     if(plotmeans){
-                        tplot(x=Xgrid, y=rowMeans(plotsamples, na.rm=T), type='l', col=paste0(palette()[1], '88'), lty=1, lwd=4, add=T)
+                        tplot(x=Xgrid, y=rowMeans(plotsamples, na.rm=T), type='l', col=paste0(palette()[1], '88'), lty=1, lwd=3, add=T)
                     }
                 }else{ # plot of a continuous doubly-bounded variate
                     interior <- which(Xgrid > varinfo[v,'min'] & Xgrid < varinfo[v,'max'])
-                    tplot(x=Xgrid[interior], y=plotsamples[interior,subsample], type='l', col=paste0(palette()[5], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
+                    tplot(x=Xgrid[interior], y=plotsamples[interior,subsample], type='l', col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
                     if(length(interior) < length(Xgrid)){
-                        tplot(x=Xgrid[-interior], y=plotsamples[-interior,subsample,drop=F]*ymax, type='p', pch=1, cex=1, col=paste0(palette()[5], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family,add=T)
+                        tplot(x=Xgrid[-interior], y=plotsamples[-interior,subsample,drop=F]*ymax, type='p', pch=1, cex=1, col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family,add=T)
                         }
                     if(plotmeans){
-                        tplot(x=Xgrid[interior], y=rowMeans(plotsamples, na.rm=T)[interior], type='l', col=paste0(palette()[1], '88'), lty=1, lwd=4, add=T)
+                        tplot(x=Xgrid[interior], y=rowMeans(plotsamples, na.rm=T)[interior], type='l', col=paste0(palette()[1], '88'), lty=1, lwd=3, add=T)
                     if(length(interior) < length(Xgrid)){
                         tplot(x=Xgrid[-interior], y=rowMeans(plotsamples, na.rm=T)[-interior]*ymax, type='p', pch=2, cex=1, col=paste0(palette()[1], '88'), lty=1, lwd=3, add=T)
                         }
@@ -853,16 +825,14 @@ dev.off()
                     ## fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
                     fiven <- fivenum(datum)
                     if(varinfo[v,'type'] != variatetypes['T']){
-                        ## histo <- thist(datum, n=(if(contvar){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
-                        histo <- thist(datum, n=round(ndata/64))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
-                        histomax <- max(rowMeans(plotsamples))/max(histo$density)
+                        histo <- thist(datum, n=(if(contvar){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
+                        histomax <- (if(contvar){max(rowMeans(plotsamples))/max(histo$density)}else{1L})
                         tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
                     }else{ # histogram for a continuous doubly-bounded variate
                         interior <- which(datum > varinfo[v,'min'] & datum < varinfo[v,'max'])
-                        histo <- thist(datum[interior], n=round(ndata/64)) #(if(contvar){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
-                        interior2 <- which(Xgrid > varinfo[v,'min'] & Xgrid < varinfo[v,'max'])
-
-                        histomax <- max(rowMeans(plotsamples)[interior2])/max(histo$density) # (if(contvar){max(rowMeans(plotsamples)[interior])/max(histo$density)}else{1L})
+                        histo <- thist(datum[interior], n=(if(contvar){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
+                        histomax <- (if(contvar){max(rowMeans(plotsamples))/max(histo$density)}else{1L})
+                        tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
                         tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
                         ##
                         pborder <- sum(datum <= varinfo[v,'min'])/length(datum)

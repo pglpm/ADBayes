@@ -74,7 +74,7 @@ varinfo[variate$L,'plotmin'] <- apply(dt[,variate$L,with=F],2,function(x){
     max(0, min(x, na.rm=T) - diff(tquant(x, c(0.25,0.5))))
     })
 varinfo[variate$L,'plotmax'] <- apply(dt[,variate$L,with=F],2,function(x){
-    max(x, na.rm=T) + diff(tquant(x, c(0.75,0.5)))
+    max(x, na.rm=T) + diff(tquant(x, c(0.5,0.75)))
 })
 
 ## doubly bounded
