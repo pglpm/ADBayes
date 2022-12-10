@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-10T00:52:03+0100
+## Last-Updated: 2022-12-10T18:20:13+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -12,42 +12,34 @@ sd2iqr <- 0.5/qnorm(0.75)
 variatetypes <- c( C=3, B=2, I=1, R=0, L=-1, T=-2 )
 
 ## Create interval bounds for transformed integer variates; pad with +Inf
-createbounds <- function(n, nmax=n){
-    if(n>1){ c( qnorm((1:(n-1))/n), rep(+Inf, nmax-n) ) } else {qnorm(c(n, 1-n))}
-}
+## createbounds <- function(n, nmax=n){
+##     if(n>1){ c( qnorm((1:(n-1))/n), rep(+Inf, nmax-n) ) } else {qnorm(c(n, 1-n))}
+## }
 
 
-m <- 0
-M <- 100
-n <- 7
-sca <- (M-m)/(n-1)
-loc <- m
-tests <- cbind('test'=c(NA,seq(m,M,length.out=n)))
-testvarinfo <- rbind('test'=c('min'=m, 'max'=M, 'n'=n, 'location'=loc, 'scale'=sca, 'type'=1))
+## m <- 0
+## M <- 100
+## n <- 7
+## sca <- (M-m)/(n-1)
+## loc <- m
+## tests <- cbind('test'=c(NA,seq(m,M,length.out=n)))
+## testvarinfo <- rbind('test'=c('min'=m, 'max'=M, 'n'=n, 'location'=loc, 'scale'=sca, 'type'=1))
 
 
-m <- 0
-M <- 100
-n <- 2^-6
-sca <- (M-m)/(1-2*n)
-loc <- m-n*sca
-tests <- cbind('test'=c(NA,seq(m,M,length.out=20)))
-testvarinfo <- rbind('test'=c('min'=m, 'max'=M, 'n'=n, 'location'=loc, 'scale'=sca, 'type'=-2))
-cbind(tests,transf(tests,testvarinfo,Tout='left'),transf(tests,testvarinfo,Tout='init'),transf(tests,testvarinfo,Tout='right'))
-
-
-
-
-testc <- function(x){qnorm((round((x-loc)/sca)+0.5)/n)}
-testl <- function(x){qnorm(pmax(0,round((x-loc)/sca))/n)}
-testr <- function(x){qnorm(pmin(n,round((x-loc)/sca)+1)/n)}
-
-## WARNING:
-## transfdir() and transfinv() are not each other's inverse for all variate types
+## m <- 0
+## M <- 100
+## n <- 2^-6
+## sca <- (M-m)/(1-2*n)
+## loc <- m-n*sca
+## tests <- cbind('test'=c(NA,seq(m,M,length.out=20)))
+## testvarinfo <- rbind('test'=c('min'=m, 'max'=M, 'n'=n, 'location'=loc, 'scale'=sca, 'type'=-2))
+## cbind(tests,transf(tests,testvarinfo,Tout='left'),transf(tests,testvarinfo,Tout='init'),transf(tests,testvarinfo,Tout='data'),transf(tests,testvarinfo,Tout='right'))
 
 ## Transformation from variate to internal variable
-transf <- function(x, varinfo, Tout='in', Iout='init'){ # 'in' 'data' 'aux'
-    array(sapply(colnames(x), function(v){
+transf <- function(x, varinfo, Tout='data', Iout='init', variates=NULL){ # 'in' 'data' 'aux'
+    x <- cbind(x)
+    if(!is.null(variates)){colnames(x) <- variates}
+    matrix(sapply(colnames(x), function(v){
         datum <- data.matrix(x)[,v,drop=F]
         info <- varinfo[v,]
         type <- info['type']
@@ -61,7 +53,7 @@ transf <- function(x, varinfo, Tout='in', Iout='init'){ # 'in' 'data' 'aux'
         } else if(type == variatetypes['I']){ # integer, discrete ordinal
             n <- info['n'] 
             if(Iout == 'init'){ # in sampling functions or init MCMC
-                datum[is.na(datum)] <- sum(info[c('min','max')])/2
+                datum[is.na(datum)] <- (info['min']+info['max'])/2
                 datum <- qnorm((round((datum-loc)/sca)+0.5)/n)
             } else if(Iout == 'left'){ # as left for MCMC
                 datum <- qnorm(pmax(0,round((datum-loc)/sca))/n)
@@ -69,12 +61,11 @@ transf <- function(x, varinfo, Tout='in', Iout='init'){ # 'in' 'data' 'aux'
             } else if(Iout == 'right'){ # as right for MCMC
                 datum <- qnorm(pmin(n,round((datum-loc)/sca)+1)/n)
                 datum[is.na(datum)] <- +Inf
-            } else if(Iout == 'preqnorm'){ # as right for MCMC
-                datum <- round((datum-loc)/sca)
+            } else if(Iout == 'index'){ # in output functions
+                datum <- round((datum-loc)/sca)+1L
             }
         } else if(type == variatetypes['T']){ # continuous doubly-bounded
             datum <- qnorm((datum-loc)/sca)
-            print(datum)
             if(Tout == 'left'){ # in sampling functions
                 sel <- is.na(datum) | (data.matrix(x)[,v] < info['max'])
                 datum[sel] <- -Inf
@@ -83,13 +74,42 @@ transf <- function(x, varinfo, Tout='in', Iout='init'){ # 'in' 'data' 'aux'
                 sel <- is.na(datum) | (data.matrix(x)[,v] > info['min'])
                 datum[sel] <- +Inf
                 datum[!sel] <- qnorm(info['n'])
-            } else if(Tout == 'init'){ # as init for MCMC
+            } else if(Tout == 'data'){ # as init for MCMC
                 datum[is.na(datum) | (data.matrix(x)[,v] >= info['max']) | (data.matrix(x)[,v] <= info['min'])] <- NA
+            } else if(Tout == 'init'){ # as init for MCMC
+                datum[is.na(datum)] <- 0L
+                datum[(data.matrix(x)[,v] >= info['max'])] <- qnorm(1-info['n'])+0.125
+                datum[(data.matrix(x)[,v] <= info['min'])] <- qnorm(info['n'])-0.125
+            } else if(Tout == 'index'){ # in sampling functions
+                datum[(data.matrix(x)[,v] >= info['max'])] <- +Inf
+                datum[(data.matrix(x)[,v] <= info['min'])] <- -Inf
             }
         }
         datum
-    }),dim=dim(x))
+    }),ncol=ncol(x),dimnames=list(NULL,colnames(x)))
 }
+
+## Inverse of Jacobian, in terms of original variate
+invjacobian <- function(x, varinfo){
+    sapply(colnames(x), function(v){
+        datum <- data.matrix(x)[,v,drop=F]
+        info <- varinfo[v,]
+        type <- info['type']
+        if(type == variatetypes['R']){ # real
+            datum <- info['scale'] + 0L*datum
+        }else if(type == variatetypes['L']){ # continuous strictly positive
+            datum <- datum*info['scale']
+        }else if(type == variatetypes['T']){ # continuous doubly bounded
+            datum <- dnorm(transf(datum, varinfo, Tout='index'))*info['scale']
+            datum[data.matrix(x)[,v] <= info['min']] <- 1L
+            datum[data.matrix(x)[,v] >= info['max']] <- 1L
+        }else{ # other types
+            datum <- 1L + 0L*datum
+        }
+        datum
+    })
+}
+
 
 ## Transformation from internal variable to variate
 transfinv <- function(y, varinfo){
@@ -97,7 +117,7 @@ transfinv <- function(y, varinfo){
         datum <- data.matrix(y)[,v,drop=F]
         info <- varinfo[v,]
         type <- info['type']
-        if(type == 1){ # integer, discrete ordinal
+        if(type == variatetypes['I']){ # integer, discrete ordinal
             datum <- nimble::rinterval(n=length(datum), t=datum, c=createbounds(info['n'])) + 0L*datum
         }else if(type == -2){ # continuous doubly bounded
             datum <- pnorm(datum)
@@ -114,28 +134,6 @@ transfinv <- function(y, varinfo){
         datum
     })
 }
-
-## Inverse of Jacobian, in terms of original variate
-invjacobian <- function(x, varinfo){
-    sapply(colnames(x), function(v){
-        datum <- data.matrix(x)[,v,drop=F]
-        info <- varinfo[v,]
-        type <- info['type']
-        if(type == 0){ # real
-            datum <- info['scale'] + 0L*datum
-        }else if(type == -1){ # continuous strictly positive
-            datum <- datum*info['scale']
-        }else if(type == -2){ # continuous doubly bounded
-            datum <- dnorm(transfdir(datum, varinfo))*info['scale']
-            datum[data.matrix(x)[,v] <= info['min']] <- 1L
-            datum[data.matrix(x)[,v] >= info['max']] <- 1L
-        }else{ # other types
-            datum <- 1L + 0L*datum
-        }
-        datum
-    })
-}
-
 
 ## Extend range
 extendrange <- function(vec,by=0.125){
@@ -187,6 +185,406 @@ proposethinning <- function(x){
     Rec.Thin
 }
 
+
+
+testsamplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nrow(mcsamples), jacobian=TRUE){
+    if(length(subsamples) == 1 && !is.numeric(subsamples)){
+        subsamples <- seq(1, nrow(mcsamples), length.out=round(abs(as.complex(subsamples))))
+    }
+    mcsamples <- t(mcsamples[subsamples,,drop=FALSE])
+    Yv <- colnames(Y)
+    Yvn <- length(Yv)
+    Xv <- colnames(X)
+    Xvn <- length(Xv)
+    Vv <- rownames(varinfo)
+    if(length(intersect(Yv, Xv)) > 0){warning('overlap in Y and X variates')}
+    if(!all(Yv %in% Vv)){warning('unknown Y variates')}
+    if(!all(Xv %in% Vv)){warning('unknown X variates')}
+    ##
+    variate <- lapply(variatetypes, function(x)rownames(varinfo)[varinfo[,'type']==x])
+    len <- lapply(variate,length)
+    Yv <- lapply(variatetypes, function(x)Yv[varinfo[Yv,'type']==x])
+    Yn <- lapply(Yv,length)
+    Xv <- lapply(variatetypes, function(x)Xv[varinfo[Xv,'type']==x])
+    Xn <- lapply(Xv,length)
+    ##
+    Wi <- grep('W',rownames(mcsamples))
+    nclusters <- length(Wi)
+    W <- mcsamples[Wi,]
+    seqclusters <- seq_len(nclusters)
+    ##
+    if(Yn$C > 0){## categorical
+    totake <- sapply(Yv$C,function(x)which(variate$C == x))
+    YCprob <- sapply(paste0('Cprob\\[',totake,','),
+                            grep,rownames(mcsamples))
+    ncategories <- length(YCprob)/length(totake)/nclusters
+    seqcategories <- seq_len(ncategories)
+    YCprob <- aperm(array(YCprob,
+                           dim=c(nclusters,ncategories,length(totake)),
+                           dimnames=list(NULL,NULL,Yv$C)),
+                    c(2,1,3))
+    }
+    if(Yn$B > 0){## binary
+    totake <- sapply(Yv$B,function(x)which(variate$B == x))
+    YBprob <- array(t(vapply(paste0('Bprob\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Yv$B,NULL))
+    }
+    if(Yn$I > 0){## integer ordinal
+    totake <- sapply(Yv$I,function(x)which(variate$I == x))
+    YImean <- array(t(vapply(paste0('Imean\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Yv$I,NULL))
+    YIvar <- array(t(vapply(paste0('Ivar\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Yv$I,NULL))
+    YIlefts <- lapply(Yv$I,function(v){
+        c(transf(matrix(seq(varinfo[v,'min'], varinfo[v,'max'], length.out=varinfo[v,'n']),
+                      ncol=1, dimnames=list(NULL,v)), varinfo, Iout='left'))
+    })
+    YIrights <- lapply(Yv$I,function(v){
+        c(transf(matrix(seq(varinfo[v,'min'], varinfo[v,'max'], length.out=varinfo[v,'n']),
+                      ncol=1, dimnames=list(NULL,v)), varinfo, Iout='right'))
+    })
+    names(YIlefts) <- names(YIrights) <- Yv$I
+    }
+    if(Yn$R > 0){## real
+    totake <- sapply(Yv$R,function(x)which(variate$R == x))
+    YRmean <- array(t(vapply(paste0('Rmean\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Yv$R,NULL))
+    YRvar <- array(t(vapply(paste0('Rvar\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Yv$R,NULL))
+    }
+    if(Yn$L > 0){## logarithmic
+    totake <- sapply(Yv$L,function(x)which(variate$L == x))
+    YLmean <- array(t(vapply(paste0('Lmean\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Yv$L,NULL))
+    YLvar <- array(t(vapply(paste0('Lvar\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Yv$L,NULL))
+    }
+    if(Yn$T > 0){## two-bounded
+    totake <- sapply(Yv$T,function(x)which(variate$T == x))
+    YTmean <- array(t(vapply(paste0('Tmean\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Yv$T,NULL))
+    YTvar <- array(t(vapply(paste0('Tvar\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                   dim=c(length(totake),nclusters), dimnames=list(Yv$T,NULL))
+    YTbounds <- -qnorm(varinfo[Yv$T,'n',drop=F])
+    }
+    ##
+    if(Xn$C > 0){## categorical
+    totake <- sapply(Xv$C,function(x)which(variate$C == x))
+    XCprob <- apply(paste0('Cprob\\[',totake,','),
+                            grep,rownames(mcsamples))
+    ncategories <- length(XCprob)/length(totake)/nclusters
+    seqcategories <- seq_len(ncategories)
+    XCprob <- aperm(array(XCprob,
+                           dim=c(nclusters,ncategories,length(totake)),
+                           dimnames=list(NULL,NULL,Xv$C)),
+                    c(2,1,3))
+    }
+    if(Xn$B > 0){## binary
+    totake <- sapply(Xv$B,function(x)which(variate$B == x))
+    XBprob <- array(t(vapply(paste0('Bprob\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Xv$B,NULL))
+    }
+    if(Xn$I > 0){## integer ordinal
+    totake <- sapply(Xv$I,function(x)which(variate$I == x))
+    XImean <- array(t(vapply(paste0('Imean\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Xv$I,NULL))
+    XIvar <- array(t(vapply(paste0('Ivar\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Xv$I,NULL))
+    XIlefts <- lapply(Xv$I,function(v){
+        c(transf(matrix(seq(varinfo[v,'min'], varinfo[v,'max'], length.out=varinfo[v,'n']),
+                      ncol=1, dimnames=list(NULL,v)), varinfo, Iout='left'))
+    })
+    XIrights <- lapply(Xv$I,function(v){
+        c(transf(matrix(seq(varinfo[v,'min'], varinfo[v,'max'], length.out=varinfo[v,'n']),
+                      ncol=1, dimnames=list(NULL,v)), varinfo, Iout='right'))
+    })
+    names(XIlefts) <- names(XIrights) <- Xv$I
+    }
+    if(Xn$R > 0){## real
+    totake <- sapply(Xv$R,function(x)which(variate$R == x))
+    XRmean <- array(t(vapply(paste0('Rmean\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Xv$R,NULL))
+    XRvar <- array(t(vapply(paste0('Rvar\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Xv$R,NULL))
+    }
+    if(Xn$L > 0){## logarithmic
+    totake <- sapply(Xv$L,function(x)which(variate$L == x))
+    XLmean <- array(t(vapply(paste0('Lmean\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Xv$L,NULL))
+    XLvar <- array(t(vapply(paste0('Lvar\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Xv$L,NULL))
+    }
+    if(Xn$T > 0){## two-bounded
+    totake <- sapply(Xv$T,function(x)which(variate$T == x))
+    XTmean <- array(t(vapply(paste0('Tmean\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Xv$T,NULL))
+    XTvar <- array(t(vapply(paste0('Tvar\\[',totake,','), grep,
+                           numeric(nclusters),
+                           rownames(mcsamples))),
+                     dim=c(length(totake),nclusters), dimnames=list(Xv$T,NULL))
+    XTbounds <- -qnorm(varinfo[Xv$T,'n',drop=F])
+    }
+    ##
+    Y2 <- transf(Y,varinfo,Tout='index', Iout='index')
+    if(!is.null(X)){
+        X2 <- transf(X,varinfo,Tout='index', Iout='index')
+        if(nrow(X2) < nrow(Y2)){
+            warning('*Note: X has fewer data than Y. Recycling*')
+            X2 <- t(matrix(rep(t(X2), ceiling(nrow(Y2)/nrow(X2))), nrow=ncol(X2), dimnames=list(colnames(X2),NULL)))[1:nrow(Y2),,drop=FALSE]
+        }
+        if(nrow(X2) > nrow(Y2)){
+            warning('*Note: X has more data than Y. Recycling*')
+            Y2 <- t(matrix(rep(t(Y2), ceiling(nrow(X2)/nrow(Y2))), nrow=ncol(Y2), dimnames=list(colnames(Y2),NULL)))[1:nrow(X2),,drop=FALSE]
+        }
+    }else{X2 <- lapply(seq_len(nrow(Y2)),function(x)NA)}
+    ndata <- nrow(Y2)
+    ##
+    ##
+    foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
+        if(any(is.na(y))){
+            y <- y[!is.na(y),,drop=F]
+            Yv <- rownames(y)
+            Yvn <- length(Yv)
+            Yv <- lapply(variatetypes, function(x)Yv[varinfo[Yv,'type']==x])
+            Yn <- lapply(Yv,length)
+        }
+        ##            
+        if(all(is.na(x))){
+                probX <- t(log(W))
+        }else{
+            if(any(is.na(x))){
+                x <- x[!is.na(x),,drop=F]
+                Xv <- rownames(x)
+                Xvn <- length(Xv)
+                Xv <- lapply(variatetypes, function(x)Xv[varinfo[Xv,'type']==x])
+                Xn <- lapply(Xv,length)
+                }
+                ##
+        probX <- t( # rows: MCsamples, cols: clusters
+            log(W) + 
+                (if(Xn$T > 0){
+                     colSums(
+                         array(
+                             t(sapply(Xv$T, function(v){
+                                 if(is.finite(x[v,])){
+                                     (dnorm(x=x[v,],
+                                             mean=mcsamples[XTmean[v,],],
+                                             sd=sqrt(mcsamples[XTvar[v,],]),log=T))
+                                 }else{
+                                     (pnorm(q=XTbounds[v,]*sign(y[v,]),
+                                             mean=mcsamples[XTmean[v,],],
+                                             sd=sqrt(mcsamples[XTvar[v,],]),
+                                             lower.tail=(x[v,]<0),
+                                             log.p=T))
+                                 }
+                             })),
+                             dim=c(Xn$T, nclusters, length(subsamples))),
+                         na.rm=F)
+                 }else{0}) +
+                (if(Xn$L > 0){
+                     colSums(
+                         array(dnorm(x=x[Xv$L,],
+                                     mean=mcsamples[XLmean,],
+                                     sd=sqrt(mcsamples[XLvar,]),log=T),
+                               dim=c(Xn$L, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                 }else{0}) +
+                (if(Xn$R > 0){
+                     colSums(
+                         array(dnorm(x=x[Xv$R,],
+                                     mean=mcsamples[XRmean,],
+                                     sd=sqrt(mcsamples[XRvar,]),log=T),
+                               dim=c(Xn$R, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                 }else{0}) +
+                (if(Xn$B > 0){
+                     colSums(
+                         array(log( x[Xv$B,]*mcsamples[XBprob,] +
+                               (1-x[Xv$B,])*(1-mcsamples[XBprob,]) ),
+                               dim=c(Xn$B, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                 }else{0}) +
+                (if(Xn$I > 0){
+                     colSums(
+                         array(
+                             t(sapply(Xv$I, function(v){
+                                 log(pnorm(q=YIrights[[v]][y[v,]],
+                                        mean=mcsamples[YImean[v,],],
+                                        sd=sqrt(mcsamples[YIvar[v,],])) -
+                                  pnorm(q=YIlefts[[v]][y[v,]],
+                                        mean=mcsamples[YImean[v,],],
+                                        sd=sqrt(mcsamples[YIvar[v,],])))
+                                 ## x2 <- XIrights[[v]][x[v,]]
+                                 ## (pnorm(q=x2,
+                                 ##         mean=mcsamples[XImean[v,],],
+                                 ##         sd=sqrt(mcsamples[XIvar[v,],]), log.p=T) +
+                                 ##   log1p(-pnorm(q=XIlefts[[v]][x[v,]],
+                                 ##                mean=mcsamples[XImean[v,],],
+                                 ##                sd=sqrt(mcsamples[XIvar[v,],]))/
+                                 ##         pnorm(q=x2,
+                                 ##               mean=mcsamples[XImean[v,],],
+                                 ##               sd=sqrt(mcsamples[XIvar[v,],]))))
+                             })),
+                             dim=c(Xn$I, nclusters, length(subsamples))),
+                         na.rm=F)
+                 }else{0})
+        )
+        }
+        ##
+        probY <- t( # rows: MCsamples, cols: clusters
+        (if(Yn$T > 0){
+                     colSums(
+                         array(
+                             t(sapply(Yv$T, function(v){
+                                 if(is.finite(y[v,])){
+                                     (dnorm(x=y[v,],
+                                             mean=mcsamples[YTmean[v,],],
+                                             sd=sqrt(mcsamples[YTvar[v,],]),log=T))
+                                 }else{
+                                     (pnorm(q=YTbounds[v,]*sign(y[v,]),
+                                             mean=mcsamples[YTmean[v,],],
+                                             sd=sqrt(mcsamples[YTvar[v,],]),
+                                             lower.tail=(y[v,]<0),
+                                             log.p=T))
+                                 }
+                             })),
+                             dim=c(Yn$T, nclusters, length(subsamples))),
+                         na.rm=F)
+                 }else{0}) +
+                (if(Yn$L > 0){
+                     colSums(
+                         array(dnorm(x=y[Yv$L,],
+                                     mean=mcsamples[YLmean,],
+                                     sd=sqrt(mcsamples[YLvar,]),log=T),
+                               dim=c(Yn$L, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                 }else{0}) +
+                (if(Yn$R > 0){
+                     colSums(
+                         array(dnorm(x=y[Yv$R,],
+                                     mean=mcsamples[YRmean,],
+                                     sd=sqrt(mcsamples[YRvar,]),log=T),
+                               dim=c(Yn$R, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                 }else{0}) +
+                (if(Yn$B > 0){
+                     colSums(
+                         array(log( y[Yv$B,]*mcsamples[YBprob,] +
+                               (1-y[Yv$B,])*(1-mcsamples[YBprob,]) ),
+                               dim=c(Yn$B, nclusters, length(subsamples))),
+                         na.rm=TRUE)
+                 }else{0}) +
+                (if(Yn$I > 0){
+                     colSums(
+                         array(
+                             t(sapply(Yv$I, function(v){
+                                 log(pnorm(q=YIrights[[v]][y[v,]],
+                                        mean=mcsamples[YImean[v,],],
+                                        sd=sqrt(mcsamples[YIvar[v,],])) -
+                                  pnorm(q=YIlefts[[v]][y[v,]],
+                                        mean=mcsamples[YImean[v,],],
+                                        sd=sqrt(mcsamples[YIvar[v,],])))
+                                 ## y2 <- YIrights[[v]][y[v,]]
+                                 ## (pnorm(q=y2,
+                                 ##         mean=mcsamples[YImean[v,],],
+                                 ##         sd=sqrt(mcsamples[YIvar[v,],]), log.p=T) +
+                                 ##   log1p(-pnorm(q=YIlefts[[v]][y[v,]],
+                                 ##                mean=mcsamples[YImean[v,],],
+                                 ##                sd=sqrt(mcsamples[YIvar[v,],]))/
+                                 ##         pnorm(q=y2,
+                                 ##               mean=mcsamples[YImean[v,],],
+                                 ##               sd=sqrt(mcsamples[YIvar[v,],]))))
+                             })),
+                             dim=c(Yn$I, nclusters, length(subsamples))),
+                         na.rm=F)
+                 }else{0})
+        )
+        ##
+        ## ## Other approaches tested for roundoff error
+        ## testc2 <- rowSums(exp(probX2 + probY - log(rowSums(exp(probX2)))))
+        ##
+        ## maxp <- apply(probX2 + probY - log(rowSums(exp(probX2))),1,max,na.rm=T)
+        ## testc2f <- exp(maxp)*rowSums(exp(probX2 + probY - log(rowSums(exp(probX2)))-maxp))
+        ##
+        ## testc1d <- rowSums(exp(probX+probY))/rowSums(exp(probX))
+        ##        
+        ## testc1 <- rowSums(exp(probX + probY - log(rowSums(exp(probX)))))
+        ##
+        ## maxp <- apply(probX + probY - log(rowSums(exp(probX))),1,max,na.rm=T)
+        ## testc1f <- exp(maxp)*rowSums(exp(probX + probY - log(rowSums(exp(probX)))-maxp))
+        ##
+        ## ## Comparison using Rmpfr library
+        ## dprobX <- mpfr(probX, precBits=200)
+        ## dprobY <- mpfr(probY, precBits=200)
+        ##
+        ## dtestc1 <- rowSums(exp(dprobX + dprobY - log(rowSums(exp(dprobX)))))
+        ## dtestc1d <- rowSums(exp(dprobX+dprobY))/rowSums(exp(dprobX))
+        ##
+        ##
+        ## This seems to minimize roundoff error
+        if(all(is.na(x))){
+            out <- rowSums(exp(probX+probY)) 
+        }else{
+            probX <- probX - apply(probX, 1, max, na.rm=T)
+            out <- rowSums(exp(probX+probY))/rowSums(exp(probX))
+        }
+        out
+    } * (if(jacobian){exp(rowSums(log(invjacobian(Y, varinfo)), na.rm=T))}else{1L})
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##@@@@@@@@@@@@@@@@@@@@@@@@@@@2
 samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nrow(mcsamples), jacobian=TRUE){
     if(length(subsamples) == 1 && !is.numeric(subsamples)){
         subsamples <- seq(1, nrow(mcsamples), length.out=round(abs(as.complex(subsamples))))

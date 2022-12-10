@@ -1,18 +1,19 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-07T22:30:34+0100
+## Last-Updated: 2022-12-10T18:24:50+0100
 #########################################
-## Inference of exchangeable variates (nonparametric density regression)
+e## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
 ## Monte Carlo sampling
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testE1TI' # *** ## Base name of output directory
+baseversion <- '_testIT2' # *** ## Base name of output directory
+##datafile <- 'testdataIT2.csv'#'ingrid_data_nogds6.csv' #***
 datafile <- 'ingrid_data_nogds6.csv' #***
-predictorfile <- 'predictorsTI.csv'
+predictorfile <- 'predictorsIT.csv'
 predictandfile <- NULL # 'predictors.csv'
-varinfofile <- 'varinfoTI.csv'
+varinfofile <- 'varinfo.rds'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
 ndata <- NULL # set this if you want to use fewer data
@@ -78,8 +79,9 @@ library('nimble')
 ###############################################
 
 if(Sys.info()['nodename']=='luca-HP-Z2-G9'){origdir <- '../'}else{origdir <- ''}
-source(paste0(origdir,'functions_mcmcE.R')) # load functions for post-MCMC calculations
-varinfo <- data.matrix(read.csv(paste0(origdir,varinfofile), row.names=1))
+source(paste0(origdir,'functions_mcmc_2212091836.R')) # load functions for post-MCMC calculations
+## varinfo <- data.matrix(read.csv(paste0(origdir,varinfofile), row.names=1))
+varinfo <- readRDS(paste0(origdir,varinfofile))
 
 variate <- lapply(variatetypes, function(x)rownames(varinfo)[varinfo[,'type']==x])
 len <- lapply(variate,length)
@@ -108,12 +110,12 @@ if(Sys.info()['nodename']=='luca-HP-Z2-G9'){
 ## Setup for Monte Carlo sampling
 #################################
 
-if(!exists('stagestart')){stagestart <- 0L}
-if(stagestart>0){
-    resume <- paste0('_finalstate-R',baseversion,'-V',sum(unlist(len)),'-D',ndata,'-K',nclusters,'-I',nsamples,'--',stagestart-1,'-',mcmcseed,'.rds')
-}else{
-    resume <- FALSE
-}
+## if(!exists('stagestart')){stagestart <- 0L}
+## if(stagestart>0){
+##     resume <- paste0('_finalstate-R',baseversion,'-V',sum(unlist(len)),'-D',ndata,'-K',nclusters,'-I',nsamples,'--',stagestart-1,'-',mcmcseed,'.rds')
+## }else{
+##     resume <- FALSE
+## }
 ##
 
 for(obj in c('constants', 'datapoints', 'inits', 'finitemix', 'finitemixnimble', 'Cfinitemixnimble', 'confnimble', 'mcsampler', 'Cmcsampler')){if(exists(obj)){do.call(rm,list(obj))}}
@@ -122,40 +124,37 @@ gc()
 ## data
 datapoints = c(
     ## real
-    if(len$R > 0){list( Rdata = transfdir(data0[,variate$R,with=F], varinfo) )},
+    if(len$R > 0){list( Rdata = transf(data0[,variate$R,with=F], varinfo) )},
     ## logarithmic
-    if(len$L > 0){list( Ldata = transfdir(data0[,variate$L,with=F], varinfo) )},
+    if(len$L > 0){list( Ldata = transf(data0[,variate$L,with=F], varinfo) )},
     ## Two-bounded
     if(len$T > 0){list(
-                   Tdatacont = transfdir(data0[,variate$T,with=F], varinfo, Tout='data'),
-                   Tauxint = transfdir(data0[,variate$T,with=F], varinfo, Tout='aux')
+                   Tdata = transf(data0[,variate$T,with=F], varinfo, Tout='data'),
+                   Tleft = transf(data0[,variate$T,with=F], varinfo, Tout='left'),
+                   Tright = transf(data0[,variate$T,with=F], varinfo, Tout='right'),
+                   Taux = matrix(1L, nrow=ndata, ncol=len$T)
                   )},
     ## integer
-    if(len$I > 0){list( Idataint = transfdir(data0[,variate$I,with=F], varinfo, Iout='data') )},
+    if(len$I > 0){list(
+                   Ileft = transf(data0[,variate$I,with=F], varinfo, Iout='left'),
+                   Iright = transf(data0[,variate$I,with=F], varinfo, Iout='right'),
+                   Iaux = matrix(1L, nrow=ndata, ncol=len$I)
+    )},
     ## binary
-    if(len$B > 0){list( Bdata = transfdir(data0[,variate$B,with=F], varinfo) )},
+    if(len$B > 0){list( Bdata = transf(data0[,variate$B,with=F], varinfo) )},
     ## categorical
-    if(len$C > 0){list( Cdata = transfdir(data0[,variate$C,with=F], varinfo) )}
+    if(len$C > 0){list( Cdata = transf(data0[,variate$C,with=F], varinfo) )}
 )
 
 ##
-## calculation of some constants
-Imaxn <- max(varinfo[variate$I, 'n'])-1
-Iintervals0 <- t(sapply(variate$I, function(v){
-    createbounds(n=varinfo[v, 'n'], nmax=Imaxn+1)
-}))
-Iauxcontinit <- transfdir(data0[,variate$I,with=F], varinfo, Iout='aux')
-##
-Tmaxn <- 2
-Tintervals0 <- t(sapply(variate$T, function(v){ createbounds(n=varinfo[v, 'n']) }))
 ## constants
 constants <- c(
     list(nclusters = nclusters),
     if(nalpha > 0){ list(nalpha = nalpha) },
     if(len$R > 0){ list(Rn = len$R) },
     if(len$L > 0){ list(Ln = len$L) },
-    if(len$T > 0){ list(Tn = len$T, Tintervals0 = Tintervals0, Tmaxn = Tmaxn) },
-    if(len$I > 0){ list(In = len$I, Iintervals0 = Iintervals0, Imaxn = Imaxn) },
+    if(len$T > 0){ list(Tn = len$T) },
+    if(len$I > 0){ list(In = len$I) },
     if(len$B > 0){ list(Bn = len$B) },
     if(len$C > 0){ list(Cn = len$C, Cmaxn = Cmaxn) },
     if(posterior){ list(ndata = ndata)}
@@ -174,41 +173,42 @@ initsFunction <- function(){
                                   walpha0 = rep(1/nclusters, nclusters)
                               )},
         if(len$R > 0){list( # real variate
-                     Rmean0 = varinfo[variate$R, 'mean'],
-                     Rvar0 = varinfo[variate$R, 'sd']^2,
-                     Rshapeout0 = varinfo[variate$R, 'shapeout'],
-                     Rshapein0 = varinfo[variate$R, 'shapein'],
-                     Rvarscale0 = varinfo[variate$R, 'varscale']^2
+                     Rmean0 = varinfo[variate$R, 'hmean'],
+                     Rvar0 = varinfo[variate$R, 'hsd']^2,
+                     Rshapeout0 = varinfo[variate$R, 'hshapeout'],
+                     Rshapein0 = varinfo[variate$R, 'hshapein'],
+                     Rvarscale0 = varinfo[variate$R, 'hvarscale']^2
                  )},
         if(len$L > 0){list( # logarithmic variate
-                     Lmean0 = varinfo[variate$L, 'mean'],
-                     Lvar0 = varinfo[variate$L, 'sd']^2,
-                     Lshapeout0 = varinfo[variate$L, 'shapeout'],
-                     Lshapein0 = varinfo[variate$L, 'shapein'],
-                     Lvarscale0 = varinfo[variate$L, 'varscale']^2
+                     Lmean0 = varinfo[variate$L, 'hmean'],
+                     Lvar0 = varinfo[variate$L, 'hsd']^2,
+                     Lshapeout0 = varinfo[variate$L, 'hshapeout'],
+                     Lshapein0 = varinfo[variate$L, 'hshapein'],
+                     Lvarscale0 = varinfo[variate$L, 'hvarscale']^2
                  )},
         if(len$T > 0){list( # doubly-bounded variate
-                     Tmean0 = varinfo[variate$T, 'mean'],
-                     Tvar0 = varinfo[variate$T, 'sd']^2,
-                     Tshapeout0 = varinfo[variate$T, 'shapeout'],
-                     Tshapein0 = varinfo[variate$T, 'shapein'],
-                     Tvarscale0 = varinfo[variate$T, 'varscale']^2
+                     Tdata = transf(data0[,variate$T,with=F], varinfo, Tout='init'),
+                     Tmean0 = varinfo[variate$T, 'hmean'],
+                     Tvar0 = varinfo[variate$T, 'hsd']^2,
+                     Tshapeout0 = varinfo[variate$T, 'hshapeout'],
+                     Tshapein0 = varinfo[variate$T, 'hshapein'],
+                     Tvarscale0 = varinfo[variate$T, 'hvarscale']^2
                  )},
         if(len$I > 0){list( # integer ordinal variate
-                     Imean0 = varinfo[variate$I, 'mean'],
-                     Ivar0 = varinfo[variate$I, 'sd']^2,
-                     Ishapeout0 = varinfo[variate$I, 'shapeout'],
-                     Ishapein0 = varinfo[variate$I, 'shapein'],
-                     Ivarscale0 = varinfo[variate$I, 'varscale']^2,
-                     Iauxcont = Iauxcontinit
+                     Icont = transf(data0[,variate$I,with=F], varinfo, Iout='init'),
+                     Imean0 = varinfo[variate$I, 'hmean'],
+                     Ivar0 = varinfo[variate$I, 'hsd']^2,
+                     Ishapeout0 = varinfo[variate$I, 'hshapeout'],
+                     Ishapein0 = varinfo[variate$I, 'hshapein'],
+                     Ivarscale0 = varinfo[variate$I, 'hvarscale']^2
                      )},
         if(len$B > 0){list( # binay variate
-                     Bshapeout0 = varinfo[variate$B, 'shapeout'],
-                     Bshapein0 = varinfo[variate$B, 'shapein']
+                     Bshapeout0 = varinfo[variate$B, 'hshapeout'],
+                     Bshapein0 = varinfo[variate$B, 'hshapein']
                  )},
         if(len$C > 0){list( # categorical variate
                      Calpha0 = t(sapply(variate$B, function(v){
-                         c( rep(varinfo[v, 'shapeout'], varinfo[v, 'max']),
+                         c( rep(varinfo[v, 'hshapeout'], varinfo[v, 'max']),
                            rep(2^(-40), Cmaxn-varinfo[v, 'max']) )
                      }))
                  )},
@@ -307,14 +307,14 @@ finitemix <- nimbleCode({
             }
             if(len$I > 0){# integer variates
                 for(v in 1:In){
-                    Idataint[d, v] ~ dinterval(Iauxcont[d, v], Iintervals0[v, 1:Imaxn])
-                    Iauxcont[d, v] ~ dnorm(mean=Imean[v, K[d]], var=Ivar[v, K[d]])
+                    Iaux[d, v] ~ dconstraint(Icont[d, v] > Ileft[d, v] & Icont[d, v] < Iright[d, v])
+                    Icont[d, v] ~ dnorm(mean=Imean[v, K[d]], var=Ivar[v, K[d]])
                 }
             }
             if(len$T > 0){# bounded continuous variates
                 for(v in 1:Tn){
-                    Tauxint[d, v] ~ dinterval(Tdatacont[d, v], Tintervals0[v, 1:Tmaxn])
-                    Tdatacont[d, v] ~ dnorm(mean=Tmean[v, K[d]], var=Tvar[v, K[d]])
+                    Taux[d, v] ~ dconstraint(Tdata[d, v] >= Tleft[d, v] & Tdata[d, v] <= Tright[d, v])
+                    Tdata[d, v] ~ dnorm(mean=Tmean[v, K[d]], var=Tvar[v, K[d]])
                 }
             }
             if(len$B > 0){# binary variates
@@ -377,12 +377,16 @@ finitemixnimble <- nimbleModel(code=finitemix, name='finitemixnimble1',
                                        if(len$R > 0){list(Rdata=c(ndata,len$R))},
                                        if(len$L > 0){list(Ldata=c(ndata,len$L))},
                                        if(len$T > 0){list(
-                                                         Tdatacont=c(ndata,len$T),
-                                                         Tauxint=c(ndata,len$T)
+                                                         Tdata=c(ndata,len$T),
+                                                         Tleft=c(ndata,len$T),
+                                                         Tright=c(ndata,len$T),
+                                                         Taux=c(ndata,len$T)
                                                      )},
                                        if(len$I > 0){list(
-                                                         Idataint=c(ndata,len$I),
-                                                         Iauxcont=c(ndata,len$I)
+                                                         Icont=c(ndata,len$I),
+                                                         Ileft=c(ndata,len$I),
+                                                         Iright=c(ndata,len$I),
+                                                         Iaux=c(ndata,len$I)
                                                      )},
                                        if(len$B > 0){list(Bdata=c(ndata,len$B))},
                                        if(len$C > 0){list(Cdata=c(ndata,len$C))}
@@ -409,6 +413,8 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
                                 ## if(posterior && len$I > 0){c('Iauxcont', 'Idataint')},
                                 ## if(posterior && len$B > 0){'Bdata'},
                                 ## if(posterior && len$C > 0){'Cdata'},
+                                ## 'Icont',
+                                'Tdata',
                                 if(nalpha > 1){'Alpha'},
                                 if(posterior){'K'}
                             )
@@ -454,7 +460,8 @@ while(continue){
     if(stage==0){# burn-in stage
         set.seed(mcmcseed+stage+100)
         Cfinitemixnimble$setInits(initsFunction())
-        newmcsamples <- Cmcsampler$run(niter=niter+1, thin=thin, thin2=niter, nburnin=1, time=T)
+        ## newmcsamples <- Cmcsampler$run(niter=niter+1, thin=thin, thin2=niter, nburnin=1, time=T)
+        newmcsamples <- Cmcsampler$run(niter=4096, thin=1, thin2=1, nburnin=0, time=T)
     }else if(is.character(resume)){# continuing previous # must be fixed
         initsc <- readRDS(paste0(dirname,resume))
         inits0 <- initsFunction()
@@ -470,7 +477,116 @@ while(continue){
     }
     ##
     totaliter <- totaliter + niter*thin
+
     newmcsamples <- as.matrix(Cmcsampler$mvSamples)
+    newmcsamples2 <- as.matrix(Cmcsampler$mvSamples2)
+
+    pdff('debugplotsT1')
+        v <- colnames(newmcsamples)[grepl('Tmean',colnames(newmcsamples))]
+        tplot(y=newmcsamples[,v],ylab='Tmeans',xlab=NA,lty=1,alpha=0.25)
+        v <- colnames(newmcsamples)[grepl('Tvar',colnames(newmcsamples))]
+        tplot(y=log10(newmcsamples[,v])/2,ylab='Tsds',xlab=NA,lty=1,alpha=0.25)
+    dev.off()
+
+    xgrid <- cbind('TRAASCOR_neuro'=seq(0,150,length.out=128))#[120:122,,drop=F]
+    extremes <- c(1,length(xgrid))
+    txgrid <- transf(xgrid,varinfo,Tout='')
+    subsamples <- 1:nrow(newmcsamples)
+testt <- sapply(subsamples, function(sam){
+    rowSums(sapply(1:nclusters, function(clu){
+        dnorm(x=txgrid[-extremes],
+              mean=newmcsamples[sam,paste0('Tmean[1, ',clu,']')],
+              sd=sqrt(newmcsamples[sam,paste0('Tvar[1, ',clu,']')])
+              ) *
+            newmcsamples[sam,paste0('W[',clu,']')]
+    }))
+})
+testte <- sapply(subsamples, function(sam){
+    rowSums(sapply(1:nclusters, function(clu){
+        c(pnorm(q=txgrid[extremes[1]],
+              mean=newmcsamples[sam,paste0('Tmean[1, ',clu,']')],
+              sd=sqrt(newmcsamples[sam,paste0('Tvar[1, ',clu,']')])
+              ),
+          pnorm(q=txgrid[extremes[2]],
+              mean=newmcsamples[sam,paste0('Tmean[1, ',clu,']')],
+              sd=sqrt(newmcsamples[sam,paste0('Tvar[1, ',clu,']')]),
+              lower.tail=F
+              )
+          ) * newmcsamples[sam,paste0('W[',clu,']')]
+    }))
+})
+
+        tplot(x=txgrid[extremes],y=rowMeans(testte)*max(rowMeans(testrt)[-extremes]),ylim=c(0,NA),lty=1,col=2,type='p',pch=2,add=T)
+tplot(x=txgrid[-extremes],y=rowMeans(testt),ylim=c(0,NA),lty=2,col=2,add=T)
+
+    tplot(x=txgrid,y=rowMeans(testt),ylim=c(0,NA),add=T,col=2,lty=2,alpha=0.25)
+
+    histoT <- thist(transf(data.matrix(data0[,'TRAASCOR_neuro',with=F]),varinfo,Tout=''),n=100)
+tplot(x=histoT$breaks,y=histoT$counts/sum(histoT$counts)*max(rowMeans(testrt)[-extremes]),add=T)
+
+    testrt <- testsamplesFDistribution(Y=xgrid,X=NULL,mcsamples=newmcsamples,varinfo=varinfo, subsamples=subsamples, jacobian=F)
+    
+    tplot(x=txgrid[extremes],y=rowMeans(testrt)[extremes]*max(rowMeans(testrt)[-extremes]),ylim=c(0, max(rowMeans(testrt)[-extremes])),lty=1,col=1,type='p')
+tplot(x=txgrid[-extremes],y=rowMeans(testrt)[-extremes],ylim=c(0,NA),lty=1,col=1,add=T)
+
+
+## integer
+    xgrid <- cbind('GDTOTAL_gds'=seq(0,6,length.out=7))#[120:122,,drop=F]
+    txgrid <- transf(xgrid,varinfo,Iout='init')
+    lxgrid <- transf(xgrid,varinfo,Iout='left')
+    rxgrid <- transf(xgrid,varinfo,Iout='right')
+    subsamples <- 1:nrow(newmcsamples)
+testt <- sapply(subsamples, function(sam){
+    rowSums(sapply(1:nclusters, function(clu){
+        ( pnorm(q=rxgrid,
+              mean=newmcsamples[sam,paste0('Imean[1, ',clu,']')],
+              sd=sqrt(newmcsamples[sam,paste0('Ivar[1, ',clu,']')])
+              ) -
+         pnorm(q=lxgrid,
+              mean=newmcsamples[sam,paste0('Imean[1, ',clu,']')],
+              sd=sqrt(newmcsamples[sam,paste0('Ivar[1, ',clu,']')])
+              )) *
+            newmcsamples[sam,paste0('W[',clu,']')]
+    }))
+})
+
+
+    
+tplot(x=txgrid,y=rowMeans(testt),ylim=c(0,NA),lty=2,col=2,add=T)
+
+
+    histoT <- thist(transf(data.matrix(data0[,'GDTOTAL_gds',with=F]),varinfo,Iout='init'),n=c(-Inf,rxgrid))
+tplot(x=histoT$breaks,y=histoT$counts/sum(histoT$counts),add=T)
+
+    testrt <- testsamplesFDistribution(Y=xgrid,X=NULL,mcsamples=newmcsamples,varinfo=varinfo, subsamples=subsamples, jacobian=F)
+    
+tplot(x=txgrid,y=rowMeans(testrt),ylim=c(0,NA),lty=1,col=1)
+
+
+
+
+
+
+    
+
+    pdff('debugplotsIT2')
+    for(v in colnames(newmcsamples2)){
+        tplot(y=newmcsamples2[,v],ylab=v,xlab=paste0(signif(range(newmcsamples2[,v]),3),collapse=' , '))
+    }
+    for(v in colnames(newmcsamples)){
+        if(grepl('mean',v)){
+        tplot(y=newmcsamples[,v],ylab=v,xlab=paste0(signif(range(newmcsamples[,v]),3),collapse=' , '))
+    }}
+        v <- colnames(newmcsamples)[grepl('Tmean',colnames(newmcsamples))]
+        tplot(y=newmcsamples[,v],ylab='Tmeans',xlab=NA,lty=1,alpha=0.25)
+        v <- colnames(newmcsamples)[grepl('Imean',colnames(newmcsamples))]
+        tplot(y=newmcsamples[,v],ylab='Imeans',xlab=NA,lty=1,alpha=0.25)
+        v <- colnames(newmcsamples)[grepl('Tvar',colnames(newmcsamples))]
+        tplot(y=log10(newmcsamples[,v])/2,ylab='Tsds',xlab=NA,lty=1,alpha=0.25)
+        v <- colnames(newmcsamples)[grepl('Ivar',colnames(newmcsamples))]
+        tplot(y=log10(newmcsamples[,v])/2,ylab='Isds',xlab=NA,lty=1,alpha=0.25)
+    dev.off()
+    
     cat('\nTime MCMC: ')
     print(Sys.time() - calctime)
     ##
