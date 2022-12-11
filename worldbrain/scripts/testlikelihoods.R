@@ -59,79 +59,53 @@ for(v in setdiff(unlist(variate),predictands)){#cat(avar)
 }
 dev.off()
 
+###############################################
+## patient-dependent example
+###############################################
 
 
-    ##
-    if(length(interior) < length(Xgrid)){
-    tplot(x=list(Xgrid[-interior]), y=list(plotsamples0[-interior,subsample],plotsamples1[-interior,subsample]), type='l', col=c(5,6), alpha=0.75, lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
-        ##
-    tplot(x=list(Xgrid[interior]), y=list(rowMeans(plotsamples0, na.rm=T)[interior],rowMeans(plotsamples1, na.rm=T)[interior]), type='l', col=c(1,2), alpha=0.25, lty=c(1,2), lwd=4, add=T)
+v <- 'RAVLT_immediate'
+Vgrid <- cbind(seq(varinfo[v,'min'],varinfo[v,'max'],length.out=varinfo[v,'n']))
+colnames(Vgrid) <- v
+##
+ad0 <- cbind(0)
+ad1 <- cbind(1)
+colnames(ad0) <- colnames(ad1) <- predictands
+##
+plotsamples0 <- samplesFDistribution(Y=Vgrid, X=ad0, mcsamples=mcsamples, varinfo=varinfo, subsamples=1:nrow(mcsamples), jacobian=TRUE)
+plotsamples1 <- samplesFDistribution(Y=Vgrid, X=ad1, mcsamples=mcsamples, varinfo=varinfo, subsamples=1:nrow(mcsamples), jacobian=TRUE)
 
-        
-    }
+dataad <- data0[[predictands]]
+dataad <- dataad[!is.na(dataad)]
+base1 <- sum(dataad==1)/length(dataad)
 
-
-
-    
-            pborder <- sum(datum <= varinfo[v,'min'])/length(datum)
-            if(pborder > 0){
-                tplot(x=varinfo[v,'min'], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
-            }
-            ##
-            pborder <- sum(datum >= varinfo[v,'max'])/length(datum)
-            if(pborder > 0){
-                tplot(x=varinfo[v,'max'], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
-            }
-
-
-
-
-    interior <- which(Xgrid > varinfo[v,'min'] & Xgrid < varinfo[v,'max'])
-        tplot(x=listXgrid[interior], y=plotsamples[interior,subsample], type='l', col=5, alpha=0.75, lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
-        if(length(interior) < length(Xgrid)){
-            tplot(x=Xgrid[-interior], y=plotsamples[-interior,subsample,drop=F]*ymax, type='p', pch=2, cex=2, col=5, alpha=0.75, lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family,add=T)
-        }
-        if(plotmeans){
-            tplot(x=Xgrid[interior], y=rowMeans(plotsamples, na.rm=T)[interior], type='l', col=1, alpha=0.25, lty=1, lwd=3, add=T)
-            if(length(interior) < length(Xgrid)){
-                tplot(x=Xgrid[-interior], y=rowMeans(plotsamples, na.rm=T)[-interior]*ymax, type='p', pch=2, cex=2, col=1, alpha=0.25, lty=1, lwd=3, add=T)
-            }
-        }
-    }
-    ##
-    if((showdata=='histogram')||(showdata==TRUE && !contvar)){
-        datum <- data0[[v]]
-        datum <- datum[!is.na(datum)]
-        ## fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
-        fiven <- fivenum(datum)
-        if(varinfo[v,'type'] != variatetypes['S']){
-            ## histo <- thist(datum, n=(if(contvar){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
-            histo <- thist(datum, n=round(ndata/64))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
-            histomax <- max(rowMeans(plotsamples))/max(histo$density)
-            tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
-        }else{ # histogram for censored variate
-            interior <- which(datum > varinfo[v,'min'] & datum < varinfo[v,'max'])
-            histo <- thist(datum[interior], n=round(length(interior)/64))
-            interiorgrid <- which(Xgrid > varinfo[v,'min'] & Xgrid < varinfo[v,'max'])
-            histomax <- max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
-            tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
-            ##
-            pborder <- sum(datum <= varinfo[v,'min'])/length(datum)
-            if(pborder > 0){
-                tplot(x=varinfo[v,'min'], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
-            }
-            ##
-            pborder <- sum(datum >= varinfo[v,'max'])/length(datum)
-            if(pborder > 0){
-                tplot(x=varinfo[v,'max'], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
-            }
-        }
-        abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
-    }else if((showdata=='scatter')|(showdata==TRUE & contvar)){
-        datum <- data0[[v]]
-        datum <- datum[!is.na(datum)]
-        diffdatum <- c(apply(cbind(c(0,diff(datum)),c(diff(datum),0)),1,min))/2
-        scatteraxis(side=1, n=NA, alpha='88', ext=8, x=rnorm(length(datum),mean=datum,sd=diffdatum),col=yellow)
-    }
-}
+subsample <- round(seq(10,nrow(mcsamples), length.out=64))
+graphics.off()
+pdff('example_personalized_prognosis')
+p1 <- base1
+toplot <- plotsamples1*p1/(plotsamples1*p1+plotsamples0*(1-p1))
+tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col='#000000', alpha=0.25, lwd=2
+      ylim=c(0,1), ylab='probability of conversion to AD',
+      xlab=paste0('measured "',v,'"'))
+## tplot(x=Vgrid, y=toplot[,subsample], lty=1, col=7, alpha=0.5, lwd=1,
+##       ylim=c(0,1), ylab='probability of conversion to AD',
+##       xlab=paste0('measured "',v,'"'))
+plotquantiles(x=Vgrid, y=apply(toplot,1,function(x)tquant(x,c(1,15)/16)),
+              col='#000000', alpha=0.75)
+tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col='#000000', alpha=0.25, lwd=2,add=T)
+##
+p1 <- 0.15
+toplot <- plotsamples1*p1/(plotsamples1*p1+plotsamples0*(1-p1))
+tplot(x=Vgrid, y=toplot[,subsample], lty=1, col=3, alpha=0.5, lwd=1, add=T)
+tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col='#000000', alpha=0.25, lwd=2,add=T)
+##
+p1 <- 0.75
+toplot <- plotsamples1*p1/(plotsamples1*p1+plotsamples0*(1-p1))
+tplot(x=Vgrid, y=toplot[,subsample], lty=1, col=4, alpha=0.5, lwd=1, add=T)
+tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col='#000000', alpha=0.25, lwd=2,add=T)
+legend(x=35, y=1.05,
+       legend=paste0('patient with ',c(signif(base1,2),0.15,0.75),' base prob.'),
+       bty='n',
+       lty=1,lwd=4,col=c(7,3,4))
 dev.off()
+
