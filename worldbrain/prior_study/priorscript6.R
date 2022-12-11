@@ -506,6 +506,96 @@ dev.off()
 
 
 #### Doubly-bounded case
+#### considered as censored
+sd2iqr <- 0.5/qnorm(0.75)
+dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nonangds6.csv')
+varinfo <- read.csv('~/repositories/ADBayes/worldbrain/scripts/varinfo.csv',row.names=1)
+graphics.off()
+pdff('samples_doublybounded_censor_extr')
+for(varindex in c('TRAASCOR_neuro','TRABSCOR_neuro')){
+if(!is.na(varindex)){
+    data <- log(dt[[varindex]])
+}else{data <- NULL}
+set.seed(123)
+xlocation <- median(data,na.rm=T)
+xscale <- IQR(data,na.rm=T)*sd2iqr #diff(tquant(data,c(1,7)/8))
+xmin <- log(varinfo[varindex,'plotmin'])
+xmax <- log(varinfo[varindex,'max'])
+tran <- function(x){((x-xlocation)/xscale)}
+invtran <- function(y){(y)*xscale+xlocation}
+jac <- function(y){1/xscale}
+xcens <- log(varinfo[varindex,'max'])
+txcens <- tran(xcens)
+##
+fract <- 400
+nsamples <- fract*4
+nclusters <- 64
+alphas <- c(1,2,0.5)
+means <- c(0)
+sds <- c(2)
+shape1s <- c(1) # large scales
+shape2s <- c(1) # small scales
+scales <- c(1)^-2
+##
+alpha <- sample(rep(alphas,2),nsamples,replace=T)
+q <- extraDistr::rdirichlet(n=nsamples,alpha=matrix(alpha/nclusters,nsamples,nclusters))
+sd <- sample(rep(sds,2),nsamples*nclusters,replace=T)
+m <- matrix(rnorm(nsamples*nclusters,means,sd),nsamples)
+shape1 <- sample(rep(shape1s,2),nsamples*nclusters,replace=T)
+shape2 <- sample(rep(shape2s,2),nsamples*nclusters,replace=T)
+scaleprec <- sample(rep(scales,2),nsamples*nclusters,replace=T)
+s <- matrix(sqrt(nimble::rinvgamma(nsamples*nclusters,shape=shape1,rate=nimble::rinvgamma(nsamples*nclusters,shape=shape2,scale=scaleprec))),nsamples)
+##
+txgrid <- seq(-5, txcens, length.out=256)
+xgrid <- invtran(txgrid)
+extr <- which(txgrid >= txcens)
+ysum <- 0
+## tplot(x=xgrid,y=dnorm(txgrid)*jac(xgrid))
+par(mfrow=c(20,20),mar = c(0,0,0,0))
+for(i in 1:nsamples){
+    y <- rowSums(sapply(1:nclusters,function(acluster){
+        dens <- c(
+            dnorm(txgrid[-extr], m[i,acluster], s[i,acluster])*jac(txgrid[-extr]),
+            pnorm(txcens, m[i,acluster], s[i,acluster], lower.tail=F)
+        )
+        q[i,acluster]*dens}))
+    ysum <- ysum+y
+    if(i<fract | i==nsamples){
+        if(i==nsamples){y <- ysum/nsamples}
+        if(any(y[extr]>1)){warning('probabilities > 1')}
+        ymax <- max(y[-extr])
+    y[extr] <- y[extr] * ymax
+    if(!is.null(data)){
+        his <- thist(data[data < xcens])
+        hisextr <- sum(data >= xcens)/length(data) * ymax
+    }else{ymax <- NULL}
+    tplot(x=xgrid[-extr], y=y[-extr],
+          ylim=c(0,ymax),xlim=range(xgrid),
+          xlabels=NA,ylabels=NA, xlab=NA,ylab=NA,
+          xticks=NA,yticks=NA,
+          mar=c(1,1,1,1)*0.5,
+          col=if(i<fract){1}else{if(any(is.infinite(ysum))){2}else{3}}, ly=1,lwd=0.5)
+    ## tplot(x=xgrid[extr2], y=y[extr2],
+    ##       type='p',col=4,cex=0.15,add=T,pch=3)
+    if(!is.null(data)){
+        tplot(x=his$mids,y=his$density/max(his$density)*ymax,type='l',lwd=0.5,add=T,alpha=0.25,col=4)
+    }
+    tplot(x=xgrid[extr], y=y[extr],
+          type='p',col=1,cex=0.075,add=T,pch=3)
+    tplot(x=xgrid[extr], y=hisextr,
+          type='p',col=4,cex=0.075,add=T,pch=1)
+    abline(h=c(0),lwd=0.5,col=alpha2hex(0.5,c(7,2)),lty=c(1,2))
+    ## if(i==nsamples){
+    ## }
+    abline(v=c(xmin,xmax),lwd=0.5,col=alpha2hex(0.5,7),lty=2)
+    }
+}
+}
+dev.off()
+
+
+
+#### Doubly-bounded case
 #### with norm transformation @@@
 sd2iqr <- 0.5/qnorm(0.75)
 dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
@@ -602,7 +692,7 @@ dev.off()
 
 set.seed(123)
 #### Doubly-bounded case
-#### with identity transformation @@@
+#### with identity transformation
 pdist <- function(y){y/2+0.5}
 qdist <- function(x){x*2-1}
 ddist <- function(y){0.5}
