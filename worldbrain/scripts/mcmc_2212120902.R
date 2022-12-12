@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-12T11:26:46+0100
+## Last-Updated: 2022-12-12T11:59:14+0100
 #########################################
 e## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -178,44 +178,44 @@ initsFunction <- function(){
                                   walpha0 = rep(1/nclusters, nclusters)
                               )},
         if(len$R > 0){list( # real variate
-                     Rmean0 = varinfo[variate$R, 'hmean'],
-                     Rvar0 = varinfo[variate$R, 'hsd']^2,
-                     Rshapeout0 = varinfo[variate$R, 'hshapeout'],
-                     Rshapein0 = varinfo[variate$R, 'hshapein'],
-                     Rvarscale0 = varinfo[variate$R, 'hvarscale']^2
+                     Rmean0 = varinfo[[ 'hmean']][variate$R],
+                     Rvar0 = varinfo[[ 'hsd']][variate$R]^2,
+                     Rshapeout0 = varinfo[[ 'hshapeout']][variate$R],
+                     Rshapein0 = varinfo[[ 'hshapein']][variate$R],
+                     Rvarscale0 = varinfo[[ 'hvarscale']][variate$R]^2
                  )},
         if(len$O > 0){list( # doubly-bounded variate
                      Odata = transf(data0[,variate$O,with=F], varinfo, Oout='init'),
-                     Omean0 = varinfo[variate$O, 'hmean'],
-                     Ovar0 = varinfo[variate$O, 'hsd']^2,
-                     Oshapeout0 = varinfo[variate$O, 'hshapeout'],
-                     Oshapein0 = varinfo[variate$O, 'hshapein'],
-                     Ovarscale0 = varinfo[variate$O, 'hvarscale']^2
+                     Omean0 = varinfo[[ 'hmean']][variate$O],
+                     Ovar0 = varinfo[[ 'hsd']][variate$O]^2,
+                     Oshapeout0 = varinfo[[ 'hshapeout']][variate$O],
+                     Oshapein0 = varinfo[[ 'hshapein']][variate$O],
+                     Ovarscale0 = varinfo[[ 'hvarscale']][variate$O]^2
                  )},
         if(len$D > 0){list( # doubly-bounded variate
                      Ddata = transf(data0[,variate$D,with=F], varinfo, Dout='init'),
-                     Dmean0 = varinfo[variate$D, 'hmean'],
-                     Dvar0 = varinfo[variate$D, 'hsd']^2,
-                     Dshapeout0 = varinfo[variate$D, 'hshapeout'],
-                     Dshapein0 = varinfo[variate$D, 'hshapein'],
-                     Dvarscale0 = varinfo[variate$D, 'hvarscale']^2
+                     Dmean0 = varinfo[[ 'hmean']][variate$D],
+                     Dvar0 = varinfo[[ 'hsd']][variate$D]^2,
+                     Dshapeout0 = varinfo[[ 'hshapeout']][variate$D],
+                     Dshapein0 = varinfo[[ 'hshapein']][variate$D],
+                     Dvarscale0 = varinfo[[ 'hvarscale']][variate$D]^2
                  )},
         if(len$I > 0){list( # integer ordinal variate
                      Icont = transf(data0[,variate$I,with=F], varinfo, Iout='init'),
-                     Imean0 = varinfo[variate$I, 'hmean'],
-                     Ivar0 = varinfo[variate$I, 'hsd']^2,
-                     Ishapeout0 = varinfo[variate$I, 'hshapeout'],
-                     Ishapein0 = varinfo[variate$I, 'hshapein'],
-                     Ivarscale0 = varinfo[variate$I, 'hvarscale']^2
+                     Imean0 = varinfo[[ 'hmean']][variate$I],
+                     Ivar0 = varinfo[[ 'hsd']][variate$I]^2,
+                     Ishapeout0 = varinfo[[ 'hshapeout']][variate$I],
+                     Ishapein0 = varinfo[[ 'hshapein']][variate$I],
+                     Ivarscale0 = varinfo[[ 'hvarscale']][variate$I]^2
                      )},
         if(len$B > 0){list( # binay variate
-                     Bshapeout0 = varinfo[variate$B, 'hshapeout'],
-                     Bshapein0 = varinfo[variate$B, 'hshapein']
+                     Bshapeout0 = varinfo[[ 'hshapeout']][variate$B],
+                     Bshapein0 = varinfo[[ 'hshapein']][variate$B]
                  )},
         if(len$C > 0){list( # categorical variate
                      Calpha0 = t(sapply(variate$B, function(v){
-                         c( rep(varinfo[v, 'hshapeout'], varinfo[v, 'max']),
-                           rep(2^(-40), Cmaxn-varinfo[v, 'max']) )
+                         c( rep(varinfo[[ 'hshapeout']][v], varinfo[[ 'max']][v]),
+                           rep(2^(-40), Cmaxn-varinfo[[ 'max']][v]) )
                      }))
                  )},
         if((!casualinitvalues) && posterior){list(
@@ -425,7 +425,6 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
                                 ## if(posterior && len$B > 0){'Bdata'},
                                 ## if(posterior && len$C > 0){'Cdata'},
                                 ## 'Icont',
-                                'Sdata',
                                 if(nalpha > 1){'Alpha'},
                                 if(posterior){'K'}
                             )
