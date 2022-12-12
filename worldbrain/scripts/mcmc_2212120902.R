@@ -1,14 +1,14 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-12T14:50:06+0100
+## Last-Updated: 2022-12-12T15:27:42+0100
 #########################################
-e## Inference of exchangeable variates (nonparametric density regression)
+## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
 ## Monte Carlo sampling
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testSDfull1' # *** ## Base name of output directory
+baseversion <- '_ingrid1' # *** ## Base name of output directory
 ## datafile <- 'testdataS1.csv'#'ingrid_data_nogds6.csv' #***
 datafile <- 'ingrid_data_nogds6.csv' #***
 predictorfile <- 'predictors.csv'
@@ -16,14 +16,14 @@ predictandfile <- NULL # 'predictors.csv'
 varinfofile <- 'varinfo.rds'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
-ndata <- 10 # set this if you want to use fewer data
+ndata <- NULL # set this if you want to use fewer data
 shuffledata <- FALSE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
-savetempsamples <- TRUE # save temporary MCMC samples
-plottempdistributions <- TRUE # plot temporary sampled distributions
+savetempsamples <- FALSE # save temporary MCMC samples
+plottempdistributions <- FALSE # plot temporary sampled distributions
 showdata <- 'histogram' # 'histogram' 'scatter' FALSE TRUE
-plotmeans <- TRUE # plot frequency averages
+plotmeans <- FALSE # plot frequency averages
 totsamples <- 100 # number of samples if plotting frequency averages
 ##
 niter0 <- 1024L * 1L # 3L # iterations burn-in
@@ -106,6 +106,12 @@ if(Sys.info()['nodename']=='luca-HP-Z2-G9'){
     dir.create(dirname)
 }
 
+if(mcmcseed == 1){saveRDS(varinfo,file=paste0(dirname,'_varinfo-R',basename,'.rds'))}
+
+source(paste0(origdir,'functionsmcmc_2212120902.R')) # load functions for post-MCMC ca
+
+if(!is.null(predictorfile)){predictorfile <- paste0(origdir,predictorfile) }
+if(!is.null(predictandfile)){predictandfile <- paste0(origdir,predictandfile) }
 
 #################################
 ## Setup for Monte Carlo sampling
@@ -470,16 +476,16 @@ while(continue){
     if(stage==0){# burn-in stage
         set.seed(mcmcseed+stage+100)
         Cfinitemixnimble$setInits(initsFunction())
-        ## newmcsamples <- Cmcsampler$run(niter=niter+1, thin=thin, thin2=niter, nburnin=1, time=T)
-        newmcsamples <- Cmcsampler$run(niter=1024, thin=1, thin2=1, nburnin=0, time=T)
-    }else if(is.character(resume)){# continuing previous # must be fixed
-        initsc <- readRDS(paste0(dirname,resume))
-        inits0 <- initsFunction()
-        for(aname in names(inits0)){inits0[[aname]] <- initsc[[aname]]}
-        thin <- initsc[['thin']]
-        set.seed(mcmcseed+stage+100)
-        Cfinitemixnimble$setInits(initsc)
-        newmcsamples <- Cmcsampler$run(niter=niter*thin, thin=thin, thin2=niter*thin, nburnin=0)
+        newmcsamples <- Cmcsampler$run(niter=niter+1, thin=thin, thin2=niter, nburnin=1, time=T)
+##        newmcsamples <- Cmcsampler$run(niter=1024, thin=1, thin2=1, nburnin=0, time=T)
+    ## }else if(is.character(resume)){# continuing previous # must be fixed
+    ##     initsc <- readRDS(paste0(dirname,resume))
+    ##     inits0 <- initsFunction()
+    ##     for(aname in names(inits0)){inits0[[aname]] <- initsc[[aname]]}
+    ##     thin <- initsc[['thin']]
+    ##     set.seed(mcmcseed+stage+100)
+    ##     Cfinitemixnimble$setInits(initsc)
+    ##     newmcsamples <- Cmcsampler$run(niter=niter*thin, thin=thin, thin2=niter*thin, nburnin=0)
     }else{# subsequent sampling stages
         cat('\nForecasted computation time: ')
         print(comptime*thin*niter)
@@ -729,12 +735,12 @@ dev.off()
                     ## fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
                     fiven <- fivenum(datum)
                     if(!(varinfo[['type']][v] %in% c('O','D'))){
-                        histo <- thist(datum, n=round(ndata/64))
+                        histo <- thist(datum, n=max(10,round(ndata/64)))
                         histomax <- max(rowMeans(plotsamples))/max(histo$density)
                         tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
                     }else{ # histogram for censored variate
                         interior <- which(datum > varinfo[['min']][v] & datum < varinfo[['max']][v])
-                        histo <- thist(datum[interior], n=round(length(interior)/64))
+                        histo <- thist(datum[interior], n=max(10,round(length(interior)/64)))
                         interiorgrid <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
                         histomax <- max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
                         tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
