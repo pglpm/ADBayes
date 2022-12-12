@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-12T09:54:59+0100
+## Last-Updated: 2022-12-12T11:26:24+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -68,38 +68,38 @@ transf <- function(x, varinfo, Iout='init', Oout='data', Dout='data', variates=N
         } else if(type == 'O'){ # logarithmic censored
             datum <- trans0(datum)
             if(Oout == 'left'){ # in MCMC
-                sel <- is.na(datum) | (x[,v] < info['max'])
+                sel <- is.na(datum) | (x[,v] < varinfo[['max']][v])
                 datum[sel] <- -Inf
                 datum[!sel] <- trans0(varinfo[['max']][v])
             } else if(Oout == 'data'){ # data in MCMC
-                sel <- is.na(datum) | (x[,v] >= info['max'])
+                sel <- is.na(datum) | (x[,v] >= varinfo[['max']][v])
                 datum[sel] <- NA
             } else if(Oout == 'init'){ #init in MCMC
                 datum[is.na(datum)] <- 0L
-                datum[x[,v] >= info['max']] <- trans0(varinfo[['max']][v])+0.125
+                datum[x[,v] >= varinfo[['max']][v]] <- trans0(varinfo[['max']][v])+0.125
             } else if(Oout == 'index'){ #in sampling functions
-                datum[x[,v] >= info['max']] <- +Inf
+                datum[x[,v] >= varinfo[['max']][v]] <- +Inf
             }
             ##
         } else if(type == 'D'){ # continuous doubly-bounded
             datum <- trans0(datum)
             if(Dout == 'left'){ # in sampling functions
-                sel <- is.na(datum) | (x[,v] < info['max'])
+                sel <- is.na(datum) | (x[,v] < varinfo[['max']][v])
                 datum[sel] <- -Inf
                 datum[!sel] <- qnorm(1-info['n'])
             } else if(Dout == 'right'){ # in sampling functions
-                sel <- is.na(datum) | (x[,v] > info['min'])
+                sel <- is.na(datum) | (x[,v] > varinfo[['min']][v])
                 datum[sel] <- +Inf
                 datum[!sel] <- qnorm(info['n'])
             } else if(Dout == 'data'){ # as init for MCMC
-                datum[is.na(datum) | (x[,v] >= info['max']) | (x[,v] <= info['min'])] <- NA
+                datum[is.na(datum) | (x[,v] >= varinfo[['max']][v]) | (x[,v] <= varinfo[['min']][v])] <- NA
             } else if(Dout == 'init'){ # as init for MCMC
                 datum[is.na(datum)] <- 0L
-                datum[(x[,v] >= info['max'])] <- qnorm(1-info['n'])+0.125
-                datum[(x[,v] <= info['min'])] <- qnorm(info['n'])-0.125
+                datum[(x[,v] >= varinfo[['max']][v])] <- qnorm(1-info['n'])+0.125
+                datum[(x[,v] <= varinfo[['min']][v])] <- qnorm(info['n'])-0.125
             } else if(Dout == 'index'){ # in sampling functions
-                datum[(x[,v] >= info['max'])] <- +Inf
-                datum[(x[,v] <= info['min'])] <- -Inf
+                datum[(x[,v] >= varinfo[['max']][v])] <- +Inf
+                datum[(x[,v] <= varinfo[['min']][v])] <- -Inf
             }
         }
         datum
@@ -305,6 +305,7 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
     YOlefts <- sapply(Yv$O, function(v){out <- varinfo[['t']][[v]](varinfo[['max']][v])
         names(out) <- NULL
         out})
+    }
     if(Yn$D > 0){## two-bounded
     totake <- sapply(Yv$D,function(x)which(variate$D == x))
     YDmean <- array(t(vapply(paste0('Dmean\\[',totake,','), grep,
@@ -381,6 +382,7 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
     XOlefts <- sapply(Xv$O, function(v){out <- varinfo[['t']][[v]](varinfo[['max']][v])
         names(out) <- NULL
         out})
+    }
     if(Xn$D > 0){## two-bounded
     totake <- sapply(Xv$D,function(x)which(variate$D == x))
     XDmean <- array(t(vapply(paste0('Dmean\\[',totake,','), grep,
@@ -412,10 +414,12 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
     foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
         if(any(is.na(y))){
             y <- y[!is.na(y),,drop=F]
-            Yv <- rownames(y)
-            Yvn <- length(Yv)
-            Yv <- lapply(variatetypes, function(x)Yv[varinfo[Yv,'type']==x])
-            Yn <- lapply(Yv,length)
+            yv <- rownames(y)
+            yv <- lapply(variatetypes, function(x){out <- yv[varinfo[['type']][yv]==x]
+                names(out) <- NULL
+                out})
+            yn <- lapply(yv,length)
+            names(yv) <- names(yn) <- variatetypes
         }
         ##            
         if(all(is.na(x))){
@@ -423,18 +427,20 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
         }else{
             if(any(is.na(x))){
                 x <- x[!is.na(x),,drop=F]
-                Xv <- rownames(x)
-                Xvn <- length(Xv)
-                Xv <- lapply(variatetypes, function(x)Xv[varinfo[Xv,'type']==x])
-                Xn <- lapply(Xv,length)
+            xv <- rownames(x)
+            xv <- lapply(variatetypes, function(x){out <- xv[varinfo[['type']][xv]==x]
+                names(out) <- NULL
+                out})
+            xn <- lapply(xv,length)
+            names(xv) <- names(xn) <- variatetypes
                 }
                 ##
         probX <- t( # rows: MCsamples, cols: clusters
             log(W) + 
-                (if(Xn$T > 0){
+                (if(xn$T > 0){
                      colSums(
                          array(
-                             t(sapply(Xv$T, function(v){
+                             t(sapply(xv$T, function(v){
                                  if(is.finite(x[v,])){
                                      (dnorm(x=x[v,],
                                              mean=mcsamples[XTmean[v,],],
@@ -447,13 +453,13 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                                              log.p=T))
                                  }
                              })),
-                             dim=c(Xn$T, nclusters, length(subsamples))),
+                             dim=c(xn$T, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(Xn$S > 0){
+                (if(xn$S > 0){
                      colSums(
                          array(
-                             t(sapply(Xv$S, function(v){
+                             t(sapply(xv$S, function(v){
                                  if(is.finite(x[v,])){
                                      (dnorm(x=x[v,],
                                              mean=mcsamples[XSmean[v,],],
@@ -466,36 +472,36 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                                              log.p=T))
                                  }
                              })),
-                             dim=c(Xn$S, nclusters, length(subsamples))),
+                             dim=c(xn$S, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(Xn$L > 0){
+                (if(xn$L > 0){
                      colSums(
-                         array(dnorm(x=x[Xv$L,],
+                         array(dnorm(x=x[xv$L,],
                                      mean=mcsamples[XLmean,],
                                      sd=sqrt(mcsamples[XLvar,]),log=T),
-                               dim=c(Xn$L, nclusters, length(subsamples))),
+                               dim=c(xn$L, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(Xn$R > 0){
+                (if(xn$R > 0){
                      colSums(
-                         array(dnorm(x=x[Xv$R,],
+                         array(dnorm(x=x[xv$R,],
                                      mean=mcsamples[XRmean,],
                                      sd=sqrt(mcsamples[XRvar,]),log=T),
-                               dim=c(Xn$R, nclusters, length(subsamples))),
+                               dim=c(xn$R, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(Xn$B > 0){
+                (if(xn$B > 0){
                      colSums(
-                         array(log( x[Xv$B,]*mcsamples[XBprob,] +
-                               (1-x[Xv$B,])*(1-mcsamples[XBprob,]) ),
-                               dim=c(Xn$B, nclusters, length(subsamples))),
+                         array(log( x[xv$B,]*mcsamples[XBprob,] +
+                               (1-x[xv$B,])*(1-mcsamples[XBprob,]) ),
+                               dim=c(xn$B, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(Xn$I > 0){
+                (if(xn$I > 0){
                      colSums(
                          array(
-                             t(sapply(Xv$I, function(v){
+                             t(sapply(xv$I, function(v){
                                  log(pnorm(q=XIrights[[v]][x[v,]],
                                         mean=mcsamples[XImean[v,],],
                                         sd=sqrt(mcsamples[XIvar[v,],])) -
@@ -513,17 +519,17 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                                  ##               mean=mcsamples[XImean[v,],],
                                  ##               sd=sqrt(mcsamples[XIvar[v,],]))))
                              })),
-                             dim=c(Xn$I, nclusters, length(subsamples))),
+                             dim=c(xn$I, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0})
         )
         }
         ##
         probY <- t( # rows: MCsamples, cols: clusters
-        (if(Yn$T > 0){
+        (if(yn$T > 0){
                      colSums(
                          array(
-                             t(sapply(Yv$T, function(v){
+                             t(sapply(yv$T, function(v){
                                  if(is.finite(y[v,])){
                                      (dnorm(x=y[v,],
                                              mean=mcsamples[YTmean[v,],],
@@ -536,13 +542,13 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                                              log.p=T))
                                  }
                              })),
-                             dim=c(Yn$T, nclusters, length(subsamples))),
+                             dim=c(yn$T, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(Yn$S > 0){
+                (if(yn$S > 0){
                      colSums(
                          array(
-                             t(sapply(Yv$S, function(v){
+                             t(sapply(yv$S, function(v){
                                  if(is.finite(y[v,])){
                                      (dnorm(x=y[v,],
                                              mean=mcsamples[YSmean[v,],],
@@ -555,36 +561,36 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                                              log.p=T))
                                  }
                              })),
-                             dim=c(Yn$S, nclusters, length(subsamples))),
+                             dim=c(yn$S, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(Yn$L > 0){
+                (if(yn$L > 0){
                      colSums(
-                         array(dnorm(x=y[Yv$L,],
+                         array(dnorm(x=y[yv$L,],
                                      mean=mcsamples[YLmean,],
                                      sd=sqrt(mcsamples[YLvar,]),log=T),
-                               dim=c(Yn$L, nclusters, length(subsamples))),
+                               dim=c(yn$L, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(Yn$R > 0){
+                (if(yn$R > 0){
                      colSums(
-                         array(dnorm(x=y[Yv$R,],
+                         array(dnorm(x=y[yv$R,],
                                      mean=mcsamples[YRmean,],
                                      sd=sqrt(mcsamples[YRvar,]),log=T),
-                               dim=c(Yn$R, nclusters, length(subsamples))),
+                               dim=c(yn$R, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(Yn$B > 0){
+                (if(yn$B > 0){
                      colSums(
-                         array(log( y[Yv$B,]*mcsamples[YBprob,] +
-                               (1-y[Yv$B,])*(1-mcsamples[YBprob,]) ),
-                               dim=c(Yn$B, nclusters, length(subsamples))),
+                         array(log( y[yv$B,]*mcsamples[YBprob,] +
+                               (1-y[yv$B,])*(1-mcsamples[YBprob,]) ),
+                               dim=c(yn$B, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(Yn$I > 0){
+                (if(yn$I > 0){
                      colSums(
                          array(
-                             t(sapply(Yv$I, function(v){
+                             t(sapply(yv$I, function(v){
                                  log(pnorm(q=YIrights[[v]][y[v,]],
                                         mean=mcsamples[YImean[v,],],
                                         sd=sqrt(mcsamples[YIvar[v,],])) -
@@ -602,7 +608,7 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                                  ##               mean=mcsamples[YImean[v,],],
                                  ##               sd=sqrt(mcsamples[YIvar[v,],]))))
                              })),
-                             dim=c(Yn$I, nclusters, length(subsamples))),
+                             dim=c(yn$I, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0})
         )
@@ -636,7 +642,9 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
             out <- rowSums(exp(probX+probY))/rowSums(exp(probX))
         }
         out
-    } * (if(jacobian){exp(-rowSums(log(invjacobian(Y, varinfo)), na.rm=T))}else{1L})
+    } * (if(jacobian){exp(-rowSums(log(
+                               sapply(1:ncol(testv),function(x){varinfo[['ij']][[colnames(testv)[x]]](testv[,x])})
+                               ), na.rm=T))}else{1L})
 }
 
 ##

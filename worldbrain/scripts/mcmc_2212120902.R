@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-12T09:18:31+0100
+## Last-Updated: 2022-12-12T11:26:46+0100
 #########################################
 e## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,7 +8,7 @@ e## Inference of exchangeable variates (nonparametric density regression)
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testnewall1' # *** ## Base name of output directory
+baseversion <- '_testSD1' # *** ## Base name of output directory
 ## datafile <- 'testdataS1.csv'#'ingrid_data_nogds6.csv' #***
 datafile <- 'ingrid_data_nogds6.csv' #***
 predictorfile <- 'predictors.csv'
