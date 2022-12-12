@@ -84,25 +84,37 @@ graphics.off()
 pdff('example_personalized_prognosis')
 p1 <- base1
 toplot <- plotsamples1*p1/(plotsamples1*p1+plotsamples0*(1-p1))
-tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col='#000000', alpha=0.25, lwd=2
+tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col='#000000', alpha=0.25, lwd=2,
       ylim=c(0,1), ylab='probability of conversion to AD',
       xlab=paste0('measured "',v,'"'))
 ## tplot(x=Vgrid, y=toplot[,subsample], lty=1, col=7, alpha=0.5, lwd=1,
 ##       ylim=c(0,1), ylab='probability of conversion to AD',
 ##       xlab=paste0('measured "',v,'"'))
 plotquantiles(x=Vgrid, y=apply(toplot,1,function(x)tquant(x,c(1,15)/16)),
-              col='#000000', alpha=0.75)
-tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col='#000000', alpha=0.25, lwd=2,add=T)
+              col='#000000', alpha=7/8)
 ##
 p1 <- 0.15
 toplot <- plotsamples1*p1/(plotsamples1*p1+plotsamples0*(1-p1))
-tplot(x=Vgrid, y=toplot[,subsample], lty=1, col=3, alpha=0.5, lwd=1, add=T)
-tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col='#000000', alpha=0.25, lwd=2,add=T)
+tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col=3, alpha=0.25, lwd=2,
+      ylim=c(0,1), ylab='probability of conversion to AD',
+      xlab=paste0('measured "',v,'"'),add=T)
+## tplot(x=Vgrid, y=toplot[,subsample], lty=1, col=7, alpha=0.5, lwd=1,
+##       ylim=c(0,1), ylab='probability of conversion to AD',
+##       xlab=paste0('measured "',v,'"'))
+plotquantiles(x=Vgrid, y=apply(toplot,1,function(x)tquant(x,c(1,15)/16)),
+              col=3, alpha=7/8)
 ##
 p1 <- 0.75
 toplot <- plotsamples1*p1/(plotsamples1*p1+plotsamples0*(1-p1))
-tplot(x=Vgrid, y=toplot[,subsample], lty=1, col=4, alpha=0.5, lwd=1, add=T)
-tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col='#000000', alpha=0.25, lwd=2,add=T)
+tplot(x=Vgrid, y=rowMeans(toplot), lty=1, col=4, alpha=0.25, lwd=2,
+      ylim=c(0,1), ylab='probability of conversion to AD',
+      xlab=paste0('measured "',v,'"'),add=T)
+## tplot(x=Vgrid, y=toplot[,subsample], lty=1, col=7, alpha=0.5, lwd=1,
+##       ylim=c(0,1), ylab='probability of conversion to AD',
+##       xlab=paste0('measured "',v,'"'))
+plotquantiles(x=Vgrid, y=apply(toplot,1,function(x)tquant(x,c(1,15)/16)),
+              col=4, alpha=7/8)
+##
 legend(x=35, y=1.05,
        legend=paste0('patient with ',c(signif(base1,2),0.15,0.75),' base prob.'),
        bty='n',

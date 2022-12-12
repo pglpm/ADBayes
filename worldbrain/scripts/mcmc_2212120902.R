@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-12T11:59:14+0100
+## Last-Updated: 2022-12-12T14:50:06+0100
 #########################################
 e## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,7 +8,7 @@ e## Inference of exchangeable variates (nonparametric density regression)
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testSD1' # *** ## Base name of output directory
+baseversion <- '_testSDfull1' # *** ## Base name of output directory
 ## datafile <- 'testdataS1.csv'#'ingrid_data_nogds6.csv' #***
 datafile <- 'ingrid_data_nogds6.csv' #***
 predictorfile <- 'predictors.csv'
@@ -16,7 +16,7 @@ predictandfile <- NULL # 'predictors.csv'
 varinfofile <- 'varinfo.rds'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
-ndata <- NULL # set this if you want to use fewer data
+ndata <- 10 # set this if you want to use fewer data
 shuffledata <- FALSE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
@@ -536,9 +536,7 @@ while(continue){
             predictors <- setdiff(unlist(variate), predictands)
         }else{warning('predictors and predictands both missing')}
         ll <- colSums(log(samplesFDistribution(Y=data.matrix(data0), X=NULL, mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) #- sum(log(invjacobian(data.matrix(data0), varinfo)), na.rm=T)
-        flagll <- FALSE
         if(!posterior && !any(is.finite(ll))){
-            flagll <- TRUE
             ll <- rep(0, length(ll))
         }
         lld <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictands]), X=data.matrix(data0[,..predictors]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) # - sum(log(invjacobian(data.matrix(data0[,..predictands]), varinfo)), na.rm=T)
@@ -684,7 +682,7 @@ dev.off()
         graphics.off()
         pdff(paste0(dirname,'mcmcdistributions-R',basename,'--',mcmcseed,'-',stage),'a4')
         for(v in unlist(variate)){#cat(avar)
-            contvar <- varinfo[['type']][v] %in% variatetypes[c('R','O','D')]
+            contvar <- varinfo[['type']][v] %in% c('R','O','D')
             rg <- c(varinfo[['plotmin']][v], varinfo[['plotmax']][v])
             if(contvar){
                 Xgrid <- cbind(seq(rg[1], rg[2], length.out=256))
@@ -698,16 +696,24 @@ dev.off()
             if(posterior){
                 par(mfrow=c(1,1))
                 ymax <- tquant(apply(plotsamples[,subsample],2,function(x){tquant(x,31/32)}),31/32, na.rm=T)
-                if(varinfo[v,'type'] != variatetypes['S']){
-                    tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=paste0(palette()[5], '44'), lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
+                if(!(varinfo[['type']][v] %in% c('O','D'))){
+                    ##
+                    tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=5, alpha=7/8, lty=1, lwd=2,
+                          xlab=paste0(v, (if(varinfo[['type']][v] %in% c('I','B','C')){' (discrete)'}else{' (continuous)'})),
+                          ylab=paste0('frequency', (if(varinfo[['type']][v] %in% c('R','O','D')){' density'}else{''})),
+                          ylim=c(0, ymax), family=family)
+                    ##
                     if(plotmeans){
-                        tplot(x=Xgrid, y=rowMeans(plotsamples, na.rm=T), type='l', col=paste0(palette()[1], '88'), lty=1, lwd=4, add=T)
+                        tplot(x=Xgrid, y=rowMeans(plotsamples, na.rm=T), type='l', col=1, alpha=0.25, lty=1, lwd=4, add=T)
                     }
                 }else{ # plot of a continuous doubly-bounded variate
-                    interior <- which(Xgrid > varinfo[v,'min'] & Xgrid < varinfo[v,'max'])
-                    tplot(x=Xgrid[interior], y=plotsamples[interior,subsample], type='l', col=5, alpha=0.75, lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family)
+                    interior <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
+                    tplot(x=Xgrid[interior], y=plotsamples[interior,subsample], type='l', col=5, alpha=7/8, lty=1, lwd=2,
+                          xlab=paste0(v, ' (continuous with deltas)'),
+                          ylab=paste0('frequency (density)'),
+                          ylim=c(0, ymax), family=family)
                     if(length(interior) < length(Xgrid)){
-                        tplot(x=Xgrid[-interior], y=plotsamples[-interior,subsample,drop=F]*ymax, type='p', pch=2, cex=2, col=5, alpha=0.75, lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family,add=T)
+                        tplot(x=Xgrid[-interior], y=plotsamples[-interior,subsample,drop=F]*ymax, type='p', pch=2, cex=2, col=5, alpha=7/8, lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family,add=T)
                         }
                     if(plotmeans){
                         tplot(x=Xgrid[interior], y=rowMeans(plotsamples, na.rm=T)[interior], type='l', col=1, alpha=0.25, lty=1, lwd=3, add=T)
@@ -722,26 +728,25 @@ dev.off()
                     datum <- datum[!is.na(datum)]
                     ## fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
                     fiven <- fivenum(datum)
-                    if(varinfo[v,'type'] != variatetypes['S']){
-                        ## histo <- thist(datum, n=(if(contvar){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
-                        histo <- thist(datum, n=round(ndata/64))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
+                    if(!(varinfo[['type']][v] %in% c('O','D'))){
+                        histo <- thist(datum, n=round(ndata/64))
                         histomax <- max(rowMeans(plotsamples))/max(histo$density)
-                        tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                        tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
                     }else{ # histogram for censored variate
-                        interior <- which(datum > varinfo[v,'min'] & datum < varinfo[v,'max'])
+                        interior <- which(datum > varinfo[['min']][v] & datum < varinfo[['max']][v])
                         histo <- thist(datum[interior], n=round(length(interior)/64))
-                        interiorgrid <- which(Xgrid > varinfo[v,'min'] & Xgrid < varinfo[v,'max'])
+                        interiorgrid <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
                         histomax <- max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
-                        tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                        tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
                         ##
-                        pborder <- sum(datum <= varinfo[v,'min'])/length(datum)
+                        pborder <- sum(datum <= varinfo[['min']][v])/length(datum)
                         if(pborder > 0){
-                            tplot(x=varinfo[v,'min'], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
+                            tplot(x=varinfo[['min']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
                         }
                         ##
-                        pborder <- sum(datum >= varinfo[v,'max'])/length(datum)
+                        pborder <- sum(datum >= varinfo[['max']][v])/length(datum)
                         if(pborder > 0){
-                            tplot(x=varinfo[v,'max'], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
+                            tplot(x=varinfo[['max']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
                         }
                     }
                     abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
@@ -806,222 +811,3 @@ dev.off()
 plan(sequential)
 
 stop('NONE. End of script')
-
-alldata <- fread('data_ep.csv')
-metadata <- fread('metadata.csv')
-allnames <- names(alldata)
-metadatanew <- metadata
-metadatanew$precision <- as.integer(metadatanew$precision)
-##
-boundarycat <- 0
-boundaryrea <- 0
-for(i in allnames){
-    if(metadata[variate==i,'type']=='integer'){
-        print(i)
-        if(is.na(metadata[variate==i,'max'])){
-            print(paste0('(max)'))
-            metadatanew[variate==i,'max'] <- max(alldata[[i]],na.rm=T)
-        }
-        if(is.na(metadata[variate==i,'min'])){
-            print(paste0(': min'))
-            metadatanew[variate==i,'min'] <- min(alldata[[i]],na.rm=T)
-        }
-        rg <- metadatanew[variate==i,'max']-metadatanew[variate==i,'min']+1
-        if(rg < boundarycat){
-            metadatanew[variate==i,'type'] <- 'categorical'
-            print(paste0(': to cat, ',rg))
-        }else if(rg>=boundaryrea){
-            metadatanew[variate==i,'type'] <- 'real'
-            print(paste0(': to real, ',rg))
-            metadatanew[variate==i,'precision'] <- 1L
-        }else{print(': no changes')}
-    }
-}
-
-fwrite(x=metadatanew, file=paste0('metadata_noint',boundarycat,'_',boundaryrea,'.csv'))
-
-nosw <- metadatanew$variate[grepl('_SW$',metadatanew$variate)]
-metadatanew2 <- metadatanew[!(variate %in% nosw),]
-
-fwrite(x=metadatanew2, file=paste0('metadata_noint',boundarycat,'_',boundaryrea,'_noSW.csv'))
-
-
-for(i in allnames){if(metadata[variate==i,type]=='integer' & !(min(diff(sort(unique(alldata[[i]]))))==1)){cat(c(i,min(diff(sort(unique(alldata[[i]]))))))}}
-
-
-
-traces <- traces1
-t(sapply(1:17,function(thin){c(
-                                 thin,
-                                 LaplacesDemon::IAT(traces[1:1024,1]),
-                                 LaplacesDemon::IAT(traces[1025:2048,1]),
-                                 rev(thisseq <- seq(from=2048+1,by=thin,length.out=2048))[1],
-                                 thisiat <- LaplacesDemon::IAT(traces[thisseq,1]),
-                                 thisess <- LaplacesDemon::ESS(traces[thisseq,1]),
-                                 thisiat <- LaplacesDemon::IAT(traces[thisseq,1]),
-                                 thisess <- LaplacesDemon::ESS(traces[thisseq,1]),
-                                 floor(thisiat*thin),round(thisiat)*thin,
-                                 NA,
-                                 floor(length(thisseq)/thisess*thin),round(length(thisseq)/thisess)*thin
-                             )}))
-
-
-traces <- traces2
-thin <-  round(1024/LaplacesDemon::ESS(traces[1:1024,1]))
-thisseq <- seq(from=1024+1,by=thin,length.out=1024)
-c(thin, range(thisseq), max(thisseq)/1024)
-LaplacesDemon::IAT(traces[thisseq,1])
-LaplacesDemon::ESS(traces[thisseq,1])
-tplot(y=traces[thisseq,1])
-
-traces <- traces2
-leng <- 2048
-thin <-  round(LaplacesDemon::IAT(traces[1:1024,1]))
-thisseq <- seq(from=1024+1,by=thin,length.out=leng)
-thisseq <- round(max(thisseq)/4)+thisseq-1024
-x <- traces[thisseq,1]
-c(thin, range(thisseq), max(thisseq)/1024)
-LaplacesDemon::BMK.Diagnostic(cbind(x), batches=2)[,1]
-LaplacesDemon::BMK.Diagnostic(cbind(x), batches=4)[,1]
-LaplacesDemon::IAT(x)
-LaplacesDemon::ESS(x)
-LaplacesDemon::MCSE(x, method='batch.means')$se*100/sd(x) #6.27
-LaplacesDemon::MCSE(x, method='batch.means')$se*100/sd(x) < 6.27
-LaplacesDemon::is.stationary(cbind(x))
-tplot(y=traces[thisseq,1])
-
-##traces <- traces1
-thin <-  round(LaplacesDemon::IAT(traces[1:1024,1]))
-t(sapply(1:16,function(i){
-    thisseq <- 1024+seq(from=128*(i-1)+1,by=thin,length.out=128)
-    x <- traces[thisseq,1]
-    c(thin, range(thisseq), max(thisseq)/128,NA,
-    LaplacesDemon::BMK.Diagnostic(cbind(x), batches=2)[,1],
-    LaplacesDemon::BMK.Diagnostic(cbind(x), batches=4)[,1],
-    LaplacesDemon::IAT(x),
-    LaplacesDemon::ESS(x),
-    LaplacesDemon::MCSE(x, method='batch.means')$se*100/sd(x), #6.27
-    LaplacesDemon::MCSE(x, method='batch.means')$se*100/sd(x) < 6.27,
-    LaplacesDemon::is.stationary(cbind(x))
-)}))
-
-thisseq <- round(max(thisseq)/2)+thisseq-1024
-tplot(y=traces[thisseq,1])
-
-
-
-
-
-traces <- traces2
-t(sapply(1:36,function(i){
-    thisseq <- seq(from=1024*(i-1)+1,by=1,length.out=1024)
-    x <- traces[thisseq,1]
-    c(i,max(thisseq),
-      LaplacesDemon::BMK.Diagnostic(cbind(x), batches=2)[,1],
-      LaplacesDemon::BMK.Diagnostic(cbind(x), batches=4)[,1],
-      LaplacesDemon::IAT(x),
-      LaplacesDemon::ESS(x),
-      LaplacesDemon::MCSE(x, method='batch.means')$se*100/sd(x),
-      LaplacesDemon::is.stationary(cbind(x))
-)}))
-
-## q         0.029227
-## varRrate  0.707669
-## probB     1.131390
-## C         6.549711
-## meanR    11.425076
-## varR     15.414792
-## probC    94.969083
-
-
-
-
-xgrid <- seq(-5,-3,length.out=512)
-fn <- function(x,dx){pnorm(x)/(2*dx)-1}
-testy <- fn(xgrid,1e-4)
-tplot(x=xgrid,y=((testy)))
-
-qnorm(2*(1e-4))
-## qnorm of twice precision of variate = boundary
-
-
-mm <- c(0,2,4)
-ss <- c(1,2,0.2)
-qq <- c(7,4,0.4)
-##
-f <- function(x){sapply(x,function(y)sum(qq*dnorm(y,mean=mm,sd=ss))/sum(qq))}
-##
-xgrid <- seq(-3,6,length.out=256)
-graphics.off()
-pdff('testcog1')
-tplot(xgrid,f(xgrid),ylim=c(0,NA),xlabels=NA,xlab='cog score #4',ylab='probability',ylabels=NA,lwd=5,ly=2,yticks=NA)
-plotquantiles(xgrid,rbind(
-                        f(xgrid)*
-                        (1+3*(dnorm(xgrid-min(xgrid))+0.2*dnorm(xgrid-2.5,sd=1)+dnorm(max(xgrid)-xgrid))),
-                        f(xgrid)*
-                        (1-3*(dnorm(xgrid-min(xgrid))+0.2*dnorm(xgrid-2.5,sd=1)+dnorm(max(xgrid)-xgrid)))
-                    ))
-dev.off()
-me <- sum(xgrid*f(xgrid))/sum(f(xgrid))
-sqrt(sum((xgrid-me)^2*f(xgrid))/sum(f(xgrid)))
-##
-##
-mm <- c(0,2,3)
-ss <- c(1,2,0.2)*0.5
-qq <- c(7,2,0.1)
-##
-f <- function(x){sapply(x,function(y)sum(qq*dnorm(y,mean=mm,sd=ss))/sum(qq))}
-##
-xgrid <- seq(-3,6,length.out=256)
-graphics.off()
-pdff('testcog2')
-tplot(xgrid,f(xgrid),ylim=c(0,NA),xlabels=NA,xlab='cog score #4',ylab='probability',ylabels=NA,lwd=5,ly=2,yticks=NA)
-plotquantiles(xgrid,rbind(
-                        f(xgrid)*
-                        (1+7*(dnorm(xgrid-min(xgrid))+0.1*dnorm(xgrid-2.5,sd=1)+dnorm(max(xgrid)-xgrid))),
-                        f(xgrid)*
-                        (1-7*(dnorm(xgrid-min(xgrid))+0.1*dnorm(xgrid-2.5,sd=1)+dnorm(max(xgrid)-xgrid)))
-                    ))
-dev.off()
-me <- sum(xgrid*f(xgrid))/sum(f(xgrid))
-sqrt(sum((xgrid-me)^2*f(xgrid))/sum(f(xgrid)))
-
-
-
-
-tplot(xgrid,dbeta((xgrid-min(xgrid))/diff(range(xgrid)), 0.2,0.2))
-
-
-
-
-
-bounds <- c(-1, 1)
-tra1 <- function(x){
-    x[x<=bounds[1]] <- bounds[1]
-    x[x>=bounds[2]] <- bounds[2]
-    x
-}
-## slower:
-tra2 <- function(x){
-    lx <- length(x)
-    ind <- rinterval(lx, x, bounds)
-    bounds[1]*(ind==0)+bounds[2]*(ind==2)+x*(ind==1)
-}
-
-
-bounds <- ((-2):(2-1))+0.5
-##
-itra2 <- function(x){
-    rinterval(length(x), x, bounds)
-}
-## slower:
-itra0 <- function(x){
-    rowSums(sapply(bounds, function(i){x>=i}))
-}
-## slower:
-itra1 <- function(x){
-    boundse <- c(-Inf, bounds, Inf)
-    rowSums(sapply(2:length(boundse), function(i){
-        (x>boundse[i-1] & x<=boundse[i])*i
-    }))-2
-}

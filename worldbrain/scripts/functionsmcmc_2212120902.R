@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-12T11:26:24+0100
+## Last-Updated: 2022-12-12T13:44:56+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -226,21 +226,23 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
     variate <- lapply(variatetypes, function(x)names(varinfo[['type']])[varinfo[['type']]==x])
     len <- lapply(variate,length)
     names(variate) <- names(len) <- variatetypes
-    Yv <- lapply(variatetypes, function(x){out <- Yv[varinfo[['type']][Yv]==x]
-        names(out) <- NULL
-        out})
-    Yn <- lapply(Yv,length)
-    names(Yv) <- names(Yn) <- variatetypes
-    Xv <- lapply(variatetypes, function(x){out <- Xv[varinfo[['type']][Xv]==x]
-        names(out) <- NULL
-        out})
-    Xn <- lapply(Xv,length)
-    names(Xv) <- names(Xn) <- variatetypes
     ##
     Wi <- grep('W',rownames(mcsamples))
     nclusters <- length(Wi)
     W <- mcsamples[Wi,]
-    seqclusters <- seq_len(nclusters)
+    ## seqclusters <- seq_len(nclusters)
+    ##
+    Yv <- lapply(variatetypes, function(zzz){out <- Yv[varinfo[['type']][Yv]==zzz]
+        names(out) <- NULL
+        out})
+    Yn <- lapply(Yv,length)
+    names(Yv) <- names(Yn) <- variatetypes
+    ##
+    Xv <- lapply(variatetypes, function(zzz){out <- Xv[varinfo[['type']][Xv]==zzz]
+        names(out) <- NULL
+        out})
+    Xn <- lapply(Xv,length)
+    names(Xv) <- names(Xn) <- variatetypes
     ##
     if(Yn$C > 0){## categorical
     totake <- sapply(Yv$C,function(x)which(variate$C == x))
@@ -301,10 +303,10 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                            numeric(nclusters),
                            rownames(mcsamples))),
                      dim=c(length(totake),nclusters), dimnames=list(Yv$O,NULL))
-    YOlefts <- (log(varinfo[Yv$O,'max',drop=F])-varinfo[Yv$O,'location',drop=F])/varinfo[Yv$O,'scale',drop=F]
-    YOlefts <- sapply(Yv$O, function(v){out <- varinfo[['t']][[v]](varinfo[['max']][v])
+    YOlefts <- c(sapply(Yv$O, function(v){
+        out <- varinfo[['t']][[v]](varinfo[['max']][v])
         names(out) <- NULL
-        out})
+        out}))
     }
     if(Yn$D > 0){## two-bounded
     totake <- sapply(Yv$D,function(x)which(variate$D == x))
@@ -318,6 +320,7 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                    dim=c(length(totake),nclusters), dimnames=list(Yv$D,NULL))
     YDbounds <- -qnorm(varinfo[['n']][Yv$D])
     }
+    ##
     ##
     if(Xn$C > 0){## categorical
     totake <- sapply(Xv$C,function(x)which(variate$C == x))
@@ -378,10 +381,10 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                            numeric(nclusters),
                            rownames(mcsamples))),
                      dim=c(length(totake),nclusters), dimnames=list(Xv$O,NULL))
-    XOlefts <- (log(varinfo[Xv$O,'max',drop=F])-varinfo[Xv$O,'location',drop=F])/varinfo[Xv$O,'scale',drop=F]
-    XOlefts <- sapply(Xv$O, function(v){out <- varinfo[['t']][[v]](varinfo[['max']][v])
+    XOlefts <- c(sapply(Xv$O, function(v){
+        out <- varinfo[['t']][[v]](varinfo[['max']][v])
         names(out) <- NULL
-        out})
+        out}))
     }
     if(Xn$D > 0){## two-bounded
     totake <- sapply(Xv$D,function(x)which(variate$D == x))
@@ -408,18 +411,28 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
             Y2 <- t(matrix(rep(t(Y2), ceiling(nrow(X2)/nrow(Y2))), nrow=ncol(Y2), dimnames=list(colnames(Y2),NULL)))[1:nrow(X2),,drop=FALSE]
         }
     }else{X2 <- lapply(seq_len(nrow(Y2)),function(x)NA)}
-    ndata <- nrow(Y2)
+    ## ndata <- nrow(Y2)
     ##
     ##
-    foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
+foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
+        ## ## for debugging
+        ## for(iii in 1:nrow(Y2)){
+        ## print(iii)
+        ## iii <- iii+1
+        ##     y <- t(Y2)[,1,drop=F]
+        ##     x <- t(X2)[,1,drop=F]
+            ##
         if(any(is.na(y))){
             y <- y[!is.na(y),,drop=F]
-            yv <- rownames(y)
-            yv <- lapply(variatetypes, function(x){out <- yv[varinfo[['type']][yv]==x]
+            yv <- lapply(variatetypes, function(xx){
+                out <- rownames(y)[varinfo[['type']][rownames(y)]==xx]
                 names(out) <- NULL
                 out})
             yn <- lapply(yv,length)
             names(yv) <- names(yn) <- variatetypes
+        }else{
+            yv <- Yv
+            yn <- Yn
         }
         ##            
         if(all(is.na(x))){
@@ -427,60 +440,54 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
         }else{
             if(any(is.na(x))){
                 x <- x[!is.na(x),,drop=F]
-            xv <- rownames(x)
-            xv <- lapply(variatetypes, function(x){out <- xv[varinfo[['type']][xv]==x]
-                names(out) <- NULL
-                out})
-            xn <- lapply(xv,length)
-            names(xv) <- names(xn) <- variatetypes
+                xv <- lapply(variatetypes, function(xx){out <- rownames(x)[varinfo[['type']][rownames(x)]==xx]
+                    names(out) <- NULL
+                    out})
+                xn <- lapply(xv,length)
+                names(xv) <- names(xn) <- variatetypes
+            }else{
+                xv <- Xv
+                xn <- Xn
                 }
                 ##
         probX <- t( # rows: MCsamples, cols: clusters
             log(W) + 
-                (if(xn$T > 0){
+                (if(xn$D > 0){
                      colSums(
                          array(
-                             t(sapply(xv$T, function(v){
+                             t(sapply(xv$D, function(v){
                                  if(is.finite(x[v,])){
                                      (dnorm(x=x[v,],
-                                             mean=mcsamples[XTmean[v,],],
-                                             sd=sqrt(mcsamples[XTvar[v,],]),log=T))
+                                             mean=mcsamples[XDmean[v,],],
+                                             sd=sqrt(mcsamples[XDvar[v,],]),log=T))
                                  }else{
-                                     (pnorm(q=XTbounds[v,]*sign(x[v,]),
-                                             mean=mcsamples[XTmean[v,],],
-                                             sd=sqrt(mcsamples[XTvar[v,],]),
+                                     (pnorm(q=XDbounds[v,]*sign(x[v,]),
+                                             mean=mcsamples[XDmean[v,],],
+                                             sd=sqrt(mcsamples[XDvar[v,],]),
                                              lower.tail=(x[v,]<0),
                                              log.p=T))
                                  }
                              })),
-                             dim=c(xn$T, nclusters, length(subsamples))),
+                             dim=c(xn$D, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(xn$S > 0){
+                (if(xn$O > 0){
                      colSums(
                          array(
-                             t(sapply(xv$S, function(v){
+                             t(sapply(xv$O, function(v){
                                  if(is.finite(x[v,])){
                                      (dnorm(x=x[v,],
-                                             mean=mcsamples[XSmean[v,],],
-                                             sd=sqrt(mcsamples[XSvar[v,],]),log=T))
+                                             mean=mcsamples[XOmean[v,],],
+                                             sd=sqrt(mcsamples[XOvar[v,],]),log=T))
                                  }else{
-                                     (pnorm(q=XSlefts[v,],
-                                             mean=mcsamples[XSmean[v,],],
-                                             sd=sqrt(mcsamples[XSvar[v,],]),
+                                     (pnorm(q=XOlefts[v],
+                                             mean=mcsamples[XOmean[v,],],
+                                             sd=sqrt(mcsamples[XOvar[v,],]),
                                              lower.tail=F,
                                              log.p=T))
                                  }
                              })),
-                             dim=c(xn$S, nclusters, length(subsamples))),
-                         na.rm=F)
-                 }else{0}) +
-                (if(xn$L > 0){
-                     colSums(
-                         array(dnorm(x=x[xv$L,],
-                                     mean=mcsamples[XLmean,],
-                                     sd=sqrt(mcsamples[XLvar,]),log=T),
-                               dim=c(xn$L, nclusters, length(subsamples))),
+                             dim=c(xn$O, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
                 (if(xn$R > 0){
@@ -522,54 +529,46 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                              dim=c(xn$I, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0})
-        )
+        ) # end probX
         }
         ##
         probY <- t( # rows: MCsamples, cols: clusters
-        (if(yn$T > 0){
+        (if(yn$D > 0){
                      colSums(
                          array(
-                             t(sapply(yv$T, function(v){
+                             t(sapply(yv$D, function(v){
                                  if(is.finite(y[v,])){
                                      (dnorm(x=y[v,],
-                                             mean=mcsamples[YTmean[v,],],
-                                             sd=sqrt(mcsamples[YTvar[v,],]),log=T))
+                                             mean=mcsamples[YDmean[v,],],
+                                             sd=sqrt(mcsamples[YDvar[v,],]),log=T))
                                  }else{
-                                     (pnorm(q=YTbounds[v,]*sign(y[v,]),
-                                             mean=mcsamples[YTmean[v,],],
-                                             sd=sqrt(mcsamples[YTvar[v,],]),
+                                     (pnorm(q=YDbounds[v,]*sign(y[v,]),
+                                             mean=mcsamples[YDmean[v,],],
+                                             sd=sqrt(mcsamples[YDvar[v,],]),
                                              lower.tail=(y[v,]<0),
                                              log.p=T))
                                  }
                              })),
-                             dim=c(yn$T, nclusters, length(subsamples))),
+                             dim=c(yn$D, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(yn$S > 0){
+                (if(yn$O > 0){
                      colSums(
                          array(
-                             t(sapply(yv$S, function(v){
+                             t(sapply(yv$O, function(v){
                                  if(is.finite(y[v,])){
                                      (dnorm(x=y[v,],
-                                             mean=mcsamples[YSmean[v,],],
-                                             sd=sqrt(mcsamples[YSvar[v,],]),log=T))
+                                             mean=mcsamples[YOmean[v,],],
+                                             sd=sqrt(mcsamples[YOvar[v,],]),log=T))
                                  }else{
-                                     (pnorm(q=YSlefts[v,],
-                                             mean=mcsamples[YSmean[v,],],
-                                             sd=sqrt(mcsamples[YSvar[v,],]),
+                                     (pnorm(q=YOlefts[v],
+                                             mean=mcsamples[YOmean[v,],],
+                                             sd=sqrt(mcsamples[YOvar[v,],]),
                                              lower.tail=F,
                                              log.p=T))
                                  }
                              })),
-                             dim=c(yn$S, nclusters, length(subsamples))),
-                         na.rm=F)
-                 }else{0}) +
-                (if(yn$L > 0){
-                     colSums(
-                         array(dnorm(x=y[yv$L,],
-                                     mean=mcsamples[YLmean,],
-                                     sd=sqrt(mcsamples[YLvar,]),log=T),
-                               dim=c(yn$L, nclusters, length(subsamples))),
+                             dim=c(yn$O, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
                 (if(yn$R > 0){
@@ -611,7 +610,7 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
                              dim=c(yn$I, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0})
-        )
+        ) # end probY
         ##
         ## ## Other approaches tested for roundoff error
         ## testc2 <- rowSums(exp(probX2 + probY - log(rowSums(exp(probX2)))))
@@ -641,10 +640,13 @@ samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nro
             probX <- probX - apply(probX, 1, max, na.rm=T)
             out <- rowSums(exp(probX+probY))/rowSums(exp(probX))
         }
-        out
-    } * (if(jacobian){exp(-rowSums(log(
-                               sapply(1:ncol(testv),function(x){varinfo[['ij']][[colnames(testv)[x]]](testv[,x])})
-                               ), na.rm=T))}else{1L})
+            out
+    } *
+    (if(jacobian){exp(-rowSums(log(
+                               sapply(1:ncol(Y),function(iii){
+                                   varinfo[['ij']][[colnames(Y)[iii]]](Y[,iii])
+                               })
+                           ), na.rm=T))}else{1L})
 }
 
 ##
