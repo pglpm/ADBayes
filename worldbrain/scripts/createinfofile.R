@@ -3,9 +3,9 @@ library('png')
 library('foreach')
 
 Tprob <- 2^-6
-params <- c('type','min','max','n','location','scale',
+params <- c('name','type','min','max','n','location','scale',
                                   'Q1','Q2','Q3','datamin','datamax','plotmin','plotmax',
-                                  'hmean','hsd','hshapeout','hshapein','hvarscale')
+                                  'hmean','hsd','hshapeout','hshapein','hvarscale','t','ij')
 ##
 dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
 varnames <- colnames(dt)
@@ -16,147 +16,157 @@ variate <- list(S=c("TRAASCOR_neuro","TRABSCOR_neuro"),
                 I=c("ANARTERR_neuro","AVDEL30MIN_neuro","AVDELTOT_neuro","CATANIMSC_neuro","GDTOTAL_gds","RAVLT_immediate")
                 )
 if(any(sort(unlist(variate))!=sort(varnames))){warning('variate mismatch')}
-varinfo <- matrix(NA, nrow=length(unlist(variate)), ncol=length(params),
-                  dimnames=list(unlist(variate),params) )
+varinfo <- lapply(1:length(params),function(x){
+    x <- rep(NA,length(unlist(variate)))
+    names(x) <- unlist(variate)
+    x
+})
+names(varinfo) <- params
+
+for(i in variate){varinfo[['name']][i] <- i}
+
 
 ## integer
-varinfo[variate$I,'type'] <- 1L
-varinfo[variate$I,'n'] <- c(51L,16L,16L,64L,7L,76L)
-varinfo[variate$I,'min'] <- 0L
-varinfo[variate$I,'max'] <- varinfo[variate$I,'n']-1L
+varinfo[['type']][variate$I] <- 'I'
+varinfo[['n']][variate$I] <- c(51L,16L,16L,64L,7L,76L)
+varinfo[['min']][variate$I] <- 0L
+varinfo[['max']][variate$I] <- varinfo[['n']][variate$I]-1L
 ##
-varinfo[variate$I,'location'] <- varinfo[variate$I,'min']
-varinfo[variate$I,'scale'] <- (varinfo[variate$I,'max']-varinfo[variate$I,'min'])/(varinfo[variate$I,'n']-1L)
-varinfo[variate$I,'plotmin'] <- sapply(variate$I,function(v){
+varinfo[['location']][variate$I] <- varinfo[['min']][variate$I]
+varinfo[['scale']][variate$I] <- (varinfo[['max']][variate$I]-varinfo[['min']][variate$I])/(varinfo[['n']][variate$I]-1L)
+varinfo[['plotmin']][variate$I] <- sapply(variate$I,function(v){
     dat <- dt[[v]]
-    max(varinfo[v,'min'], min(dat, na.rm=T) - diff(tquant(dat, c(0.25,0.5))))
+    max(varinfo[['min']][v], min(dat, na.rm=T) - diff(tquant(dat, c(0.25,0.5))))
     })
-varinfo[variate$I,'plotmax'] <- sapply(variate$I,function(v){
+varinfo[['plotmax']][variate$I] <- sapply(variate$I,function(v){
     dat <- dt[[v]]
-    min(varinfo[v,'max'], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
-    })
+    min(varinfo[['max']][v], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
+})
+varinfo[['t']][variate$I] <- lapply(variate$I,function(v){function(x){round((x-varinfo[['location']][v])/varinfo[['scale']][v])}})
+varinfo[['ij']][variate$I] <- lapply(variate$I,function(v){function(x){rep(1L,length(x))}})
 
 ## binary
-varinfo[variate$B,'type'] <- 2L
-varinfo[variate$B,'n'] <- 2L
-varinfo[variate$B,'min'] <- 0L
-varinfo[variate$B,'max'] <- varinfo[variate$B,'n']-1L
+varinfo[['type']][variate$B] <- 'B'
+varinfo[['n']][variate$B] <- 2L
+varinfo[['min']][variate$B] <- 0L
+varinfo[['max']][variate$B] <- varinfo[['n']][variate$B]-1L
 ##
-varinfo[variate$B,'location'] <- varinfo[variate$B,'min']
-varinfo[variate$B,'scale'] <- varinfo[variate$B,'max']-varinfo[variate$B,'min']
-varinfo[variate$B,'plotmin'] <- varinfo[variate$B,'min']
-varinfo[variate$B,'plotmax'] <- varinfo[variate$B,'max']
-
-## real
-varinfo[variate$R,'type'] <- 0L
-varinfo[variate$R,'n'] <- 0
-varinfo[variate$R,'min'] <- -Inf
-varinfo[variate$R,'max'] <- +Inf
-##
-varinfo[variate$R,'location'] <- apply(dt[,variate$R,with=F],2,median,na.rm=T)
-varinfo[variate$R,'scale'] <- apply(dt[,variate$R,with=F],2,IQR,na.rm=T)*sd2iqr
-varinfo[variate$R,'plotmin'] <- apply(dt[,variate$R,with=F],2,function(x){
-    min(x, na.rm=T) - diff(tquant(x, c(0.25,0.5)))
-    })
-varinfo[variate$R,'plotmax'] <- apply(dt[,variate$R,with=F],2,function(x){
-    max(x, na.rm=T) + diff(tquant(x, c(0.75,0.5)))
-    })
+varinfo[['location']][variate$B] <- varinfo[['min']][variate$B]
+varinfo[['scale']][variate$B] <- varinfo[['max']][variate$B]-varinfo[['min']][variate$B]
+varinfo[['plotmin']][variate$B] <- varinfo[['min']][variate$B]
+varinfo[['plotmax']][variate$B] <- varinfo[['max']][variate$B]
+varinfo[['t']][variate$B] <- lapply(variate$B,function(v){function(x){round((x-varinfo[['location']][v])/varinfo[['scale']][v])}})
+varinfo[['ij']][variate$B] <- lapply(variate$B,function(v){function(x){rep(1L,length(x))}})
 
 ## logarithmic
-varinfo[variate$L,'type'] <- -1L
-varinfo[variate$L,'n'] <- 0
-varinfo[variate$L,'min'] <- 0
-varinfo[variate$L,'max'] <- +Inf
+varinfo[['type']][variate$L] <- 'R'
+varinfo[['n']][variate$L] <- 0
+varinfo[['min']][variate$L] <- -Inf
+varinfo[['max']][variate$L] <- +Inf
 ##
-varinfo[variate$L,'location'] <- apply(log(dt[,variate$L,with=F]),2,median,na.rm=T)
-varinfo[variate$L,'scale'] <- apply(log(dt[,variate$L,with=F]),2,IQR,na.rm=T)*sd2iqr
-varinfo[variate$L,'plotmin'] <- apply(dt[,variate$L,with=F],2,function(x){
+varinfo[['location']][variate$L] <- apply(log(dt[,variate$L,with=F]),2,median,na.rm=T)
+varinfo[['scale']][variate$L] <- apply(log(dt[,variate$L,with=F]),2,IQR,na.rm=T)*sd2iqr
+varinfo[['plotmin']][variate$L] <- apply(dt[,variate$L,with=F],2,function(x){
     max(0, min(x, na.rm=T) - diff(tquant(x, c(0.25,0.5))))
     })
-varinfo[variate$L,'plotmax'] <- apply(dt[,variate$L,with=F],2,function(x){
+varinfo[['plotmax']][variate$L] <- apply(dt[,variate$L,with=F],2,function(x){
     max(x, na.rm=T) + diff(tquant(x, c(0.5,0.75)))
 })
+varinfo[['t']][variate$L] <- lapply(variate$L,function(v){function(x){(log(x)-varinfo[['location']][v])/varinfo[['scale']][v]}})
+varinfo[['ij']][variate$L] <- lapply(variate$L,function(v){function(x){x*varinfo[['scale']][v]}})
 
 ## logarithmic censored
-varinfo[variate$S,'type'] <- -3L
-varinfo[variate$S,'n'] <- 0
-varinfo[variate$S,'min'] <- 0
-varinfo[variate$S,'max'] <- c(150L,300L)
+varinfo[['type']][variate$S] <- 'O'
+varinfo[['n']][variate$S] <- 0
+varinfo[['min']][variate$S] <- 0
+varinfo[['max']][variate$S] <- c(150L,300L)
 ##
-varinfo[variate$S,'location'] <- apply(log(dt[,variate$S,with=F]),2,median,na.rm=T)
-varinfo[variate$S,'scale'] <- apply(log(dt[,variate$S,with=F]),2,IQR,na.rm=T)*sd2iqr
-varinfo[variate$S,'plotmin'] <- apply(dt[,variate$S,with=F],2,function(x){
+varinfo[['location']][variate$S] <- apply(log(dt[,variate$S,with=F]),2,median,na.rm=T)
+varinfo[['scale']][variate$S] <- apply(log(dt[,variate$S,with=F]),2,IQR,na.rm=T)*sd2iqr
+varinfo[['plotmin']][variate$S] <- apply(dt[,variate$S,with=F],2,function(x){
     max(0, min(x, na.rm=T) - diff(tquant(x, c(0.25,0.5))))
     })
-varinfo[variate$S,'plotmax'] <- sapply(variate$S,function(v){
+varinfo[['plotmax']][variate$S] <- sapply(variate$S,function(v){
     dat <- dt[[v]]
-    min(varinfo[v,'max'], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
+    min(varinfo[['max']][v], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
     })
+varinfo[['t']][variate$S] <- lapply(variate$S,function(v){function(x){(log(x)-varinfo[['location']][v])/varinfo[['scale']][v]}})
+varinfo[['ij']][variate$S] <- lapply(variate$S,function(v){function(x){
+    out <- x*varinfo[['scale']][v]
+    out[x >= varinfo[['max']][v]] <- 1L
+    out
+}})
 
 ## doubly bounded
-varinfo[variate$T,'type'] <- -2L
-varinfo[variate$T,'n'] <- Tprob
-varinfo[variate$T,'min'] <- 0L
-varinfo[variate$T,'max'] <- c(150L,300L)
-varinfo[variate$T,'scale'] <- (varinfo[variate$T,'max']-varinfo[variate$T,'min'])/(1-2*Tprob)
-varinfo[variate$T,'location'] <- varinfo[variate$T,'min']-varinfo[variate$T,'n']*varinfo[variate$T,'scale']
-varinfo[variate$T,'plotmin'] <- sapply(variate$T,function(v){
+varinfo[['type']][variate$T] <- -2L
+varinfo[['n']][variate$T] <- Tprob
+varinfo[['min']][variate$T] <- 0L
+varinfo[['max']][variate$T] <- c(150L,300L)
+varinfo[['scale']][variate$T] <- (varinfo[['max']][variate$T]-varinfo[['min']][variate$T])/(1-2*Tprob)
+varinfo[['location']][variate$T] <- varinfo[['min']][variate$T]-varinfo[['n']][variate$T]*varinfo[['scale']][variate$T]
+varinfo[['plotmin']][variate$T] <- sapply(variate$T,function(v){
     dat <- dt[[v]]
-    max(varinfo[v,'min'], min(dat, na.rm=T) - diff(tquant(dat, c(0.25,0.5))))
+    max(varinfo[['min']][v], min(dat, na.rm=T) - diff(tquant(dat, c(0.25,0.5))))
     })
-varinfo[variate$T,'plotmax'] <- sapply(variate$T,function(v){
+varinfo[['plotmax']][variate$T] <- sapply(variate$T,function(v){
     dat <- dt[[v]]
-    min(varinfo[v,'max'], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
+    min(varinfo[['max']][v], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
     })
+varinfo[['t']][variate$T] <- lapply(variate$T,function(v){function(x){(log(x)-varinfo[['location']][v])/varinfo[['scale']][v]}})
+varinfo[['ij']][variate$T] <- lapply(variate$T,function(v){function(x){
+    out <- dnorm(varinfo[['t']][[v]](x))*varinfo[['scale']][v]
+    out[(x <= varinfo[['min']][v]) | (x >= varinfo[['max']][v])] <- 1L
+    out
+}})
 
 
 ##
-varinfo[varnames,'Q1'] <- apply(dt[,..varnames], 2, tquant, 0.25)
-varinfo[varnames,'Q2'] <- apply(dt[,..varnames], 2, tquant, 0.5)
-varinfo[varnames,'Q3'] <- apply(dt[,..varnames], 2, tquant, 0.75)
-varinfo[varnames,'datamin'] <- apply(dt[,..varnames], 2, min, na.rm=T)
-varinfo[varnames,'datamax'] <- apply(dt[,..varnames], 2, max, na.rm=T)
+varinfo[['Q1']][varnames] <- apply(dt[,..varnames], 2, tquant, 0.25)
+varinfo[['Q2']][varnames] <- apply(dt[,..varnames], 2, tquant, 0.5)
+varinfo[['Q3']][varnames] <- apply(dt[,..varnames], 2, tquant, 0.75)
+varinfo[['datamin']][varnames] <- apply(dt[,..varnames], 2, min, na.rm=T)
+varinfo[['datamax']][varnames] <- apply(dt[,..varnames], 2, max, na.rm=T)
 
 
-varinfo[variate$R,'hmean'] <- 0L
-varinfo[variate$L,'hmean'] <- 0L
-varinfo[variate$S,'hmean'] <- 0L
-varinfo[variate$T,'hmean'] <- 0L
-varinfo[variate$I,'hmean'] <- 0L
-varinfo[variate$B,'hmean'] <- NA
-varinfo[variate$C,'hmean'] <- NA
+varinfo[['hmean']][variate$R] <- 0L
+varinfo[['hmean']][variate$L] <- 0L
+varinfo[['hmean']][variate$S] <- 0L
+varinfo[['hmean']][variate$T] <- 0L
+varinfo[['hmean']][variate$I] <- 0L
+varinfo[['hmean']][variate$B] <- NA
+varinfo[['hmean']][variate$C] <- NA
 ##
-varinfo[variate$R,'hsd'] <- 3 #***
-varinfo[variate$L,'hsd'] <- 2
-varinfo[variate$S,'hsd'] <- 2
-varinfo[variate$T,'hsd'] <- 1
-varinfo[variate$I,'hsd'] <- 7/8
-varinfo[variate$B,'hsd'] <- NA
-varinfo[variate$C,'hsd'] <- NA
+varinfo[['hsd']][variate$R] <- 2
+varinfo[['hsd']][variate$L] <- 2
+varinfo[['hsd']][variate$S] <- 2
+varinfo[['hsd']][variate$T] <- 1
+varinfo[['hsd']][variate$I] <- 7/8
+varinfo[['hsd']][variate$B] <- NA
+varinfo[['hsd']][variate$C] <- NA
 ##
-varinfo[variate$R,'hshapeout'] <- 1
-varinfo[variate$L,'hshapeout'] <- 1
-varinfo[variate$S,'hshapeout'] <- 1
-varinfo[variate$T,'hshapeout'] <- 1
-varinfo[variate$I,'hshapeout'] <- 1
-varinfo[variate$B,'hshapeout'] <- 1
-varinfo[variate$C,'hshapeout'] <- 1
+varinfo[['hshapeout']][variate$R] <- 1
+varinfo[['hshapeout']][variate$L] <- 1
+varinfo[['hshapeout']][variate$S] <- 1
+varinfo[['hshapeout']][variate$T] <- 1
+varinfo[['hshapeout']][variate$I] <- 1
+varinfo[['hshapeout']][variate$B] <- 1
+varinfo[['hshapeout']][variate$C] <- 1
 ##
-varinfo[variate$R,'hshapein'] <- 1
-varinfo[variate$L,'hshapein'] <- 1
-varinfo[variate$S,'hshapein'] <- 1
-varinfo[variate$T,'hshapein'] <- 1
-varinfo[variate$I,'hshapein'] <- 1
-varinfo[variate$B,'hshapein'] <- 1
-varinfo[variate$C,'hshapein'] <- 1
+varinfo[['hshapein']][variate$R] <- 1
+varinfo[['hshapein']][variate$L] <- 1
+varinfo[['hshapein']][variate$S] <- 1
+varinfo[['hshapein']][variate$T] <- 1
+varinfo[['hshapein']][variate$I] <- 1
+varinfo[['hshapein']][variate$B] <- 1
+varinfo[['hshapein']][variate$C] <- 1
 ##
-varinfo[variate$R,'hvarscale'] <- 1
-varinfo[variate$L,'hvarscale'] <- 1
-varinfo[variate$S,'hvarscale'] <- 1
-varinfo[variate$T,'hvarscale'] <- 1/4
-varinfo[variate$I,'hvarscale'] <- 1/4
-varinfo[variate$B,'hvarscale'] <- NA
-varinfo[variate$C,'hvarscale'] <- NA
+varinfo[['hvarscale']][variate$R] <- 1
+varinfo[['hvarscale']][variate$L] <- 1
+varinfo[['hvarscale']][variate$S] <- 1
+varinfo[['hvarscale']][variate$T] <- 1/4
+varinfo[['hvarscale']][variate$I] <- 1/4
+varinfo[['hvarscale']][variate$B] <- NA
+varinfo[['hvarscale']][variate$C] <- NA
 
 
 predictands <- 'Subgroup_num_'
