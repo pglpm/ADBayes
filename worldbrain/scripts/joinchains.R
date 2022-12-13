@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-13T16:09:46+0100
+## Last-Updated: 2022-12-13T18:22:20+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -313,3 +313,4 @@ for(v in unlist(variate)){#cat(avar)
 dev.off(pdf1)
 dev.off(pdf2)
 cat('\nDone\n\n')
+setwd(origdir)
