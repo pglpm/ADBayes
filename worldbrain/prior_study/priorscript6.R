@@ -136,17 +136,17 @@ for(i in 1:nsamples){
 dev.off()
 
 #### @@@
-dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
-varinfo <- read.csv('~/repositories/ADBayes/worldbrain/scripts/varinfo.csv',row.names=1)
 #### Integer
 #### with norm transformation IV
+dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
+varinfo <- readRDS('~/repositories/ADBayes/worldbrain/scripts/varinfo.rds')
 pregrid <- 1
 graphics.off()
-pdff(paste0('samples_integer_normIVC',pregrid*1))
-for(nint in c(7, 16, 51, 64, 76)){
-set.seed(103)
-varindex <- which(varinfo[,'n']==nint)[1]
-if(!is.na(varindex)){data <- dt[[rownames(varinfo)[varindex]]]}else{data <- NULL}
+pdff(paste0('samples_integer_check'))
+for(v in names(varinfo[['type']])[varinfo[['type']] == 'I']){
+    set.seed(103)
+nint <- varinfo[['n']][v]
+data <- dt[[v]]
 ## dd <- qnorm(0.5/nint)/2 + 0.5
 ## tran <- function(x){(x*(1-2*dd)+dd)*2-1}
 ## dd <- pnorm(qnorm(0.5/nint))
@@ -161,7 +161,7 @@ tran <- function(x){qnorm((x-nmin)/(nmax-nmin)*(1-2*dd)+dd)}
 nsamples <- 400*8
 nsubsamples <- 400
 nclusters <- 64
-alphas <- c(1,2,0.5)
+alphas <- c(0.25,0.5,1,2,4)
 means <- c(0)
 shapemeans <- c(512) # set to high value to mimick a delta, leading to gaussian for m
 scalemeans <- shapemeans * (7/8)^2#1/1^2

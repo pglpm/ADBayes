@@ -1,80 +1,28 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-10-27T19:11:40+0200
+## Last-Updated: 2022-12-13T16:09:46+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
+if(!exists('tplot')){source('~/work/pglpm_plotfunctions.R')}
 
 #rm(list=ls())
 
-outputdir <- '_newMC4096ter'
+outputdir <- '_ingrid1'
 totsamples <- 4096L
-variateinfofile <- 'metadata_noint33_noSW.csv' #***
-datafile <- 'data_ep.csv' #***
-mainvar <- c(
-##     "age",
-## "sex",
-## "group",
-## "EHI_right",
-## "EHI_left",
-## "EHI_LQ",
-## "edu_primary",
-## "edu_secondary",
-## "edu_university",
-## "subcog_mem",
-## "subcog_conc",
-"DS_forward",
-"DS_reverse",
-"DS_seq",
-"CWIT_2",
-"CWIT_3",
-"CWIT_4",
-"ERT_med_rt_overall",
-"ERT_total_hits",
-"OTS_mean_lat_first_overall",
-"OTS_cor_first",
-"PRM_mean_lat_delayed",
-"PRM_cor_delayed",
-"RTI_mean_react_time",
-"RTI_total_errors",
-"RVP_detection",
-"RVP_mean_lat_cor",
-"SSP_forw_length",
-"Total_Z_sum",
-"Total_Z_mean",
-"Total_Q_points"
-## "DMN_T_CPL",
-## "DMN_T_CC",
-## "DMN_A_CPL",
-## "DMN_A_CC",
-## "DMN_B_CPL",
-## "DMN_B_CC",
-## "DMN_G_CPL",
-## "DMN_G_CC",
-## "CEN_T_CPL",
-## "CEN_T_CC",
-## "CEN_A_CPL",
-## "CEN_A_CC",
-## "CEN_B_CPL",
-## "CEN_B_CC",
-## "CEN_G_CPL",
-## "CEN_G_CC",
-## "SN_T_CPL",
-## "SN_T_CC",
-## "SN_A_CPL",
-## "SN_A_CC",
-## "SN_B_CPL",
-## "SN_B_CC",
-## "SN_G_CPL",
-## "SN_G_CC"
-)
+datafile <- 'ingrid_data_nogds6.csv' #***
+predictorfile <- 'predictors.csv'
+predictandfile <- NULL # 'predictors.csv'
+functionsfile <- 'functionsmcmc_2212120902.R'
 showdata <- TRUE # 'histogram' 'scatter' FALSE
 plotmeans <- TRUE
+ndata <- NULL # set this if you want to use fewer data
+shuffledata <- FALSE # useful if subsetting data
+family <- 'Palatino'
 
-#source('~/.Rprofile')
+
 ## load customized plot functions
 if(!exists('tplot')){source('~/work/pglpm_plotfunctions.R')}
-#### Packages and setup ####
 library('data.table')
 library('png')
 library('foreach')
@@ -87,7 +35,7 @@ print('availableCores-multicore:')
 print(availableCores('multicore'))
 if(Sys.info()['nodename']=='luca-HP-Z2-G9'){
     ncores <- 20}else{
-    ncores <- 4}
+    ncores <- 6}
 print(paste0('using ',ncores,' cores'))
 if(ncores>1){
     if(.Platform$OS.type=='unix'){
@@ -99,38 +47,37 @@ if(ncores>1){
     plan(sequential)
 }
 
-outputdir <- sub('(.+)/','\\1',outputdir)
-variateinfo <- fread(variateinfofile)
-if(!file.exists(paste0(variateinfofile))){ stop(paste0('ERROR: cannot find file ',variateinfofile)) }
-
-varNames <- variateinfo$variate
-varTypes <- variateinfo$type
-names(varTypes) <- varNames
-realVars <- varNames[varTypes=='real']
-integerVars <- varNames[varTypes=='integer']
-categoryVars <- varNames[varTypes=='categorical']
-binaryVars <- varNames[varTypes=='binary']
-#varNames <- c(realVars, integerVars, categoryVars, binaryVars)
-nrvars <- length(realVars)
-nivars <- length(integerVars)
-ncvars <- length(categoryVars)
-nbvars <- length(binaryVars)
-nvars <- length(varNames)
-##
-variateparameters <- data.matrix(read.csv(paste0(outputdir,'/variateparameters.csv'), row.names='variate'))
-alldata <- fread(datafile, sep=',')
-if(!all(varNames %in% names(alldata))){print('ERROR: variates missing from datafile')}
-alldata <- alldata[, ..varNames]
-## shuffle data
-if(exists('shuffledata') && shuffledata){alldata <- alldata[sample(1:nrow(alldata))]}
-if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(alldata)}
-alldata <- alldata[1:ndata]
-##
-source('functions_mcmc.R')
+#### Load files with MC information and data ####
+if(!exists('outputdir') || is.na(outputdir) || is.null(outputdir)){
+    outputdir <- as.character(commandArgs(trailingOnly=TRUE))[1]
+    if(is.na(outputdir)){
+        outputdir <- './'
+    }
+}
+outputdir <- paste0(sub('(.+)/','\\1',outputdir),'/')
 setwd(outputdir)
+origdir <- '../'
+source(paste0(origdir,functionsfile)) # load functions for post-MCMC
+
+varinfofile <- list.files(pattern='^_varinfo.*\\.rds')
+if(length(varinfofile) !=1){stop('Problems with varinfo file')}
+varinfo <- readRDS(varinfofile)
+##
+variate <- lapply(variatetypes, function(x)names(varinfo[['type']])[varinfo[['type']]==x])
+len <- lapply(variate,length)
+names(variate) <- names(len) <- variatetypes
+
+data0 <- fread(paste0(origdir,datafile), sep=',')
+if(!all(unlist(variate) %in% colnames(data0))){cat('\nERROR: variates missing from datafile')}
+data0 <- data0[, unlist(variate), with=F]
+## shuffle data
+if(exists('shuffledata') && shuffledata){data0 <- data0[sample(1:nrow(data0))]}
+if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(data0)}
+data0 <- data0[1:ndata]
+
 samplefiles <- list.files(pattern='^_mcsamples-.*-F\\.rds')
 ## print(samplefiles)
-setwd('..')
+## setwd('..')
 nchains <- length(samplefiles)
 ## nchains <- max(as.integer(sub('.*(\\d+)-F.rds', '\\1', samplefiles)))
 print(paste0('Found ',nchains,' chains'))
@@ -141,7 +88,9 @@ print(paste0('Found ',nchains,' chains'))
 ## basename <- samplefiles[!(sub(paste0('^_[^-]+(-.+--)','\\d+','-F','\\.rds$'), '\\1', samplefiles)==samplefiles)][]
 basename <- sub(paste0('^_[^-]+(-.+--)','\\d+','-F','\\.rds$'), '\\1', samplefiles[1])
 ##
-print(paste0('Using files ',basename,'...'))
+##
+##
+print(paste0('Reading from files ',basename,'...'))
 chainlist <- sort(as.integer(sub(paste0('^_.*--','(\\d+)','-F','\\.rds$'), '\\1', samplefiles)))
 ## print(chainlist)
 remainingsamples <- totsamples
@@ -151,7 +100,7 @@ donechains <- 0
 for(achain in chainlist){
     donechains <- donechains+1
     totake <- round(remainingsamples/(nchains-donechains+1))
-    temptrace <- readRDS(file=paste0(outputdir,'/_mctraces',basename,achain,'-F.rds'))
+    temptrace <- readRDS(file=paste0('_mctraces',basename,achain,'-F.rds'))
     minESS <- floor(min(LaplacesDemon::ESS(temptrace * (abs(temptrace) < Inf))))
     lsamples <- nrow(temptrace)
     if(minESS >= totake){
@@ -163,12 +112,16 @@ for(achain in chainlist){
         topick <- round(seq(from=1, to=lsamples, length.out=totake))
     ##
     traces <- rbind(traces, temptrace[topick,])
-    mcsamples <- rbind(mcsamples, readRDS(file=paste0(outputdir,'/_mcsamples',basename,achain,'-F.rds'))[topick,])
+    mcsamples <- rbind(mcsamples, readRDS(file=paste0('_mcsamples',basename,achain,'-F.rds'))[topick,])
     remainingsamples <- remainingsamples - totake
 }
 ##
 ## parmList <- mcsamples2parmlist(mcsamples, realVars, integerVars, categoryVars, binaryVars)
-saveRDS(mcsamples,file=paste0(outputdir,'/_jointmcsamples-',outputdir,'-',totsamples,'.rds'))
+saveRDS(mcsamples,file=paste0('_jointmcsamples-',basename,'-',totsamples,'.rds'))
+saveRDS(traces,file=paste0('_jointtraces-',basename,'-',totsamples,'.rds'))
+traces2 <- traces[apply(traces,1,function(x){all(is.finite(x))}),]
+flagll <- nrow(traces) != nrow(traces2)
+
 ##
 ## Traces
 ## Data (standardized for real variates)
@@ -200,14 +153,14 @@ saveRDS(mcsamples,file=paste0(outputdir,'/_jointmcsamples-',outputdir,'-',totsam
 ## saveRDS(traces,file=paste0(outputdir,'/_jointprobtraces-',outputdir,'-',totsamples,'.rds'))
 ##
 funMCSE <- function(x){LaplacesDemon::MCSE(x, method='batch.means')$se}
-diagnESS <- LaplacesDemon::ESS(traces * (abs(traces) < Inf))
-diagnIAT <- apply(traces, 2, function(x){LaplacesDemon::IAT(x[is.finite(x)])})
-diagnBMK <- LaplacesDemon::BMK.Diagnostic(traces, batches=4)[,1]
-diagnMCSE <- 100*apply(traces, 2, function(x){funMCSE(x)/sd(x)})
-diagnStat <- apply(traces, 2, function(x){LaplacesDemon::is.stationary(as.matrix(x,ncol=1))})
-diagnBurn <- apply(traces, 2, function(x){LaplacesDemon::burnin(matrix(x[1:(10*trunc(length(x)/10))], ncol=1))})
-diagnBurn2 <- proposeburnin(traces, batches=10)
-diagnThin <- proposethinning(traces)
+diagnESS <- LaplacesDemon::ESS(traces2)
+diagnIAT <- apply(traces2, 2, function(x){LaplacesDemon::IAT(x)})
+diagnBMK <- LaplacesDemon::BMK.Diagnostic(traces2[1:(4*trunc(nrow(traces2)/4)),], batches=4)[,1]
+diagnMCSE <- 100*apply(traces2, 2, function(x){funMCSE(x)/sd(x)})
+diagnStat <- apply(traces2, 2, function(x){LaplacesDemon::is.stationary(as.matrix(x,ncol=1))})
+diagnBurn <- apply(traces2, 2, function(x){LaplacesDemon::burnin(matrix(x[1:(10*trunc(length(x)/10))], ncol=1))})
+diagnBurn2 <- proposeburnin(traces2, batches=10)
+diagnThin <- proposethinning(traces2)
 ##
 cat(paste0('\nESSs (',totsamples/nchains,'): ',paste0(round(diagnESS), collapse=', ')))
 cat(paste0('\nIATs: ',paste0(round(diagnIAT), collapse=', ')))
@@ -226,13 +179,12 @@ names(colpalette) <- colnames(traces)
 
 ## Plot various info and traces
 print('Plotting traces and marginal samples')
-family <- 'Palatino'
 
 ##
 graphics.off()
-pdff(paste0(outputdir,'/jointmcsummary-',outputdir,'-',totsamples),'a4')
+pdff(paste0('jointmcsummary-',basename,'-',totsamples),'a4')
 pdf1 <- dev.cur()
-pdff(paste0(outputdir,'/marginals-',outputdir,'-',totsamples),'a4')
+pdff(paste0('marginals-',basename,'-',totsamples),'a4')
 pdf2 <- dev.cur()
 ## Traces of likelihood and cond. probabilities
 dev.set(pdf1)
@@ -252,59 +204,112 @@ for(avar in colnames(traces)){
 }
 par(mfrow=c(1,1))
 ## Samples of marginal frequency distributions
-if(plotmeans){nfsamples <- totsamples}else{nfsamples <- 64}
-subsample <- round(seq(1,nfsamples, length.out=63))
-for(avar in varNames){#print(avar)
-    if(avar %in% realVars){
-        rg <- signif((variateparameters[avar,c('thmin','thmax')] + 
-                      7*variateparameters[avar,c('datamin','datamax')])/8, 2)
-        if(!is.finite(rg[1])){rg[1] <- diff(variateparameters[avar,c('scale','datamin')])}
-        if(!is.finite(rg[2])){rg[2] <- sum(variateparameters[avar,c('scale','datamax')])}
+if(plotmeans){nfsamples <- totsamples}else{nfsamples <- 100}
+subsample <- round(seq(1,nfsamples, length.out=100))
+for(v in unlist(variate)){#cat(avar)
+    contvar <- varinfo[['type']][v] %in% c('R','O','D')
+    rg <- c(varinfo[['plotmin']][v], varinfo[['plotmax']][v])
+    if(contvar){
         Xgrid <- cbind(seq(rg[1], rg[2], length.out=256))
     }else{
-        rg <- round((variateparameters[avar,c('thmin','thmax')] + 
-                     7*variateparameters[avar,c('datamin','datamax')])/8)
-        Xgrid <- cbind(rg[1]:rg[2])
+        Xgrid <- seq(varinfo[['min']][v], varinfo[['max']][v], length.out=varinfo[['n']][v])
+        Xgrid <- cbind(Xgrid[Xgrid >= rg[1] & Xgrid <= rg[2]])
     }
-    colnames(Xgrid) <- avar
-    plotsamples <- samplesFmc(Y=Xgrid, mcsamples=mcsamples, nfsamples=min(nfsamples,nrow(mcsamples)), inorder=FALSE, variateinfo=variateparameters)
-    ## plotsamples <- samplesF(Y=Xgrid, parmList=parmList, nfsamples=min(nfsamples,nrow(mcsamples)), inorder=FALSE, transform=variateparameters)
-    fiven <- variateparameters[avar,c('datamin','dataQ1','datamedian','dataQ2','datamax')]
+    colnames(Xgrid) <- v
+    plotsamples <- samplesFDistribution(Y=Xgrid, mcsamples=mcsamples, varinfo=varinfo, subsamples=round(seq(1,nrow(mcsamples),length.out=nfsamples)), jacobian=TRUE)
+    ymax <- tquant(apply(plotsamples[,subsample],2,function(x){tquant(x,31/32)}),31/32, na.rm=T)
     ##
-    ymax <- quant(apply(plotsamples,2,function(x){quant(x,99/100)}),99/100, na.rm=T)
     dev.set(pdf1)
-    tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=paste0(palette()[7], '44'), lty=1, lwd=2, xlab=paste0(avar,' (',variateinfo[variate==avar,type],')'), ylab=paste0('frequency',if(avar %in% realVars){' density'}), ylim=c(0, ymax), family=family)
-    if(plotmeans){
-        tplot(x=Xgrid, y=rowMeans(plotsamples), type='l', col=paste0(palette()[1], '88'), lty=1, lwd=3, add=T)
+    if(!(varinfo[['type']][v] %in% c('O','D'))){
+        ##
+        tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=5, alpha=7/8, lty=1, lwd=2,
+              xlab=paste0(v, (if(varinfo[['type']][v] %in% c('I','B','C')){' (discrete)'}else{' (continuous)'})),
+              ylab=paste0('frequency', (if(varinfo[['type']][v] %in% c('R','O','D')){' density'}else{''})),
+              ylim=c(0, ymax), family=family)
+        ##
+        if(plotmeans){
+            tplot(x=Xgrid, y=rowMeans(plotsamples, na.rm=T), type='l', col=1, alpha=0.25, lty=1, lwd=4, add=T)
+        }
+    }else{ # plot of a continuous doubly-bounded variate
+        interior <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
+        tplot(x=Xgrid[interior], y=plotsamples[interior,subsample], type='l', col=5, alpha=7/8, lty=1, lwd=2,
+              xlab=paste0(v, ' (continuous with deltas)'),
+              ylab=paste0('frequency (density)'),
+              ylim=c(0, ymax), family=family)
+        if(length(interior) < length(Xgrid)){
+            tplot(x=Xgrid[-interior], y=plotsamples[-interior,subsample,drop=F]*ymax, type='p', pch=2, cex=2, col=5, alpha=7/8, lty=1, lwd=2, xlab=paste0(v), ylab=paste0('frequency'), ylim=c(0, ymax), family=family,add=T)
+        }
+        if(plotmeans){
+            tplot(x=Xgrid[interior], y=rowMeans(plotsamples, na.rm=T)[interior], type='l', col=1, alpha=0.25, lty=1, lwd=3, add=T)
+            if(length(interior) < length(Xgrid)){
+                tplot(x=Xgrid[-interior], y=rowMeans(plotsamples, na.rm=T)[-interior]*ymax, type='p', pch=2, cex=2, col=1, alpha=0.25, lty=1, lwd=3, add=T)
+            }
+        }
     }
-    abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
     ##
-    if((showdata=='histogram')|(showdata==TRUE & !(avar %in% realVars))){
-        datum <- alldata[[avar]]
-        histo <- thist(datum, n=(if(avar %in% realVars){min(max(10,sqrt(ndata)),100)}else{'i'}))#-exp(mean(log(c(round(sqrt(length(datum))), length(Xgrid))))))
-        histomax <- (if(avar %in% realVars){max(rowMeans(plotsamples))/max(histo$density)}else{1L})
-        tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
-    }else if((showdata=='scatter')|(showdata==TRUE & (avar %in% realVars))){
-        datum <- alldata[[avar]]
-        scatteraxis(side=1, n=NA, alpha='88', ext=8, x=datum+rnorm(length(datum),mean=0,sd=prod(variateparameters[avar,c('precision','scale')])/(if(avar %in% binaryVars){16}else{16})),col=yellow)
+    if((showdata=='histogram')||(showdata==TRUE && !contvar)){
+        datum <- data0[[v]]
+        datum <- datum[!is.na(datum)]
+        ## fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
+        fiven <- fivenum(datum)
+        if(!(varinfo[['type']][v] %in% c('O','D'))){
+            if(contvar){
+                nh <- max(10,round(length(datum)/64))
+            }else{
+                nh <- (varinfo[['max']][v]-varinfo[['min']][v])/(varinfo[['n']][v]-1)
+                nh <- seq(varinfo[['min']][v]-nh/2, varinfo[['max']][v]+nh/2, length.out=varinfo[['n']][v]+1)
+            }
+            histo <- thist(datum, n=nh)
+            histomax <- max(rowMeans(plotsamples))/max(histo$density)
+            tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+        }else{ # histogram for censored variate
+            interior <- which(datum > varinfo[['min']][v] & datum < varinfo[['max']][v])
+            histo <- thist(datum[interior], n=max(10,round(length(interior)/64)))
+            interiorgrid <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
+            histomax <- max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
+            tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+            ##
+            pborder <- sum(datum <= varinfo[['min']][v])/length(datum)
+            if(pborder > 0){
+                tplot(x=varinfo[['min']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
+            }
+            ##
+            pborder <- sum(datum >= varinfo[['max']][v])/length(datum)
+            if(pborder > 0){
+                tplot(x=varinfo[['max']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
+            }
+        }
+        abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
+    }else if((showdata=='scatter')|(showdata==TRUE & contvar)){
+        datum <- data0[[v]]
+        datum <- datum[!is.na(datum)]
+        diffdatum <- c(apply(cbind(c(0,diff(datum)),c(diff(datum),0)),1,min))/2
+        scatteraxis(side=1, n=NA, alpha='88', ext=8,
+                    x=datum+runif(length(datum),
+                                  min=-min(diff(sort(unique(datum))))/4,
+                                  max=min(diff(sort(unique(datum))))/4),
+                                  col=yellow)
     }
     ##
     dev.set(pdf2)
-    marguncertainty <- t(apply(plotsamples, 1, function(x){quant(x, c(1,31)/32)}))
-    tplot(x=Xgrid, y=rowMeans(plotsamples), type='l', col=paste0(palette()[1]), lty=1, lwd=3, xlab=paste0(avar,' (',variateinfo[variate==avar,type],')'), ylab=paste0('frequency',if(avar %in% realVars){' density'}), ylim=c(0, ymax), family=family)
+    marguncertainty <- t(apply(plotsamples, 1, function(x){tquant(x, c(1,31)/32)}))
+    tplot(x=Xgrid, y=rowMeans(plotsamples), type='l', col=1, lty=1, lwd=3, xlab=paste0(v), ylab=paste0('frequency', (if(varinfo[['type']][v] %in% c('R','O','D')){' density'}else{''})),
+          ylim=c(0, ymax), family=family)
     ##  93.75% marginal credibility intervals
     plotquantiles(x=Xgrid, y=marguncertainty, col=4, alpha=0.75)
     abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
     ##
-    if((showdata=='histogram')|(showdata==TRUE & !(avar %in% realVars))){
-        tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
-    }else if((showdata=='scatter')|(showdata==TRUE & (avar %in% realVars))){
-        scatteraxis(side=1, n=NA, alpha='88', ext=8, x=datum+rnorm(length(datum),mean=0,sd=prod(variateparameters[avar,c('precision','scale')])/(if(avar %in% binaryVars){16}else{16})),col=yellow)
+    if((showdata=='histogram')||(showdata==TRUE && !contvar)){
+        tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+    }else if((showdata=='scatter')|(showdata==TRUE & contvar)){
+        scatteraxis(side=1, n=NA, alpha='88', ext=8,
+                    x=datum+runif(length(datum),
+                                  min=-min(diff(sort(unique(datum))))/4,
+                                  max=min(diff(sort(unique(datum))))/4),
+                                  col=yellow)
     }
 ##
 }
 dev.off(pdf1)
 dev.off(pdf2)
 cat('\nDone\n\n')
-
-

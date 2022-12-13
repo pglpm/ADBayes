@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-12T15:27:42+0100
+## Last-Updated: 2022-12-13T15:42:57+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,7 +8,7 @@
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_ingrid1' # *** ## Base name of output directory
+baseversion <- '_ingrid3' # *** ## Base name of output directory
 ## datafile <- 'testdataS1.csv'#'ingrid_data_nogds6.csv' #***
 datafile <- 'ingrid_data_nogds6.csv' #***
 predictorfile <- 'predictors.csv'
@@ -22,13 +22,13 @@ posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
 savetempsamples <- FALSE # save temporary MCMC samples
 plottempdistributions <- FALSE # plot temporary sampled distributions
-showdata <- 'histogram' # 'histogram' 'scatter' FALSE TRUE
+showdata <- TRUE # 'histogram' 'scatter' FALSE TRUE
 plotmeans <- FALSE # plot frequency averages
 totsamples <- 100 # number of samples if plotting frequency averages
 ##
 niter0 <- 1024L * 1L # 3L # iterations burn-in
 nclusters <- 64L
-alpha0 <- c(0.5, 1, 2)
+alpha0 <- 2^((-3):3)
 casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
 family <- 'Palatino'
@@ -40,8 +40,8 @@ family <- 'Palatino'
 if(!exists('tplot')){source('~/work/pglpm_plotfunctions.R')}
 ##
 ## Read MCMC seed from command line
-mcmcseed = as.integer(commandArgs(trailingOnly=TRUE))[1]
-if(is.na(mcmcseed) | (!is.na(mcmcseed) & mcmcseed <=0)){mcmcseed <- 1}
+mcmcseed <- as.integer(commandArgs(trailingOnly=TRUE))[1]
+if(is.na(mcmcseed) || (!is.na(mcmcseed) && mcmcseed <= 0)){mcmcseed <- 1}
 cat(paste0('\nMCMC seed = ',mcmcseed,'\n'))
 ##
 set.seed(701+mcmcseed)
@@ -176,7 +176,7 @@ constants <- c(
 initsFunction <- function(){
     c(
         if(nalpha > 1){list( # distribution over concentration parameter
-                           Alpha = 2,
+                           Alphaindex = length(alpha0),
                            probalpha0 = rep(1/nalpha, nalpha),
                            walpha0 = matrix(alpha0/nclusters,
                                             nrow=nalpha, ncol=nclusters)
@@ -239,8 +239,8 @@ initsFunction <- function(){
 #### Mathematical representation of long-run frequency distributions
 finitemix <- nimbleCode({
     if(nalpha > 1){# distribution over concentration parameter
-        Alpha ~ dcat(prob=probalpha0[1:nalpha])
-        W[1:nclusters] ~ ddirch(alpha=walpha0[Alpha, 1:nclusters])
+        Alphaindex ~ dcat(prob=probalpha0[1:nalpha])
+        W[1:nclusters] ~ ddirch(alpha=walpha0[Alphaindex, 1:nclusters])
     }else{
         W[1:nclusters] ~ ddirch(alpha=walpha0[1:nclusters])
     }
@@ -431,7 +431,7 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
                                 ## if(posterior && len$B > 0){'Bdata'},
                                 ## if(posterior && len$C > 0){'Cdata'},
                                 ## 'Icont',
-                                if(nalpha > 1){'Alpha'},
+                                if(nalpha > 1){'Alphaindex'},
                                 if(posterior){'K'}
                             )
                             )
@@ -440,7 +440,7 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
 ## takename <- function(x){sub('([^[]+)(.*)','\\1',confnimble$getSamplers(ind=x)[[1]]$target)}
 ## orde <- confnimble$getSamplerExecutionOrder()
 ## norde <- sapply(orde,function(i){sub('([^[]+)(.*)','\\1',confnimble$getSamplers(ind=i)[[1]]$target)})
-## mysampleorder <- c( 'Rdata', 'Ldata', 'Tauxint', 'Tdatacont', 'Iauxcont', 'Idataint', 'Bdata', 'Cdata', 'K', 'Rrate', 'Lrate', 'Trate', 'Irate', 'Rvar', 'Rmean', 'Lvar', 'Lmean', 'Tvar', 'Tmean', 'Ivar', 'Imean', 'Bprob', 'Cprob', 'W', 'Alpha' )
+## mysampleorder <- c( 'Rdata', 'Ldata', 'Tauxint', 'Tdatacont', 'Iauxcont', 'Idataint', 'Bdata', 'Cdata', 'K', 'Rrate', 'Lrate', 'Trate', 'Irate', 'Rvar', 'Rmean', 'Lvar', 'Lmean', 'Tvar', 'Tmean', 'Ivar', 'Imean', 'Bprob', 'Cprob', 'W', 'Alphaindex' )
 ## newsampleorder <- unlist(sapply(mysampleorder, function(v){which(norde == v)}))
 ## ##
 ## confnimble$setSamplerExecutionOrder(newsampleorder)
@@ -477,6 +477,13 @@ while(continue){
         set.seed(mcmcseed+stage+100)
         Cfinitemixnimble$setInits(initsFunction())
         newmcsamples <- Cmcsampler$run(niter=niter+1, thin=thin, thin2=niter, nburnin=1, time=T)
+        samplertimes <- Cmcsampler$getTimes()
+        names(samplertimes) <- sapply(confnimble$getSamplers(),function(x)x$target)
+        ## sum(samplertimes[grepl('^Rdata',names(samplertimes))])
+        ##
+        sprefixes <- unique(sub('^([^[]+)(\\[.*\\])', '\\1', names(samplertimes)))
+        cat(paste0('\nSampler times:\n'))
+        sort(sapply(sprefixes, function(x)sum(samplertimes[grepl(x,names(samplertimes))])),decreasing=T)
 ##        newmcsamples <- Cmcsampler$run(niter=1024, thin=1, thin2=1, nburnin=0, time=T)
     ## }else if(is.character(resume)){# continuing previous # must be fixed
     ##     initsc <- readRDS(paste0(dirname,resume))
@@ -489,26 +496,13 @@ while(continue){
     }else{# subsequent sampling stages
         cat('\nForecasted computation time: ')
         print(comptime*thin*niter)
-        newmcsamples <- Cmcsampler$run(niter=niter*thin, thin=thin, thin2=niter*thin, reset=FALSE, resetMV=TRUE)
+        newmcsamples <- Cmcsampler$run(niter=niter*thin, thin=thin, thin2=niter*thin, reset=FALSE, resetMV=TRUE, time=F)
     }
     ##
     totaliter <- totaliter + niter*thin
     newmcsamples <- as.matrix(Cmcsampler$mvSamples)
     cat('\nTime MCMC: ')
     print(Sys.time() - calctime)
-    ##
-    ## ## Check sample-time partition
-    ## times <- Cmcsampler$getTimes()
-    ## names(times) <- sapply(confnimble$getSamplers(),function(x)x$target)
-    ## ##
-    ## cbind(sort(times[c('C[1]','q[1:64]','meanR[1, 1]', 'varR[1, 1]', 'probB[1, 1]', 'probC[1, 1, 1:21]', 'varRrate[1]')]))
-    ## ##
-    ## test <- sapply(c('C','q','meanR', 'varR', 'probB', 'probC', 'varRrate'),
-    ##        function(x){
-    ##            sum(times[grep(paste0('^',x),names(times))])
-    ##        })
-    ## names(test) <- c('C','q','meanR', 'varR', 'probB', 'probC', 'varRrate')
-    ## cbind(sort(test))
     ##
     if(any(is.na(newmcsamples))){cat('\nWARNING: SOME NA OUTPUTS')}
     if(any(!is.finite(newmcsamples))){cat('\nWARNING: SOME INFINITE OUTPUTS')}
@@ -541,12 +535,12 @@ while(continue){
             predictands <- as.vector(unlist(read.csv(predictandfile, header=F)))
             predictors <- setdiff(unlist(variate), predictands)
         }else{warning('predictors and predictands both missing')}
-        ll <- colSums(log(samplesFDistribution(Y=data.matrix(data0), X=NULL, mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) #- sum(log(invjacobian(data.matrix(data0), varinfo)), na.rm=T)
+        ll <- colSums(log(samplesFDistribution(Y=data.matrix(data0), X=NULL, mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE)), na.rm=T) #- sum(log(invjacobian(data.matrix(data0), varinfo)), na.rm=T)
         if(!posterior && !any(is.finite(ll))){
             ll <- rep(0, length(ll))
         }
-        lld <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictands]), X=data.matrix(data0[,..predictors]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) # - sum(log(invjacobian(data.matrix(data0[,..predictands]), varinfo)), na.rm=T)
-        lli <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictors]), X=data.matrix(data0[,..predictands]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE))) #- sum(log(invjacobian(data.matrix(data0[,..predictors]), varinfo)), na.rm=T)
+        lld <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictands]), X=data.matrix(data0[,..predictors]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE)), na.rm=T) # - sum(log(invjacobian(data.matrix(data0[,..predictands]), varinfo)), na.rm=T)
+        lli <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictors]), X=data.matrix(data0[,..predictands]), mcsamples=newmcsamples, varinfo=varinfo, jacobian=FALSE)), na.rm=T) #- sum(log(invjacobian(data.matrix(data0[,..predictors]), varinfo)), na.rm=T)
         ##
         traces <- rbind(traces,
                         10/log(10)/ndata *
@@ -735,15 +729,21 @@ dev.off()
                     ## fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
                     fiven <- fivenum(datum)
                     if(!(varinfo[['type']][v] %in% c('O','D'))){
-                        histo <- thist(datum, n=max(10,round(ndata/64)))
+                        if(contvar){
+                            nh <- max(10,round(length(datum)/64))
+                        }else{
+                            nh <- (varinfo[['max']][v]-varinfo[['min']][v])/(varinfo[['n']][v]-1)
+                            nh <- seq(varinfo[['min']][v]-nh/2, varinfo[['max']][v]+nh/2, length.out=varinfo[['n']][v]+1)
+                        }
+                        histo <- thist(datum, n=nh)
                         histomax <- max(rowMeans(plotsamples))/max(histo$density)
-                        tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                        tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
                     }else{ # histogram for censored variate
                         interior <- which(datum > varinfo[['min']][v] & datum < varinfo[['max']][v])
                         histo <- thist(datum[interior], n=max(10,round(length(interior)/64)))
                         interiorgrid <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
                         histomax <- max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
-                        tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=NA, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                        tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
                         ##
                         pborder <- sum(datum <= varinfo[['min']][v])/length(datum)
                         if(pborder > 0){

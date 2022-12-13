@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-12T13:44:56+0100
+## Last-Updated: 2022-12-13T14:22:35+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -531,7 +531,10 @@ foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
                  }else{0})
         ) # end probX
         }
-        ##
+    ##
+    if(all(is.na(y))){
+        probY <- NA
+        }else{
         probY <- t( # rows: MCsamples, cols: clusters
         (if(yn$D > 0){
                      colSums(
@@ -611,6 +614,7 @@ foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
                          na.rm=F)
                  }else{0})
         ) # end probY
+        }
         ##
         ## ## Other approaches tested for roundoff error
         ## testc2 <- rowSums(exp(probX2 + probY - log(rowSums(exp(probX2)))))
