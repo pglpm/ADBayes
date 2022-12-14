@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-13T18:22:20+0100
+## Last-Updated: 2022-12-14T10:03:39+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -8,9 +8,11 @@ if(!exists('tplot')){source('~/work/pglpm_plotfunctions.R')}
 
 #rm(list=ls())
 
-outputdir <- '_ingrid1'
+outputdir <- NA
+extratitle <- 'alldata'
 totsamples <- 4096L
-datafile <- 'ingrid_data_nogds6.csv' #***
+datafile <- 'ingrid_data_nogds6.csv'
+## datafile <- 'ingriddatalearn.csv' #***
 predictorfile <- 'predictors.csv'
 predictandfile <- NULL # 'predictors.csv'
 functionsfile <- 'functionsmcmc_2212120902.R'
@@ -182,9 +184,9 @@ print('Plotting traces and marginal samples')
 
 ##
 graphics.off()
-pdff(paste0('jointmcsummary-',basename,'-',totsamples),'a4')
+pdff(paste0('jointmcsummary',extratitle,'-',basename,'-',totsamples),'a4')
 pdf1 <- dev.cur()
-pdff(paste0('marginals-',basename,'-',totsamples),'a4')
+pdff(paste0('marginals',extratitle,'-',basename,'-',totsamples),'a4')
 pdf2 <- dev.cur()
 ## Traces of likelihood and cond. probabilities
 dev.set(pdf1)
@@ -218,6 +220,14 @@ for(v in unlist(variate)){#cat(avar)
     colnames(Xgrid) <- v
     plotsamples <- samplesFDistribution(Y=Xgrid, mcsamples=mcsamples, varinfo=varinfo, subsamples=round(seq(1,nrow(mcsamples),length.out=nfsamples)), jacobian=TRUE)
     ymax <- tquant(apply(plotsamples[,subsample],2,function(x){tquant(x,31/32)}),31/32, na.rm=T)
+    if((showdata=='histogram' || showdata==TRUE) && !contvar){
+        datum <- data0[[v]]
+        datum <- datum[!is.na(datum)]
+        nh <- (varinfo[['max']][v]-varinfo[['min']][v])/(varinfo[['n']][v]-1)
+        nh <- seq(varinfo[['min']][v]-nh/2, varinfo[['max']][v]+nh/2, length.out=varinfo[['n']][v]+1)
+        histo <- thist(datum, n=nh)
+        ymax <- max(ymax,histo$counts/sum(histo$counts))
+    }
     ##
     dev.set(pdf1)
     if(!(varinfo[['type']][v] %in% c('O','D'))){
@@ -260,14 +270,18 @@ for(v in unlist(variate)){#cat(avar)
                 nh <- seq(varinfo[['min']][v]-nh/2, varinfo[['max']][v]+nh/2, length.out=varinfo[['n']][v]+1)
             }
             histo <- thist(datum, n=nh)
-            histomax <- max(rowMeans(plotsamples))/max(histo$density)
-            tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+            if(contvar){
+                histomax <- max(rowMeans(plotsamples))/max(histo$density)
+                tplot(x=histo$mids, y=histo$density*histomax, col=7, lty=2, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+            }else{
+                tplot(x=histo$mids, y=histo$counts/sum(histo$counts), col=7, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
+            }
         }else{ # histogram for censored variate
             interior <- which(datum > varinfo[['min']][v] & datum < varinfo[['max']][v])
             histo <- thist(datum[interior], n=max(10,round(length(interior)/64)))
             interiorgrid <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
             histomax <- max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
-            tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+            tplot(x=histo$mids, y=histo$density*histomax, col=7, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
             ##
             pborder <- sum(datum <= varinfo[['min']][v])/length(datum)
             if(pborder > 0){
@@ -300,7 +314,11 @@ for(v in unlist(variate)){#cat(avar)
     abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
     ##
     if((showdata=='histogram')||(showdata==TRUE && !contvar)){
-        tplot(x=histo$breaks, y=histo$density*histomax, col=grey, alpha=0.75, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+        if(contvar){
+            tplot(x=histo$mids, y=histo$density*histomax, col=grey, alpha=0.5, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
+        }else{
+            tplot(x=histo$mids, y=histo$counts/sum(histo$counts), col=grey, alpha=0.5, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
+}
     }else if((showdata=='scatter')|(showdata==TRUE & contvar)){
         scatteraxis(side=1, n=NA, alpha='88', ext=8,
                     x=datum+runif(length(datum),

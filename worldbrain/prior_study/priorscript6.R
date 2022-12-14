@@ -25,6 +25,223 @@ if(ncores>1){
 set.seed(123)
 nn <- 32
 
+#### Currently used ####
+
+#### continuous case
+####  @@@
+setwd('~/repositories/ADBayes/worldbrain/prior_study')
+sd2iqr <- 0.5/qnorm(0.75)
+dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
+varinfo <- data.matrix(read.csv('~/repositories/ADBayes/worldbrain/scripts/varinfo.csv',row.names=1))
+graphics.off()
+pdff('samples_real_3shapes')
+for(varindex in c('AGE','LRHHC_n_long')){
+if(!is.na(varindex)){
+    data <- log(dt[[varindex]])
+    data <- data[!is.na(data)]
+}else{data <- NULL}
+set.seed(123)
+## tran <- function(x){qnorm(x*(1-2*dd)+dd)}
+## jac <- function(x){1/dnorm(x*(1-2*dd)+dd)*(1-2*dd)}
+xlocation <- median(data,na.rm=T)
+xscale <- IQR(data,na.rm=T)*sd2iqr #diff(tquant(data,c(1,7)/8))
+xmin <- varinfo[varindex,'plotmin']
+xmax <- varinfo[varindex,'plotmax']
+tran <- function(x){(x-xlocation)/xscale}
+invtran <- function(y){y*xscale+xlocation}
+jac <- function(y){1/xscale}
+##
+fract <- 400
+nsamples <- fract*4
+nclusters <- 64
+alphas <- 2^((-3):3)
+means <- c(0)
+sds <- c(2)
+shape1s <- c(1,0.5,2) # large scales
+shape2s <- c(1,0.5,2) # small scales
+sameshape <- FALSE
+scales <- c(1)^-2
+##
+alpha <- sample(rep(alphas,2),nsamples,replace=T)
+q <- extraDistr::rdirichlet(n=nsamples,alpha=matrix(alpha/nclusters,nsamples,nclusters))
+sd <- sample(rep(sds,2),nsamples*nclusters,replace=T)
+m <- matrix(rnorm(nsamples*nclusters,means,sd),nsamples)
+shape1 <- sample(rep(shape1s,2),nsamples*nclusters,replace=T)
+if(sameshape){shape2 <- shape1}else{
+                                  shape2 <- sample(rep(shape2s,2),nsamples*nclusters,replace=T)
+                              }
+scaleprec <- sample(rep(scales,2),nsamples*nclusters,replace=T)
+s <- matrix(sqrt(nimble::rinvgamma(nsamples*nclusters,shape=shape1,rate=nimble::rinvgamma(nsamples*nclusters,shape=shape2,scale=scaleprec))),nsamples)
+##
+txgrid <- seq(-5, 5, length.out=256)
+xgrid <- invtran(txgrid)
+ysum <- 0
+## tplot(x=xgrid,y=dnorm(txgrid)*jac(xgrid))
+par(mfrow=c(20,20),mar = c(0,0,0,0))
+for(i in 1:nsamples){
+    y <- rowSums(sapply(1:nclusters,function(acluster){
+        dens <- dnorm(txgrid, m[i,acluster], s[i,acluster])*jac(txgrid)
+        q[i,acluster]*dens}))
+    ysum <- ysum+y
+    if(i<fract | i==nsamples){
+    if(i==nsamples){y <- ysum/nsamples}
+    if(!is.null(data)){
+        his <- thist(data)
+        ymax <- max(y,his$density)
+    }else{ymax <- NULL}
+    tplot(x=xgrid, y=y,
+          ylim=c(0,max(y,ymax)),xlim=range(xgrid),
+          xlabels=NA,ylabels=NA, xlab=NA,ylab=NA,
+          xticks=NA,yticks=NA,
+          mar=c(1,1,1,1)*0.5,
+          col=if(i<fract){1}else{if(any(is.infinite(ysum))){2}else{3}}, ly=1,lwd=0.5)
+    ## tplot(x=xgrid[extr2], y=y[extr2],
+    ##       type='p',col=4,cex=0.15,add=T,pch=3)
+    if(!is.null(data)){
+        tplot(x=his$mids,y=his$density,type='l',lwd=0.5,add=T,alpha=0.25,col=4)
+    }
+    abline(h=c(0),lwd=0.5,col=alpha2hex(0.5,c(7,2)),lty=c(1,2))
+    if(i==nsamples){
+        abline(v=invtran(c(-1,1)),lwd=0.5,col=alpha2hex(0.5,c(2)),lty=1)
+        ## abline(v=c(xmin,xmax),lwd=0.5,col=alpha2hex(0.5,7),lty=2)
+    }
+    }
+}
+}
+dev.off()
+
+
+#### @@@
+#### Integer
+#### with norm transformation IV
+dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
+varinfo <- readRDS('~/repositories/ADBayes/worldbrain/scripts/varinfo.rds')
+pregrid <- 1
+graphics.off()
+pdff(paste0('samples_integer_simplehalf'))
+variates <- names(varinfo[['type']])[varinfo[['type']] == 'I']
+nns <- sapply(variates,function(xxx){varinfo[['n']][xxx]})
+variates <- variates[order(nns)]
+for(v in variates){
+    set.seed(103)
+nint <- varinfo[['n']][v]
+    data <- dt[[v]]
+    data <- data[!is.na(data)]
+## dd <- qnorm(0.5/nint)/2 + 0.5
+## tran <- function(x){(x*(1-2*dd)+dd)*2-1}
+## dd <- pnorm(qnorm(0.5/nint))
+## tran <- function(x){qnorm(x*(1-2*dd)+dd)}
+## invtran <- function(y){(pnorm(y)-dd)/(1-2*dd)}
+nmin <- 0
+nmax <- nint-1
+dd <- (nint-2)/(2*nint^2)#
+## dd <- pnorm(qnorm(1/2/nint))
+tran <- function(x){qnorm((x-nmin)/(nmax-nmin)*(1-2*dd)+dd)}
+## invtran <- function(y){(pnorm(y)-dd)/(1-2*dd)}
+nsamples <- 400*8
+nsubsamples <- 400
+nclusters <- 64
+alphas <- 2^((-3):3)
+means <- c(0)
+shapemeans <- c(512) # set to high value to mimick a delta, leading to gaussian for m
+scalemeans <- shapemeans * (7/8)^2#1/1^2
+shape1s <- c(1/2) # large scales
+    shape2s <- c(1) # small scales
+    sameshape <- TRUE
+## scalevars <- (1/4)^2
+scalevars <- c(1/4)^2
+##
+alpha <- sample(rep(alphas,2),nsamples,replace=T)
+q <- extraDistr::rdirichlet(n=nsamples,alpha=matrix(alpha/nclusters,nsamples,nclusters))
+shapemean <- sample(rep(shapemeans,2),nsamples*nclusters,replace=T)
+scalemean <- sample(rep(scalemeans,2),nsamples*nclusters,replace=T)
+sd <- matrix(sqrt(nimble::rinvgamma(nsamples*nclusters,shape=shapemean,scale=scalemean)),nsamples)
+## thist(log10(sd),plot=T)
+m <- matrix(rnorm(nsamples*nclusters,means,sd),nsamples)
+## thist(m,plot=T)
+shape1 <- sample(rep(shape1s,2),nsamples*nclusters,replace=T)
+if(sameshape){shape2 <- shape1}else{
+                                  shape2 <- sample(rep(shape2s,2),nsamples*nclusters,replace=T)
+                              }
+scalevar <- sample(rep(scalevars,2),nsamples*nclusters,replace=T)
+s <- matrix(sqrt(nimble::rinvgamma(nsamples*nclusters,shape=shape1,rate=nimble::rinvgamma(nsamples*nclusters,shape=shape2,rate=scalevar))),nsamples)
+##
+par(mfrow=c(20,20),mar = c(0,0,0,0))
+xgrid <- seq(nmin,nmax,length.out=nint)
+extr <- c(1,length(xgrid))
+mgrid <- (xgrid[-extr[2]]+xgrid[-extr[1]])/2
+mextr <- c(1,length(mgrid))
+txgrid <- tran(xgrid)
+if(pregrid){
+    mgrid <- (xgrid[-extr[2]]+xgrid[-extr[1]])/2
+    tmgrid <- tran(mgrid)
+}else{
+    tmgrid <- (txgrid[-extr[2]]+txgrid[-extr[1]])/2
+    }
+##tmgrid <- (txgrid[-extr[2]]+txgrid[-extr[1]])/2
+dx <- 2/(nint-1)
+ysum <- 0
+for(i in 1:nsamples){
+    y <- rowSums(sapply(1:nclusters,function(acluster){
+        dens <- c(
+            pnorm(tmgrid[mextr[1]], m[i,acluster], s[i,acluster]),
+            pnorm(tmgrid[-mextr[1]], m[i,acluster], s[i,acluster]) - pnorm(tmgrid[-mextr[2]], m[i,acluster], s[i,acluster]),
+            pnorm(tmgrid[mextr[2]], m[i,acluster], s[i,acluster], lower.tail=F)
+        )
+        q[i,acluster]*dens}))
+    ## y2 <- rowSums(sapply(1:nclusters,function(acluster){
+    ##     dens <- dnorm(xgrid, m[i,acluster], s[i,acluster])*2*dx
+    ##     dens[extr[1]] <- pnorm(xgrid[extr[1]], m[i,acluster], s[i,acluster])
+    ##     dens[extr[2]] <- pnorm(xgrid[extr[2]], m[i,acluster], s[i,acluster], lower.tail=F)
+    ##     q[i,acluster]*dens}))
+    ysum <- ysum+y
+    if(i<nsubsamples|i==nsamples){
+    if(i==nsamples){y <- ysum/nsamples}
+    #y2 <- y2*max(y[-extr])/max(y2[-extr])
+    ## y[extr] <- y[extr] * max(y[-extr])
+    if(!is.null(data)){
+        his <- thist(data,n='i')
+        ymax <- max(y,his$density)
+    }else{ymax <- NULL}
+    tplot(x=xgrid, y=y, #y=list(y,y2),
+          ylim=c(0,max(y,ymax)),xlim=range(xgrid),
+          xlabels=NA,ylabels=NA, xlab=NA,ylab=NA,
+          xticks=NA,yticks=NA,
+          mar=c(1,1,1,1)*0.5,
+          col=c(if(i<nsubsamples){1}else{if(any(is.infinite(ysum))){2}else{3}},4), ly=1,lwd=0.5)
+    if(!is.null(data)){
+        tplot(x=his$mids,y=his$density,type='l',lwd=0.5,add=T,alpha=0.25,col=4)
+    }
+    tplot(x=xgrid, y=y,type='p',cex=0.2,
+          ylim=c(0,NA),xlim=range(xgrid),
+          xlabels=NA,ylabels=NA, xlab=NA,ylab=NA,
+          xticks=NA,yticks=NA,
+          mar=c(1,1,1,1)*0.5,add=T,
+          col=if(i<nsubsamples){1}else{if(any(is.infinite(ysum))){2}else{3}}, ly=1,lwd=0.5)
+    tplot(x=xgrid[extr], y=y[extr],
+          type='p',cex=0.075,col=3,add=T)
+    ## tplot(x=xgrid[extr], y=y[extr], type='p',cex=0.1,add=T)
+    abline(h=0,lwd=0.5,col=alpha2hex(0.5,7),lty=1)
+    if(i==nsamples){
+        abline(h=c(1/nint),lwd=0.5,col=alpha2hex(0.5,c(2)),lty=1)
+    }
+    ## abline(v=,lwd=0.5,col=alpha2hex(0.5,7),lty=2)
+    }
+}
+}
+dev.off()
+
+
+
+
+########################
+
+
+
+
+
+
+
 ## 6.54423 is the largest value produced by rnorm that I have seen
 ## 1e-3 -> 2^-10
 ## 1e-4 -> 2^-14
@@ -135,117 +352,7 @@ for(i in 1:nsamples){
 }
 dev.off()
 
-#### @@@
-#### Integer
-#### with norm transformation IV
-dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
-varinfo <- readRDS('~/repositories/ADBayes/worldbrain/scripts/varinfo.rds')
-pregrid <- 1
-graphics.off()
-pdff(paste0('samples_integer_check'))
-for(v in names(varinfo[['type']])[varinfo[['type']] == 'I']){
-    set.seed(103)
-nint <- varinfo[['n']][v]
-data <- dt[[v]]
-## dd <- qnorm(0.5/nint)/2 + 0.5
-## tran <- function(x){(x*(1-2*dd)+dd)*2-1}
-## dd <- pnorm(qnorm(0.5/nint))
-## tran <- function(x){qnorm(x*(1-2*dd)+dd)}
-## invtran <- function(y){(pnorm(y)-dd)/(1-2*dd)}
-nmin <- 0
-nmax <- nint-1
-dd <- (nint-2)/(2*nint^2)#
-## dd <- pnorm(qnorm(1/2/nint))
-tran <- function(x){qnorm((x-nmin)/(nmax-nmin)*(1-2*dd)+dd)}
-## invtran <- function(y){(pnorm(y)-dd)/(1-2*dd)}
-nsamples <- 400*8
-nsubsamples <- 400
-nclusters <- 64
-alphas <- c(0.25,0.5,1,2,4)
-means <- c(0)
-shapemeans <- c(512) # set to high value to mimick a delta, leading to gaussian for m
-scalemeans <- shapemeans * (7/8)^2#1/1^2
-shape1s <- c(1) # large scales
-shape2s <- c(1) # small scales
-scalevars <- (1/4)^2
-##
-alpha <- sample(rep(alphas,2),nsamples,replace=T)
-q <- extraDistr::rdirichlet(n=nsamples,alpha=matrix(alpha/nclusters,nsamples,nclusters))
-shapemean <- sample(rep(shapemeans,2),nsamples*nclusters,replace=T)
-scalemean <- sample(rep(scalemeans,2),nsamples*nclusters,replace=T)
-sd <- matrix(sqrt(nimble::rinvgamma(nsamples*nclusters,shape=shapemean,scale=scalemean)),nsamples)
-## thist(log10(sd),plot=T)
-m <- matrix(rnorm(nsamples*nclusters,means,sd),nsamples)
-## thist(m,plot=T)
-shape1 <- sample(rep(shape1s,2),nsamples*nclusters,replace=T)
-shape2 <- sample(rep(shape2s,2),nsamples*nclusters,replace=T)
-scalevar <- sample(rep(scalevars,2),nsamples*nclusters,replace=T)
-s <- matrix(sqrt(nimble::rinvgamma(nsamples*nclusters,shape=shape1,rate=nimble::rinvgamma(nsamples*nclusters,shape=shape2,rate=scalevar))),nsamples)
-##
-par(mfrow=c(20,20),mar = c(0,0,0,0))
-xgrid <- seq(nmin,nmax,length.out=nint)
-extr <- c(1,length(xgrid))
-mgrid <- (xgrid[-extr[2]]+xgrid[-extr[1]])/2
-mextr <- c(1,length(mgrid))
-txgrid <- tran(xgrid)
-if(pregrid){
-    mgrid <- (xgrid[-extr[2]]+xgrid[-extr[1]])/2
-    tmgrid <- tran(mgrid)
-}else{
-    tmgrid <- (txgrid[-extr[2]]+txgrid[-extr[1]])/2
-    }
-##tmgrid <- (txgrid[-extr[2]]+txgrid[-extr[1]])/2
-dx <- 2/(nint-1)
-ysum <- 0
-for(i in 1:nsamples){
-    y <- rowSums(sapply(1:nclusters,function(acluster){
-        dens <- c(
-            pnorm(tmgrid[mextr[1]], m[i,acluster], s[i,acluster]),
-            pnorm(tmgrid[-mextr[1]], m[i,acluster], s[i,acluster]) - pnorm(tmgrid[-mextr[2]], m[i,acluster], s[i,acluster]),
-            pnorm(tmgrid[mextr[2]], m[i,acluster], s[i,acluster], lower.tail=F)
-        )
-        q[i,acluster]*dens}))
-    ## y2 <- rowSums(sapply(1:nclusters,function(acluster){
-    ##     dens <- dnorm(xgrid, m[i,acluster], s[i,acluster])*2*dx
-    ##     dens[extr[1]] <- pnorm(xgrid[extr[1]], m[i,acluster], s[i,acluster])
-    ##     dens[extr[2]] <- pnorm(xgrid[extr[2]], m[i,acluster], s[i,acluster], lower.tail=F)
-    ##     q[i,acluster]*dens}))
-    ysum <- ysum+y
-    if(i<nsubsamples|i==nsamples){
-    if(i==nsamples){y <- ysum/nsamples}
-    #y2 <- y2*max(y[-extr])/max(y2[-extr])
-    ## y[extr] <- y[extr] * max(y[-extr])
-    if(!is.null(data)){
-        his <- thist(data,n='i')
-        ymax <- max(y,his$density)
-    }else{ymax <- NULL}
-    tplot(x=xgrid, y=y, #y=list(y,y2),
-          ylim=c(0,max(y,ymax)),xlim=range(xgrid),
-          xlabels=NA,ylabels=NA, xlab=NA,ylab=NA,
-          xticks=NA,yticks=NA,
-          mar=c(1,1,1,1)*0.5,
-          col=c(if(i<nsubsamples){1}else{if(any(is.infinite(ysum))){2}else{3}},4), ly=1,lwd=0.5)
-    if(!is.null(data)){
-        tplot(x=his$mids,y=his$density,type='l',lwd=0.5,add=T,alpha=0.25,col=4)
-    }
-    tplot(x=xgrid, y=y,type='p',cex=0.2,
-          ylim=c(0,NA),xlim=range(xgrid),
-          xlabels=NA,ylabels=NA, xlab=NA,ylab=NA,
-          xticks=NA,yticks=NA,
-          mar=c(1,1,1,1)*0.5,add=T,
-          col=if(i<nsubsamples){1}else{if(any(is.infinite(ysum))){2}else{3}}, ly=1,lwd=0.5)
-    tplot(x=xgrid[extr], y=y[extr],
-          type='p',cex=0.075,col=3,add=T)
-    ## tplot(x=xgrid[extr], y=y[extr], type='p',cex=0.1,add=T)
-    abline(h=0,lwd=0.5,col=alpha2hex(0.5,7),lty=1)
-    if(i==nsamples){
-        abline(h=c(1/nint),lwd=0.5,col=alpha2hex(0.5,c(2)),lty=1)
-    }
-    ## abline(v=,lwd=0.5,col=alpha2hex(0.5,7),lty=2)
-    }
-}
-}
-dev.off()
+
 
 
 ## set.seed(222)
@@ -423,84 +530,6 @@ for(i in 1:nsamples){
 }
 dev.off()
 
-#### continuous case
-####  @@@
-setwd('~/repositories/ADBayes/worldbrain/prior_study')
-sd2iqr <- 0.5/qnorm(0.75)
-dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
-varinfo <- data.matrix(read.csv('~/repositories/ADBayes/worldbrain/scripts/varinfo.csv',row.names=1))
-graphics.off()
-pdff('samples_real')
-for(varindex in c('AGE','LRHHC_n_long')){
-if(!is.na(varindex)){
-    data <- log(dt[[varindex]])
-}else{data <- NULL}
-set.seed(123)
-## tran <- function(x){qnorm(x*(1-2*dd)+dd)}
-## jac <- function(x){1/dnorm(x*(1-2*dd)+dd)*(1-2*dd)}
-xlocation <- median(data,na.rm=T)
-xscale <- IQR(data,na.rm=T)*sd2iqr #diff(tquant(data,c(1,7)/8))
-xmin <- varinfo[varindex,'plotmin']
-xmax <- varinfo[varindex,'plotmax']
-tran <- function(x){(x-xlocation)/xscale}
-invtran <- function(y){y*xscale+xlocation}
-jac <- function(y){1/xscale}
-##
-fract <- 400
-nsamples <- fract*4
-nclusters <- 64
-alphas <- c(1,2,0.5)
-means <- c(0)
-sds <- c(2)
-shape1s <- c(1) # large scales
-shape2s <- c(1) # small scales
-scales <- c(1)^-2
-##
-alpha <- sample(rep(alphas,2),nsamples,replace=T)
-q <- extraDistr::rdirichlet(n=nsamples,alpha=matrix(alpha/nclusters,nsamples,nclusters))
-sd <- sample(rep(sds,2),nsamples*nclusters,replace=T)
-m <- matrix(rnorm(nsamples*nclusters,means,sd),nsamples)
-shape1 <- sample(rep(shape1s,2),nsamples*nclusters,replace=T)
-shape2 <- sample(rep(shape2s,2),nsamples*nclusters,replace=T)
-scaleprec <- sample(rep(scales,2),nsamples*nclusters,replace=T)
-s <- matrix(sqrt(nimble::rinvgamma(nsamples*nclusters,shape=shape1,rate=nimble::rinvgamma(nsamples*nclusters,shape=shape2,scale=scaleprec))),nsamples)
-##
-txgrid <- seq(-5, 5, length.out=256)
-xgrid <- invtran(txgrid)
-ysum <- 0
-## tplot(x=xgrid,y=dnorm(txgrid)*jac(xgrid))
-par(mfrow=c(20,20),mar = c(0,0,0,0))
-for(i in 1:nsamples){
-    y <- rowSums(sapply(1:nclusters,function(acluster){
-        dens <- dnorm(txgrid, m[i,acluster], s[i,acluster])*jac(txgrid)
-        q[i,acluster]*dens}))
-    ysum <- ysum+y
-    if(i<fract | i==nsamples){
-    if(i==nsamples){y <- ysum/nsamples}
-    if(!is.null(data)){
-        his <- thist(data)
-        ymax <- max(y,his$density)
-    }else{ymax <- NULL}
-    tplot(x=xgrid, y=y,
-          ylim=c(0,max(y,ymax)),xlim=range(xgrid),
-          xlabels=NA,ylabels=NA, xlab=NA,ylab=NA,
-          xticks=NA,yticks=NA,
-          mar=c(1,1,1,1)*0.5,
-          col=if(i<fract){1}else{if(any(is.infinite(ysum))){2}else{3}}, ly=1,lwd=0.5)
-    ## tplot(x=xgrid[extr2], y=y[extr2],
-    ##       type='p',col=4,cex=0.15,add=T,pch=3)
-    if(!is.null(data)){
-        tplot(x=his$mids,y=his$density,type='l',lwd=0.5,add=T,alpha=0.25,col=4)
-    }
-    abline(h=c(0),lwd=0.5,col=alpha2hex(0.5,c(7,2)),lty=c(1,2))
-    if(i==nsamples){
-        abline(v=invtran(c(-1,1)),lwd=0.5,col=alpha2hex(0.5,c(2)),lty=1)
-        ## abline(v=c(xmin,xmax),lwd=0.5,col=alpha2hex(0.5,7),lty=2)
-    }
-    }
-}
-}
-dev.off()
 
 
 

@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-13T18:56:34+0100
+## Last-Updated: 2022-12-14T10:35:55+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,7 +8,7 @@
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_ingrid3' # *** ## Base name of output directory
+baseversion <- '_justtest' # *** ## Base name of output directory
 ## datafile <- 'testdataS1.csv'#'ingrid_data_nogds6.csv' #***
 datafile <- 'ingrid_data_nogds6.csv' #***
 predictorfile <- 'predictors.csv'
@@ -16,14 +16,14 @@ predictandfile <- NULL # 'predictors.csv'
 varinfofile <- 'varinfo.rds'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
-ndata <- NULL # set this if you want to use fewer data
+ndata <- 100 # set this if you want to use fewer data
 shuffledata <- FALSE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
 savetempsamples <- FALSE # save temporary MCMC samples
-plottempdistributions <- FALSE # plot temporary sampled distributions
+plottempdistributions <- TRUE # plot temporary sampled distributions
 showdata <- TRUE # 'histogram' 'scatter' FALSE TRUE
-plotmeans <- FALSE # plot frequency averages
+plotmeans <- TRUE # plot frequency averages
 totsamples <- 100 # number of samples if plotting frequency averages
 ##
 niter0 <- 1024L * 1L # 3L # iterations burn-in
@@ -40,7 +40,8 @@ family <- 'Palatino'
 if(!exists('tplot')){source('~/work/pglpm_plotfunctions.R')}
 ##
 ## Read MCMC seed from command line
-mcmcseed <- as.integer(commandArgs(trailingOnly=TRUE))[1]
+arguments <- as.integer(commandArgs(trailingOnly=TRUE))[1]
+mcmcseed <- arguments
 if(is.na(mcmcseed) || (!is.na(mcmcseed) && mcmcseed <= 0)){mcmcseed <- 1}
 cat(paste0('\nMCMC seed = ',mcmcseed,'\n'))
 ##
@@ -57,9 +58,7 @@ cat('\navailableCores: ')
 cat(availableCores())
 cat('\navailableCores-multicore: ')
 cat(availableCores('multicore'))
-if(Sys.info()['nodename']=='luca-HP-Z2-G9'){
-    ncores <- 1}else{
-    ncores <- 6}
+if(!is.na(arguments)){ ncores <- 1 }else{ ncores <- 6 }
 cat(paste0('\nusing ',ncores,' cores\n'))
 if(ncores>1){
     if(.Platform$OS.type=='unix'){
@@ -78,7 +77,8 @@ library('nimble')
 ## READ DATA, META-INFORMATION, HYPERPARAMETERS
 ###############################################
 
-if(Sys.info()['nodename']=='luca-HP-Z2-G9'){origdir <- '../'}else{origdir <- ''}
+## if(Sys.info()['nodename']=='luca-HP-Z2-G9'){origdir <- '../'}else{origdir <- ''}
+if(is.na(arguments)){origdir <- ''}else{origdir <- '../'}
 source(paste0(origdir,'functionsmcmc_2212120902.R')) # load functions for post-MCMC calculations
 ## varinfo <- data.matrix(read.csv(paste0(origdir,varinfofile), row.names=1))
 varinfo <- readRDS(paste0(origdir,varinfofile))
@@ -99,7 +99,7 @@ data0 <- data0[1:ndata]
 
 basename <- paste0(baseversion,'-V',sum(unlist(len)),'-D',ndata,'-K',nclusters,'-I',nsamples)
 ##
-if(Sys.info()['nodename']=='luca-HP-Z2-G9'){
+if(!is.na(arguments)){
     dirname <- ''
 }else{
     dirname <- paste0(basename,'/')
@@ -696,6 +696,14 @@ dev.off()
             if(posterior){
                 par(mfrow=c(1,1))
                 ymax <- tquant(apply(plotsamples[,subsample],2,function(x){tquant(x,31/32)}),31/32, na.rm=T)
+                if((showdata=='histogram' || showdata==TRUE) && !contvar){
+                    datum <- data0[[v]]
+                    datum <- datum[!is.na(datum)]
+                    nh <- (varinfo[['max']][v]-varinfo[['min']][v])/(varinfo[['n']][v]-1)
+                    nh <- seq(varinfo[['min']][v]-nh/2, varinfo[['max']][v]+nh/2, length.out=varinfo[['n']][v]+1)
+                    histo <- thist(datum, n=nh)
+                    ymax <- max(ymax,histo$counts/sum(histo$counts))
+                }
                 if(!(varinfo[['type']][v] %in% c('O','D'))){
                     ##
                     tplot(x=Xgrid, y=plotsamples[,subsample], type='l', col=5, alpha=7/8, lty=1, lwd=2,
@@ -736,14 +744,18 @@ dev.off()
                             nh <- seq(varinfo[['min']][v]-nh/2, varinfo[['max']][v]+nh/2, length.out=varinfo[['n']][v]+1)
                         }
                         histo <- thist(datum, n=nh)
-                        histomax <- max(rowMeans(plotsamples))/max(histo$density)
-                        tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                        if(contvar){
+                            histomax <- max(rowMeans(plotsamples))/max(histo$density)
+                            tplot(x=histo$mids, y=histo$density*histomax, col=7, lty=2, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                        }else{
+                            tplot(x=histo$mids, y=histo$counts/sum(histo$counts), col=7, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
+                        }
                     }else{ # histogram for censored variate
                         interior <- which(datum > varinfo[['min']][v] & datum < varinfo[['max']][v])
                         histo <- thist(datum[interior], n=max(10,round(length(interior)/64)))
                         interiorgrid <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
                         histomax <- max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
-                        tplot(x=histo$breaks, y=histo$density*histomax, col=7, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                        tplot(x=histo$mids, y=histo$density*histomax, col=7, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
                         ##
                         pborder <- sum(datum <= varinfo[['min']][v])/length(datum)
                         if(pborder > 0){
@@ -760,7 +772,10 @@ dev.off()
                     datum <- data0[[v]]
                     datum <- datum[!is.na(datum)]
                     diffdatum <- c(apply(cbind(c(0,diff(datum)),c(diff(datum),0)),1,min))/2
-                    scatteraxis(side=1, n=NA, alpha='88', ext=8, x=rnorm(length(datum),mean=datum,sd=diffdatum),col=yellow)
+                    scatteraxis(side=1, n=NA, alpha='88', ext=8, x=datum+runif(length(datum),
+                                                                               min=-min(diff(sort(unique(datum))))/4,
+                                  max=min(diff(sort(unique(datum))))/4),
+                                col=yellow)
                 }
             }else{
                 par(mfrow=c(8,8),mar = c(0,0,0,0))
