@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-14T19:36:55+0100
+## Last-Updated: 2022-12-14T20:35:04+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -32,6 +32,7 @@ alpha0 <- 2^c(0,-3,-2,-1,1,2,3)
 casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
 showhyperparametertraces <- TRUE ##
+showsamplertimes <- TRUE ##
 family <- 'Palatino'
 ####
 rshapeins <- c(1,0.5,2)
@@ -542,14 +543,14 @@ while(continue){
         set.seed(mcmcseed+stage+100)
         Cfinitemixnimble$setInits(initsFunction())
         if(showhyperparametertraces){thin2=thin}else{thin2=niter}
-        newmcsamples <- Cmcsampler$run(niter=niter+1, thin=thin, thin2=thin2, nburnin=1, time=T)
-        samplertimes <- Cmcsampler$getTimes()
-        names(samplertimes) <- sapply(confnimble$getSamplers(),function(x)x$target)
-        ## sum(samplertimes[grepl('^Rdata',names(samplertimes))])
-        ##
-        sprefixes <- unique(sub('^([^[]+)(\\[.*\\])', '\\1', names(samplertimes)))
-        cat(paste0('\nSampler times:\n'))
-        print(sort(sapply(sprefixes, function(x)sum(samplertimes[grepl(x,names(samplertimes))])),decreasing=T))
+        newmcsamples <- Cmcsampler$run(niter=niter+1, thin=thin, thin2=thin2, nburnin=1, time=showsamplertimes)
+        if(showsamplertimes){
+            samplertimes <- Cmcsampler$getTimes()
+            names(samplertimes) <- sapply(confnimble$getSamplers(),function(x)x$target)
+            sprefixes <- unique(sub('^([^[]+)(\\[.*\\])', '\\1', names(samplertimes)))
+            cat(paste0('\nSampler times:\n'))
+            print(sort(sapply(sprefixes, function(x)sum(samplertimes[grepl(x,names(samplertimes))])),decreasing=T))
+        }
 ##        newmcsamples <- Cmcsampler$run(niter=1024, thin=1, thin2=1, nburnin=0, time=T)
     ## }else if(is.character(resume)){# continuing previous # must be fixed
     ##     initsc <- readRDS(paste0(dirname,resume))
@@ -581,7 +582,7 @@ while(continue){
         cat(paste0('\nSTATS OCCUPIED CLUSTERS:\n'))
         print(summary(occupations))
         ##
-        pdff(paste0('traces_hyperparameters-',mcmcseed,'-'stage))
+        pdff(paste0('traces_hyperparameters-',mcmcseed,'-',stage))
         tplot(y=occupations, ylab='occupied clusters')
         tplot(y=alpha0[finalstate[,'Alphaindex']], ylab='alpha')
         for(vtype in c('R','I','O','D')){
