@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-14T15:51:26+0100
+## Last-Updated: 2022-12-14T16:11:15+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -582,11 +582,13 @@ while(continue){
     ## save final state of MCMC chain
     finalstate <- as.matrix(Cmcsampler$mvSamples2)
     ##
+    if(stage == 0 && mcmcseed == 1){
     pdff('testindiceshyperp')
     for(v in colnames(finalstate)){
         tplot(y=finalstate[,v],ylab=v)
     }
-dev.off()
+    dev.off()
+    }
     
     finalstate <- c(newmcsamples[nrow(newmcsamples),], finalstate[nrow(finalstate),])
     ##
