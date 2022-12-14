@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-14T16:11:15+0100
+## Last-Updated: 2022-12-14T19:36:55+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,7 +8,7 @@
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_justtesthyper' # *** ## Base name of output directory
+baseversion <- '_justtesthyper2' # *** ## Base name of output directory
 ## datafile <- 'testdataS1.csv'#'ingrid_data_nogds6.csv' #***
 datafile <- 'ingrid_data_nogds6.csv' #***
 predictorfile <- 'predictors.csv'
@@ -16,7 +16,7 @@ predictandfile <- NULL # 'predictors.csv'
 varinfofile <- 'varinfo.rds'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
-ndata <- NULL # set this if you want to use fewer data
+ndata <- 10 # set this if you want to use fewer data
 shuffledata <- FALSE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
@@ -31,6 +31,7 @@ nclusters <- 64L
 alpha0 <- 2^c(0,-3,-2,-1,1,2,3)
 casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
+showhyperparametertraces <- TRUE ##
 family <- 'Palatino'
 ####
 rshapeins <- c(1,0.5,2)
@@ -489,23 +490,15 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
                                        if(len$B > 0){c('Bprob')},
                                        if(len$C > 0){c('Cprob')}
                                        ),
-                            monitors2=c(
-                                ## if(posterior && len$R > 0){'Rdata'},
-                                ## if(posterior && len$L > 0){'Ldata'},
-                                ## if(posterior && len$T > 0){c('Tauxint', 'Tdatacont')},
-                                ## if(posterior && len$I > 0){c('Iauxcont', 'Idataint')},
-                                ## if(posterior && len$B > 0){'Bdata'},
-                                ## if(posterior && len$C > 0){'Cdata'},
-                                ## 'Icont',
-                                'Rvarscaleindex',
-                                'Rshapeinindex',
-                                'Rshapeoutindex',
-                                'Ivarscaleindex',
-                                'Ishapeinindex',
-                                'Ishapeoutindex',
-                                'Alphaindex',
-                                if(posterior){'K'}
-                            )
+                            monitors2=c( 'Alphaindex',
+                                        if(posterior){'K'},
+                                        if(showhyperparametertraces){c(
+                                            if(len$R > 0){ c( 'Rvarscaleindex', 'Rshapeinindex', 'Rshapeoutindex') },
+                                            if(len$O > 0){ c( 'Ovarscaleindex', 'Oshapeinindex', 'Oshapeoutindex') },
+                                            if(len$D > 0){ c( 'Dvarscaleindex', 'Dshapeinindex', 'Dshapeoutindex') },
+                                            if(len$I > 0){ c( 'Ivarscaleindex', 'Ishapeinindex', 'Ishapeoutindex') }
+                                        )}
+                                        )
                             )
 ## confnimble$printSamplers(executionOrder=TRUE)
 ##
@@ -548,14 +541,15 @@ while(continue){
     if(stage==0){# burn-in stage
         set.seed(mcmcseed+stage+100)
         Cfinitemixnimble$setInits(initsFunction())
-        newmcsamples <- Cmcsampler$run(niter=niter+1, thin=thin, thin2=thin, nburnin=1, time=T)
+        if(showhyperparametertraces){thin2=thin}else{thin2=niter}
+        newmcsamples <- Cmcsampler$run(niter=niter+1, thin=thin, thin2=thin2, nburnin=1, time=T)
         samplertimes <- Cmcsampler$getTimes()
         names(samplertimes) <- sapply(confnimble$getSamplers(),function(x)x$target)
         ## sum(samplertimes[grepl('^Rdata',names(samplertimes))])
         ##
         sprefixes <- unique(sub('^([^[]+)(\\[.*\\])', '\\1', names(samplertimes)))
         cat(paste0('\nSampler times:\n'))
-        sort(sapply(sprefixes, function(x)sum(samplertimes[grepl(x,names(samplertimes))])),decreasing=T)
+        print(sort(sapply(sprefixes, function(x)sum(samplertimes[grepl(x,names(samplertimes))])),decreasing=T))
 ##        newmcsamples <- Cmcsampler$run(niter=1024, thin=1, thin2=1, nburnin=0, time=T)
     ## }else if(is.character(resume)){# continuing previous # must be fixed
     ##     initsc <- readRDS(paste0(dirname,resume))
@@ -568,6 +562,7 @@ while(continue){
     }else{# subsequent sampling stages
         cat('\nForecasted computation time: ')
         print(comptime*thin*niter)
+        if(showhyperparametertraces){thin2=thin}else{thin2=niter*thin}
         newmcsamples <- Cmcsampler$run(niter=niter*thin, thin=thin, thin2=niter*thin, reset=FALSE, resetMV=TRUE, time=F)
     }
     ##
@@ -579,17 +574,28 @@ while(continue){
     if(any(is.na(newmcsamples))){cat('\nWARNING: SOME NA OUTPUTS')}
     if(any(!is.finite(newmcsamples))){cat('\nWARNING: SOME INFINITE OUTPUTS')}
     ##
-    ## save final state of MCMC chain
     finalstate <- as.matrix(Cmcsampler$mvSamples2)
     ##
-    if(stage == 0 && mcmcseed == 1){
-    pdff('testindiceshyperp')
-    for(v in colnames(finalstate)){
-        tplot(y=finalstate[,v],ylab=v)
-    }
+    if(showhyperparametertraces){
+        occupations <- apply(finalstate[,grepl('^K\\[', colnames(finalstate)),drop=F], 1, function(xxx){length(unique(xxx))})
+        cat(paste0('\nSTATS OCCUPIED CLUSTERS:\n'))
+        print(summary(occupations))
+        ##
+        pdff(paste0('traces_hyperparameters-',mcmcseed,'-'stage))
+        tplot(y=occupations, ylab='occupied clusters')
+        tplot(y=alpha0[finalstate[,'Alphaindex']], ylab='alpha')
+        for(vtype in c('R','I','O','D')){
+            if(len[[vtype]] > 0){
+                for(togrep in c('varscaleindex','shapeoutindex','shapeinindex')){
+                    for(v in colnames(finalstate)[grepl(paste0('^',vtype,togrep,'\\['), colnames(finalstate))]){
+                        tplot(y=finalstate[,v],ylab=v)
+                    }
+                }
+            }
+        }
     dev.off()
     }
-    
+    ##
     finalstate <- c(newmcsamples[nrow(newmcsamples),], finalstate[nrow(finalstate),])
     ##
     ## Check how many "clusters" were occupied. Warns if too many
@@ -597,11 +603,9 @@ while(continue){
     usedclusters <- length(unique(occupations))
     if(usedclusters > nclusters-5){cat('\nWARNING: TOO MANY CLUSTERS OCCUPIED')}
     cat(paste0('\nOCCUPIED CLUSTERS: ', usedclusters, ' OF ', nclusters),'\n')
-##    saveRDS(finalstate2list(finalstate, realVars=realVars, integerVars=integerVars, categoryVars=categoryVars, binaryVars=binaryVars, compoundgamma=compoundgamma), file=paste0(dirname,'_finalstate-R',basename,'--',mcmcseed,'-',stage,'.rds'))
+    ## save final state of MCMC chain
+    ##    saveRDS(finalstate2list(finalstate, realVars=realVars, integerVars=integerVars, categoryVars=categoryVars, binaryVars=binaryVars, compoundgamma=compoundgamma), file=paste0(dirname,'_finalstate-R',basename,'--',mcmcseed,'-',stage,'.rds'))
     ##
-    ## SAVE THE PARAMETERS
-    ##    parmList <- mcsamples2parmlist(mcsamples, realVars, integerVars, categoryVars, binaryVars)
-    ##  saveRDS(parmList,file=paste0(dirname,'_frequencies-R',baseversion,'-V',length(varNames),'-D',ndata,'-K',nclusters,'-I',nrow(parmList$q),'--',mcmcseed,'-',stage,'.rds'))
     ##
     ## Diagnostics
     ## Log-likelihood
