@@ -34,7 +34,7 @@ sd2iqr <- 0.5/qnorm(0.75)
 dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
 varinfo <- data.matrix(read.csv('~/repositories/ADBayes/worldbrain/scripts/varinfo.csv',row.names=1))
 graphics.off()
-pdff('samples_real_3shapes')
+pdff('samples_real_scales2')
 for(varindex in c('AGE','LRHHC_n_long')){
 if(!is.na(varindex)){
     data <- log(dt[[varindex]])
@@ -57,10 +57,11 @@ nclusters <- 64
 alphas <- 2^((-3):3)
 means <- c(0)
 sds <- c(2)
-shape1s <- c(1,0.5,2) # large scales
-shape2s <- c(1,0.5,2) # small scales
-sameshape <- FALSE
-scales <- c(1)^-2
+shape1s <- c(1) # large scales
+shape2s <- c(1) # small scales
+sameshape <- TRUE
+hw <- 2
+scales <- (1 * 2^((-2):2))^2
 ##
 alpha <- sample(rep(alphas,2),nsamples,replace=T)
 q <- extraDistr::rdirichlet(n=nsamples,alpha=matrix(alpha/nclusters,nsamples,nclusters))
@@ -70,8 +71,8 @@ shape1 <- sample(rep(shape1s,2),nsamples*nclusters,replace=T)
 if(sameshape){shape2 <- shape1}else{
                                   shape2 <- sample(rep(shape2s,2),nsamples*nclusters,replace=T)
                               }
-scaleprec <- sample(rep(scales,2),nsamples*nclusters,replace=T)
-s <- matrix(sqrt(nimble::rinvgamma(nsamples*nclusters,shape=shape1,rate=nimble::rinvgamma(nsamples*nclusters,shape=shape2,scale=scaleprec))),nsamples)
+scalevar <- sample(rep(scales,2),nsamples*nclusters,replace=T)
+s <- matrix(sqrt(nimble::rinvgamma(nsamples*nclusters,shape=shape1,rate=nimble::rinvgamma(nsamples*nclusters,shape=shape2,rate=scalevar))),nsamples)
 ##
 txgrid <- seq(-5, 5, length.out=256)
 xgrid <- invtran(txgrid)
@@ -118,7 +119,7 @@ dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
 varinfo <- readRDS('~/repositories/ADBayes/worldbrain/scripts/varinfo.rds')
 pregrid <- 1
 graphics.off()
-pdff(paste0('samples_integer_simplehalf'))
+pdff(paste0('samples_integer_scales2centre1'))
 variates <- names(varinfo[['type']])[varinfo[['type']] == 'I']
 nns <- sapply(variates,function(xxx){varinfo[['n']][xxx]})
 variates <- variates[order(nns)]
@@ -145,11 +146,12 @@ alphas <- 2^((-3):3)
 means <- c(0)
 shapemeans <- c(512) # set to high value to mimick a delta, leading to gaussian for m
 scalemeans <- shapemeans * (7/8)^2#1/1^2
-shape1s <- c(1/2) # large scales
+shape1s <- c(1) # large scales
     shape2s <- c(1) # small scales
     sameshape <- TRUE
-## scalevars <- (1/4)^2
-scalevars <- c(1/4)^2
+    ## scalevars <- (1/4)^2
+    hw <- 2
+scalevars <- ((1) * 2^((-hw):hw))^2
 ##
 alpha <- sample(rep(alphas,2),nsamples,replace=T)
 q <- extraDistr::rdirichlet(n=nsamples,alpha=matrix(alpha/nclusters,nsamples,nclusters))

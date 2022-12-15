@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-15T13:57:46+0100
+## Last-Updated: 2022-12-15T20:03:11+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -33,7 +33,7 @@ casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
 showhyperparametertraces <- TRUE ##
 showsamplertimes <- TRUE ##
-maxstages <- 1
+maxstages <- 0
 family <- 'Palatino'
 #### Hyperparameters
 hwidth <- 2
@@ -291,25 +291,25 @@ finitemix <- nimbleCode({
     if(len$R > 0){# real variates
         for(v in 1:Rn){
                 Rvarscaleindex[v] ~ dcat(prob=rprobvarscale0[1:nrvarscales])
-                Rrate[v] ~ dinvgamma(shape=Rshapein0[v], scale=Rvarscale[Rvarscaleindex[v]])
+                Rrate[v] ~ dinvgamma(shape=Rshapein0[v], rate=Rvarscale[Rvarscaleindex[v]])
         }
     }
     if(len$O > 0){# one-censored variates
         for(v in 1:On){
                 Ovarscaleindex[v] ~ dcat(prob=oprobvarscale0[1:novarscales])
-                Orate[v] ~ dinvgamma(shape=Oshapein0[v], scale=Ovarscale[Ovarscaleindex[v]])
+                Orate[v] ~ dinvgamma(shape=Oshapein0[v], rate=Ovarscale[Ovarscaleindex[v]])
         }
     }
     if(len$D > 0){# doubly-censored variates
         for(v in 1:Dn){
                 Dvarscaleindex[v] ~ dcat(prob=dprobvarscale0[1:ndvarscales])
-                Drate[v] ~ dinvgamma(shape=Dshapein0[v], scale=Dvarscale[Dvarscaleindex[v]])
+                Drate[v] ~ dinvgamma(shape=Dshapein0[v], rate=Dvarscale[Dvarscaleindex[v]])
         }
     }
     if(len$I > 0){# integer variates
         for(v in 1:In){
                 Ivarscaleindex[v] ~ dcat(prob=iprobvarscale0[1:nivarscales])
-                Irate[v] ~ dinvgamma(shape=Ishapein0[v], scale=Ivarscale[Ivarscaleindex[v]])
+                Irate[v] ~ dinvgamma(shape=Ishapein0[v], rate=Ivarscale[Ivarscaleindex[v]])
         }
     }
     ##
@@ -562,17 +562,17 @@ while(continue){
         print(summary(occupations))
         ##
         pdff(paste0(dirname,'traces_hyperparameters-',mcmcseed,'-',stage))
-        tplot(y=occupations, ylab='occupied clusters',xlab=NA)
+        tplot(y=occupations, ylab='occupied clusters',xlab=NA,ylim=c(0,nclusters))
         histo <- thist(occupations,n='i')
-        tplot(x=histo$mids,y=histo$density,xlab='occupied clusters')
+        tplot(x=histo$mids,y=histo$density,xlab='occupied clusters',ylab=NA)
         tplot(y=log2(alpha0[finalstate[,'Alphaindex']]), ylab='log2(alpha)',xlab=NA)
         histo <- thist(log2(alpha0[finalstate[,'Alphaindex']]))
-        tplot(x=histo$mids,y=histo$density,xlab='log2(alpha)')
+        tplot(x=histo$mids,y=histo$density,xlab='log2(alpha)',ylab='')
         for(vtype in c('R','I','O','D')){
             if(len[[vtype]] > 0){
                 for(togrep in c('varscaleindex')){
                     for(v in colnames(finalstate)[grepl(paste0('^',vtype,togrep,'\\['), colnames(finalstate))]){
-                        tplot(y=finalstate[,v],ylab=v)
+                        tplot(y=finalstate[,v],ylab=v,xlab=NA,ylim=c(1,(2*hwidth+1)))
                     }
                 }
             }
