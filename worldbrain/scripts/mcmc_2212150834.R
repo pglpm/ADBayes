@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-15T06:50:37+0100
+## Last-Updated: 2022-12-15T13:57:46+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,7 +8,7 @@
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testhyperprior' # *** ## Base name of output directory
+baseversion <- '_testhyperprior3' # *** ## Base name of output directory
 ## datafile <- 'testdataS1.csv'#'ingrid_data_nogds6.csv' #***
 datafile <- 'ingrid_data_nogds6.csv' #***
 predictorfile <- 'predictors.csv'
@@ -33,21 +33,33 @@ casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
 showhyperparametertraces <- TRUE ##
 showsamplertimes <- TRUE ##
-maxstages <- 2
+maxstages <- 1
 family <- 'Palatino'
-####
+#### Hyperparameters
 hwidth <- 2
-rshapeins <- 1 * 2^((-hwidth):hwidth)
-rshapeouts <- 1 * 2^((-hwidth):hwidth)
+##
+rmean0 <- 0
+rvar0 <- 2^2
+rshapein0 <- 1
+rshapeout0 <- 1
 rvarscales <- (1 * 2^((-hwidth):hwidth))^2
-oshapeins <- 1 * 2^((-hwidth):hwidth)
-oshapeouts <- 1 * 2^((-hwidth):hwidth)
+##
+omean0 <- 0
+ovar0 <- 2^2
+oshapein0 <- 1
+oshapeout0 <- 1
 ovarscales <- (1 * 2^((-hwidth):hwidth))^2
-dshapeins <- 1 * 2^((-hwidth):hwidth)
-dshapeouts <- 1 * 2^((-hwidth):hwidth)
+##
+dmean0 <- 0
+dvar0 <- 2^2
+dshapein0 <- 1
+dshapeout0 <- 1
 dvarscales <- (1 * 2^((-hwidth):hwidth))^2
-ishapeins <- 1 * 2^((-hwidth):hwidth)
-ishapeouts <- 1 * 2^((-hwidth):hwidth)
+##
+imean0 <- 0
+ivar0 <- (7/8)^2
+ishapein0 <- 1
+ishapeout0 <- 1
 ivarscales <- ((1/4) * 2^((-hwidth):hwidth))^2
 
 
@@ -105,17 +117,9 @@ names(variate) <- names(len) <- variatetypes
 
 nalpha <- length(alpha0)
 nrvarscales <- length(rvarscales)
-nrshapeins <- length(rshapeins)
-nrshapeouts <- length(rshapeouts)
 ndvarscales <- length(dvarscales)
-ndshapeins <- length(dshapeins)
-ndshapeouts <- length(dshapeouts)
 novarscales <- length(ovarscales)
-noshapeins <- length(oshapeins)
-noshapeouts <- length(oshapeouts)
 nivarscales <- length(ivarscales)
-nishapeins <- length(ishapeins)
-nishapeouts <- length(ishapeouts)
 
 
 data0 <- fread(paste0(origdir,datafile), sep=',')
@@ -192,24 +196,16 @@ constants <- c(
     list(nclusters = nclusters),
     list(nalpha = nalpha),
     if(len$R > 0){ list(Rn = len$R,
-                        nrvarscales = nrvarscales,
-                        nrshapeins = nrshapeins,
-                        nrshapeouts = nrshapeouts
+                        nrvarscales = nrvarscales
                         ) },
     if(len$O > 0){ list(On = len$O,
-                        novarscales = novarscales,
-                        noshapeins = noshapeins,
-                        noshapeouts = noshapeouts
+                        novarscales = novarscales
                         ) },
     if(len$D > 0){ list(Dn = len$D,
-                        ndvarscales = ndvarscales,
-                        ndshapeins = ndshapeins,
-                        ndshapeouts = ndshapeouts
+                        ndvarscales = ndvarscales
                         ) },
     if(len$I > 0){ list(In = len$I,
-                        nivarscales = nivarscales,
-                        nishapeins = nishapeins,
-                        nishapeouts = nishapeouts
+                        nivarscales = nivarscales
                         ) },
     if(len$B > 0){ list(Bn = len$B) },
     if(len$C > 0){ list(Cn = len$C, Cmaxn = Cmaxn) },
@@ -227,59 +223,43 @@ initsFunction <- function(){
                                             nrow=nalpha, ncol=nclusters)
                               ),
         if(len$R > 0){list( # real variate
-                     Rmean0 = varinfo[[ 'hmean']][variate$R],
-                     Rvar0 = varinfo[[ 'hsd']][variate$R]^2,
-                     Rshapein0 = rshapeins,
-                     Rshapeout0 = rshapeouts,
-                     Rvarscale0 = rvarscales,
-                     rprobvarscale0=rep(1/nrvarscales,nrvarscales),
-                     rprobshapein0=rep(1/nrshapeins,nrshapeins),
-                     rprobshapeout0=rep(1/nrshapeouts,nrshapeouts),
-                     Rvarscaleindex=sample(nrvarscales,len$R,replace=T),
-                     Rshapeinindex=sample(nrshapeins,len$R,replace=T),
-                     Rshapeoutindex=sample(nrshapeouts,len$R,replace=T)
+                     Rmean0 = rep(rmean0, len$R),
+                     Rvar0 = rep(rvar0, len$R),
+                     Rshapein0 = rep(rshapein0, len$R),
+                     Rshapeout0 = rep(rshapeout0, len$R),
+                     Rvarscale = rvarscales,
+                     Rvarscaleindex = sample(1:nrvarscales,len$R,replace=T),
+                     rprobvarscale0=rep(1/nrvarscales,nrvarscales)
                  )},
         if(len$O > 0){list( # doubly-bounded variate
                      Odata = transf(data0[,variate$O,with=F], varinfo, Oout='init'),
-                     Omean0 = varinfo[[ 'hmean']][variate$O],
-                     Ovar0 = varinfo[[ 'hsd']][variate$O]^2,
-                     Oshapein0 = oshapeins,
-                     Oshapeout0 = oshapeouts,
-                     Ovarscale0 = ovarscales,
-                     oprobvarscale0=rep(1/novarscales,novarscales),
-                     oprobshapein0=rep(1/noshapeins,noshapeins),
-                     oprobshapeout0=rep(1/noshapeouts,noshapeouts),
-                     Ovarscaleindex=sample(novarscales,len$O,replace=T),
-                     Oshapeinindex=sample(noshapeins,len$O,replace=T),
-                     Oshapeoutindex=sample(noshapeouts,len$O,replace=T)
+                     Omean0 = rep(omean0, len$O),
+                     Ovar0 = rep(ovar0, len$O),
+                     Oshapein0 = rep(oshapein0, len$O),
+                     Oshapeout0 = rep(oshapeout0, len$O),
+                     Ovarscale = ovarscales,
+                     Ovarscaleindex = sample(1:novarscales,len$O,replace=T),
+                     oprobvarscale0=rep(1/novarscales,novarscales)
                  )},
         if(len$D > 0){list( # doubly-bounded variate
                      Ddata = transf(data0[,variate$D,with=F], varinfo, Dout='init'),
-                     Dmean0 = varinfo[[ 'hmean']][variate$D],
-                     Dvar0 = varinfo[[ 'hsd']][variate$D]^2,
-                     Dshapein0 = dshapeins,
-                     Dshapeout0 = dshapeouts,
-                     Dvarscale0 = dvarscales,
-                     dprobvarscale0=rep(1/ndvarscales,ndvarscales),
-                     dprobshapein0=rep(1/ndshapeins,ndshapeins),
-                     dprobshapeout0=rep(1/ndshapeouts,ndshapeouts),
-                     Dvarscaleindex=sample(ndvarscales,len$D,replace=T),
-                     Dshapeinindex=sample(ndshapeins,len$D,replace=T),
-                     Dshapeoutindex=sample(ndshapeouts,len$D,replace=T)
+                     Dmean0 = rep(dmean0, len$D),
+                     Dvar0 = rep(dvar0, len$D),
+                     Dshapein0 = rep(dshapein0, len$D),
+                     Dshapeout0 = rep(dshapeout0, len$D),
+                     Dvarscale = dvarscales,
+                     Dvarscaleindex = sample(1:ndvarscales,len$D,replace=T),
+                     dprobvarscale0=rep(1/ndvarscales,ndvarscales)
                  )},
         if(len$I > 0){list( # integer ordinal variate
                      Icont = transf(data0[,variate$I,with=F], varinfo, Iout='init'),
-                     Imean0 = varinfo[[ 'hmean']][variate$I],
-                     Ivar0 = varinfo[[ 'hsd']][variate$I]^2,
-                     Ishapein0 = ishapeins,
-                     Ishapeout0 = ishapeouts,
-                     Ivarscale0 = ivarscales,
-                     iprobvarscale0=rep(1/nivarscales,nivarscales),
-                     iprobshapein0=rep(1/nishapeins,nishapeins),
-                     iprobshapeout0=rep(1/nishapeouts,nishapeouts),
-                     Ivarscaleindex=sample(nivarscales,len$I,replace=T),
-                     Ishapeinindex=sample(nishapeins,len$I,replace=T),
-                     Ishapeoutindex=sample(nishapeouts,len$I,replace=T)
+                     Imean0 = rep(imean0, len$I),
+                     Ivar0 = rep(ivar0, len$I),
+                     Ishapein0 = rep(ishapein0, len$I),
+                     Ishapeout0 = rep(ishapeout0, len$I),
+                     Ivarscale = ivarscales,
+                     Ivarscaleindex = sample(1:nivarscales,len$I,replace=T),
+                     iprobvarscale0=rep(1/nivarscales,nivarscales)
                      )},
         if(len$B > 0){list( # binay variate
                      Bshapeout0 = varinfo[[ 'hshapeout']][variate$B],
@@ -311,33 +291,25 @@ finitemix <- nimbleCode({
     if(len$R > 0){# real variates
         for(v in 1:Rn){
                 Rvarscaleindex[v] ~ dcat(prob=rprobvarscale0[1:nrvarscales])
-                Rshapeinindex[v] ~ dcat(prob=rprobshapein0[1:nrshapeins])
-                Rshapeoutindex[v] ~ dcat(prob=rprobshapeout0[1:nrshapeouts])
-                Rrate[v] ~ dinvgamma(shape=Rshapein0[Rshapeinindex[v]], scale=Rvarscale0[Rvarscaleindex[v]])
+                Rrate[v] ~ dinvgamma(shape=Rshapein0[v], scale=Rvarscale[Rvarscaleindex[v]])
         }
     }
     if(len$O > 0){# one-censored variates
         for(v in 1:On){
                 Ovarscaleindex[v] ~ dcat(prob=oprobvarscale0[1:novarscales])
-                Oshapeinindex[v] ~ dcat(prob=oprobshapein0[1:noshapeins])
-                Oshapeoutindex[v] ~ dcat(prob=oprobshapeout0[1:noshapeouts])
-                Orate[v] ~ dinvgamma(shape=Oshapein0[Oshapeinindex[v]], scale=Ovarscale0[Ovarscaleindex[v]])
+                Orate[v] ~ dinvgamma(shape=Oshapein0[v], scale=Ovarscale[Ovarscaleindex[v]])
         }
     }
     if(len$D > 0){# doubly-censored variates
         for(v in 1:Dn){
                 Dvarscaleindex[v] ~ dcat(prob=dprobvarscale0[1:ndvarscales])
-                Dshapeinindex[v] ~ dcat(prob=dprobshapein0[1:ndshapeins])
-                Dshapeoutindex[v] ~ dcat(prob=dprobshapeout0[1:ndshapeouts])
-                Drate[v] ~ dinvgamma(shape=Dshapein0[Dshapeinindex[v]], scale=Dvarscale0[Dvarscaleindex[v]])
+                Drate[v] ~ dinvgamma(shape=Dshapein0[v], scale=Dvarscale[Dvarscaleindex[v]])
         }
     }
     if(len$I > 0){# integer variates
         for(v in 1:In){
                 Ivarscaleindex[v] ~ dcat(prob=iprobvarscale0[1:nivarscales])
-                Ishapeinindex[v] ~ dcat(prob=iprobshapein0[1:nishapeins])
-                Ishapeoutindex[v] ~ dcat(prob=iprobshapeout0[1:nishapeouts])
-                Irate[v] ~ dinvgamma(shape=Ishapein0[Ishapeinindex[v]], scale=Ivarscale0[Ivarscaleindex[v]])
+                Irate[v] ~ dinvgamma(shape=Ishapein0[v], scale=Ivarscale[Ivarscaleindex[v]])
         }
     }
     ##
@@ -345,25 +317,25 @@ finitemix <- nimbleCode({
         if(len$R > 0){# real variates
             for(v in 1:Rn){
                 Rmean[v, k] ~ dnorm(mean=Rmean0[v], var=Rvar0[v])
-                Rvar[v, k] ~ dinvgamma(shape=Rshapeout0[Rshapeoutindex[v]], rate=Rrate[v])
+                Rvar[v, k] ~ dinvgamma(shape=Rshapeout0[v], rate=Rrate[v])
             }
         }
         if(len$O > 0){# logarithmic censored variates
             for(v in 1:On){
                 Omean[v, k] ~ dnorm(mean=Omean0[v], var=Ovar0[v])
-                Ovar[v, k] ~ dinvgamma(shape=Oshapeout0[Oshapeoutindex[v]], rate=Orate[v])
+                Ovar[v, k] ~ dinvgamma(shape=Oshapeout0[v], rate=Orate[v])
             }
         }
         if(len$D > 0){# bounded continuous variates
             for(v in 1:Dn){
                 Dmean[v, k] ~ dnorm(mean=Dmean0[v], var=Dvar0[v])
-                Dvar[v, k] ~ dinvgamma(shape=Dshapeout0[Dshapeoutindex[v]], rate=Drate[v])
+                Dvar[v, k] ~ dinvgamma(shape=Dshapeout0[v], rate=Drate[v])
             }
         }
         if(len$I > 0){# bounded continuous variates
             for(v in 1:In){
                 Imean[v, k] ~ dnorm(mean=Imean0[v], var=Ivar0[v])
-                Ivar[v, k] ~ dinvgamma(shape=Ishapeout0[Ishapeoutindex[v]], rate=Irate[v])
+                Ivar[v, k] ~ dinvgamma(shape=Ishapeout0[v], rate=Irate[v])
             }
         }
         if(len$B > 0){# binary variates
@@ -430,36 +402,28 @@ finitemixnimble <- nimbleModel(code=finitemix, name='finitemixnimble1',
                                    list(W=nclusters),
                                    list(walpha0=c(nalpha,nclusters)),
                                    if(len$R > 0){list(
-                                                     Rrate=len$R,
                                                      Rmean=c(len$R,nclusters),
                                                      Rvar=c(len$R,nclusters),
-                                                     Rvarscaleindex=len$R,
-                                                     Rshapeinindex=len$R,
-                                                     Rshapeoutindex=len$R
+                                                     Rrate=len$R,
+                                                     Rvarscaleindex=len$R
                                                  )},
                                    if(len$O > 0){list(
-                                                     Orate=len$O,
                                                      Omean=c(len$O,nclusters),
                                                      Ovar=c(len$O,nclusters),
-                                                     Ovarscaleindex=len$O,
-                                                     Oshapeinindex=len$O,
-                                                     Oshapeoutindex=len$O
+                                                     Orate=len$O,
+                                                     Ovarscaleindex=len$O
                                                  )},
                                    if(len$D > 0){list(
-                                                     Drate=len$D,
                                                      Dmean=c(len$D,nclusters),
                                                      Dvar=c(len$D,nclusters),
-                                                     Dvarscaleindex=len$D,
-                                                     Dshapeinindex=len$D,
-                                                     Dshapeoutindex=len$D
+                                                     Drate=len$D,
+                                                     Dvarscaleindex=len$D
                                                  )},
                                    if(len$I > 0){list(
-                                                     Irate=len$I,
                                                      Imean=c(len$I,nclusters),
                                                      Ivar=c(len$I,nclusters),
-                                                     Ivarscaleindex=len$I,
-                                                     Ishapeinindex=len$I,
-                                                     Ishapeoutindex=len$I
+                                                     Irate=len$I,
+                                                     Ivarscaleindex=len$I
                                                  )},
                                    if(len$B > 0){list(
                                                      Bprob=c(len$B,nclusters)
@@ -508,10 +472,10 @@ confnimble <- configureMCMC(Cfinitemixnimble, #nodes=NULL,
                             monitors2=c( 'Alphaindex',
                                         if(posterior){'K'},
                                         if(showhyperparametertraces){c(
-                                            if(len$R > 0){ c( 'Rvarscaleindex', 'Rshapeinindex', 'Rshapeoutindex') },
-                                            if(len$O > 0){ c( 'Ovarscaleindex', 'Oshapeinindex', 'Oshapeoutindex') },
-                                            if(len$D > 0){ c( 'Dvarscaleindex', 'Dshapeinindex', 'Dshapeoutindex') },
-                                            if(len$I > 0){ c( 'Ivarscaleindex', 'Ishapeinindex', 'Ishapeoutindex') }
+                                            if(len$R > 0){ c( 'Rvarscaleindex') },
+                                            if(len$O > 0){ c( 'Ovarscaleindex') },
+                                            if(len$D > 0){ c( 'Dvarscaleindex') },
+                                            if(len$I > 0){ c( 'Ivarscaleindex') }
                                         )}
                                         )
                             )
@@ -597,16 +561,16 @@ while(continue){
         cat(paste0('\nSTATS OCCUPIED CLUSTERS:\n'))
         print(summary(occupations))
         ##
-        pdff(paste0('traces_hyperparameters-',mcmcseed,'-',stage))
-        tplot(y=occupations, ylab='occupied clusters')
+        pdff(paste0(dirname,'traces_hyperparameters-',mcmcseed,'-',stage))
+        tplot(y=occupations, ylab='occupied clusters',xlab=NA)
         histo <- thist(occupations,n='i')
         tplot(x=histo$mids,y=histo$density,xlab='occupied clusters')
-        tplot(y=alpha0[finalstate[,'Alphaindex']], ylab='alpha')
-        histo <- thist(alpha0[finalstate[,'Alphaindex']],n='i')
-        tplot(x=histo$mids,y=histo$density,xlab='alpha')
+        tplot(y=log2(alpha0[finalstate[,'Alphaindex']]), ylab='log2(alpha)',xlab=NA)
+        histo <- thist(log2(alpha0[finalstate[,'Alphaindex']]))
+        tplot(x=histo$mids,y=histo$density,xlab='log2(alpha)')
         for(vtype in c('R','I','O','D')){
             if(len[[vtype]] > 0){
-                for(togrep in c('varscaleindex','shapeoutindex','shapeinindex')){
+                for(togrep in c('varscaleindex')){
                     for(v in colnames(finalstate)[grepl(paste0('^',vtype,togrep,'\\['), colnames(finalstate))]){
                         tplot(y=finalstate[,v],ylab=v)
                     }
