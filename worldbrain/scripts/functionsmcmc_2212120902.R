@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-15T20:29:42+0100
+## Last-Updated: 2022-12-16T15:25:42+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -654,13 +654,14 @@ foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
                            ), na.rm=T))}else{1L})
 }
 
+cbind(1:3,(testxx <- 4:6;testxx))
+
+
 ## Samples of variates
-samplesVariates <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nrow(mcsamples), jacobian=TRUE){
-    if(length(subsamples) == 1 && !is.numeric(subsamples)){
-        subsamples <- seq(1, nrow(mcsamples), length.out=round(abs(as.complex(subsamples))))
-    }
+samplesVariates <- function(n, Yv, X=NULL, mcsamples, varinfo){
+    subsamples <- sample(1:nrow(mcsamples), n, replace=(n > nrow(mcsamples)))
+    seqn <- 1:n
     mcsamples <- t(mcsamples[subsamples,,drop=FALSE])
-    Yv <- colnames(Y)
     Yvn <- length(Yv)
     Xv <- colnames(X)
     Xvn <- length(Xv)
@@ -675,7 +676,7 @@ samplesVariates <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nrow(mcs
     ##
     Wi <- grep('W',rownames(mcsamples))
     nclusters <- length(Wi)
-    W <- mcsamples[Wi,]
+    W <- mcsamples[Wi,] # rows: clusters, cols: MC samples
     ## seqclusters <- seq_len(nclusters)
     ##
     Yv <- lapply(variatetypes, function(zzz){out <- Yv[varinfo[['type']][Yv]==zzz]
@@ -727,6 +728,8 @@ samplesVariates <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nrow(mcs
                       ncol=1, dimnames=list(NULL,v)), varinfo, Iout='right'))
     })
     names(YIlefts) <- names(YIrights) <- Yv$I
+    maxr <- max(sapply(YIrights,length))
+    YIindices <- sapply(YIrights,function(xxx){c(xxx,rep(Inf,maxr-length(xxx)))})
     }
     if(Yn$R > 0){## real
     totake <- sapply(Yv$R,function(x)which(variate$R == x))
@@ -845,22 +848,22 @@ samplesVariates <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nrow(mcs
     XDbounds <- -qnorm(varinfo[['n']][Xv$D])
     }
     ##
-    Y2 <- transf(Y,varinfo, Iout='index', Dout='index', Oout='index')
+    ##    Y2 <- transf(Y,varinfo, Iout='index', Dout='index', Oout='index')
     if(!is.null(X)){
         X2 <- transf(X,varinfo,Iout='index', Dout='index', Oout='index')
-        if(nrow(X2) < nrow(Y2)){
-            warning('*Note: X has fewer data than Y. Recycling*')
-            X2 <- t(matrix(rep(t(X2), ceiling(nrow(Y2)/nrow(X2))), nrow=ncol(X2), dimnames=list(colnames(X2),NULL)))[1:nrow(Y2),,drop=FALSE]
-        }
-        if(nrow(X2) > nrow(Y2)){
-            warning('*Note: X has more data than Y. Recycling*')
-            Y2 <- t(matrix(rep(t(Y2), ceiling(nrow(X2)/nrow(Y2))), nrow=ncol(Y2), dimnames=list(colnames(Y2),NULL)))[1:nrow(X2),,drop=FALSE]
-        }
+        ## if(nrow(X2) < n){
+        ##     warning('*Note: X has fewer entries than n. Recycling*')
+        ##     X2 <- t(matrix(rep(t(X2), ceiling(n/nrow(X2))), nrow=ncol(X2), dimnames=list(colnames(X2),NULL)))[1:n,,drop=FALSE]
+        ## }
+        ## if(nrow(X2) > n){
+        ##     warning('*Note: X has more entries than n. Skipping some*')
+        ##     Y2 <- t(matrix(rep(t(Y2), ceiling(nrow(X2)/nrow(Y2))), nrow=ncol(Y2), dimnames=list(colnames(Y2),NULL)))[1:nrow(X2),,drop=FALSE]
+        ## }
     }else{X2 <- lapply(seq_len(nrow(Y2)),function(x)NA)}
     ## ndata <- nrow(Y2)
     ##
     ##
-foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
+foreach(x=t(X2), .combine=rbind, .inorder=T)%dopar%{
         ## ## for debugging
         ## for(iii in 1:nrow(Y2)){
         ## print(iii)
@@ -868,21 +871,21 @@ foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
         ##     y <- t(Y2)[,1,drop=F]
         ##     x <- t(X2)[,1,drop=F]
             ##
-        if(any(is.na(y))){
-            y <- y[!is.na(y),,drop=F]
-            yv <- lapply(variatetypes, function(xx){
-                out <- rownames(y)[varinfo[['type']][rownames(y)]==xx]
-                names(out) <- NULL
-                out})
-            yn <- lapply(yv,length)
-            names(yv) <- names(yn) <- variatetypes
-        }else{
+        ## if(any(is.na(y))){
+        ##     y <- y[!is.na(y),,drop=F]
+        ##     yv <- lapply(variatetypes, function(xx){
+        ##         out <- rownames(y)[varinfo[['type']][rownames(y)]==xx]
+        ##         names(out) <- NULL
+        ##         out})
+        ##     yn <- lapply(yv,length)
+        ##     names(yv) <- names(yn) <- variatetypes
+        ## }else{
             yv <- Yv
             yn <- Yn
-        }
+        ## }
         ##            
         if(all(is.na(x))){
-                probX <- t(log(W))
+                probX <- t(W)
         }else{
             if(any(is.na(x))){
                 x <- x[!is.na(x),,drop=F]
@@ -896,7 +899,7 @@ foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
                 xn <- Xn
                 }
                 ##
-        probX <- t( # rows: MCsamples, cols: clusters
+        probX <- t(exp( # rows: MCsamples, cols: clusters
             log(W) + 
                 (if(xn$D > 0){
                      colSums(
@@ -975,12 +978,10 @@ foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
                              dim=c(xn$I, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0})
-        ) # end probX
+        )) # end probX
         }
     ##
-    if(all(is.na(y))){
-        probY <- NA
-        }else{
+    Ws <- extraDistr::rcat(n=n, prob=probX)
         probY <- t( # rows: MCsamples, cols: clusters
         (if(yn$D > 0){
                      colSums(
@@ -1020,47 +1021,32 @@ foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
                              dim=c(yn$O, nclusters, length(subsamples))),
                          na.rm=F)
                  }else{0}) +
-                (if(yn$R > 0){
-                     colSums(
-                         array(dnorm(x=y[yv$R,],
-                                     mean=mcsamples[YRmean,],
-                                     sd=sqrt(mcsamples[YRvar,]),log=T),
-                               dim=c(yn$R, nclusters, length(subsamples))),
-                         na.rm=F)
-                 }else{0}) +
-                (if(yn$B > 0){
-                     colSums(
-                         array(log( y[yv$B,]*mcsamples[YBprob,] +
-                               (1-y[yv$B,])*(1-mcsamples[YBprob,]) ),
-                               dim=c(yn$B, nclusters, length(subsamples))),
-                         na.rm=F)
-                 }else{0}) +
-                (if(yn$I > 0){
-                     colSums(
-                         array(
-                             t(sapply(yv$I, function(v){
-                                 log(pnorm(q=YIrights[[v]][y[v,]],
-                                        mean=mcsamples[YImean[v,],],
-                                        sd=sqrt(mcsamples[YIvar[v,],])) -
-                                  pnorm(q=YIlefts[[v]][y[v,]],
-                                        mean=mcsamples[YImean[v,],],
-                                        sd=sqrt(mcsamples[YIvar[v,],])))
-                                 ## y2 <- YIrights[[v]][y[v,]]
-                                 ## (pnorm(q=y2,
-                                 ##         mean=mcsamples[YImean[v,],],
-                                 ##         sd=sqrt(mcsamples[YIvar[v,],]), log.p=T) +
-                                 ##   log1p(-pnorm(q=YIlefts[[v]][y[v,]],
-                                 ##                mean=mcsamples[YImean[v,],],
-                                 ##                sd=sqrt(mcsamples[YIvar[v,],]))/
-                                 ##         pnorm(q=y2,
-                                 ##               mean=mcsamples[YImean[v,],],
-                                 ##               sd=sqrt(mcsamples[YIvar[v,],]))))
-                             })),
-                             dim=c(yn$I, nclusters, length(subsamples))),
-                         na.rm=F)
-                 }else{0})
+        (if(yn$R > 0){
+             matrix(rnorm(n=n*Yn$R,
+                          mean=mcsamples[cbind(c(t(YRmean[,Ws])),seqn)],
+                          sd=sqrt(mcsamples[cbind(c(t(YRvar[,Ws])),seqn)])),
+                    nrow=n, ncol=Yn$R, dimnames=list(NULL,Yv$R))
+                 }else{NULL}),
+        (if(Yn$B > 0){
+             matrix(extraDistr::rbern(n=n*Yn$B,
+                                      prob=mcsamples[cbind(c(t(YBprob[,Ws])),seqn)]
+                                      ),
+                    nrow=n, ncol=Yn$B, dimnames=list(NULL,Yv$B))
+         }else{NULL}),
+        (if(Yn$I > 0){
+             which(YIlefts[[1]] <= i & i < YIrights[[1]])
+             apply(rbind(1:Yn$I,
+                 matrix(rnorm(n=n*Yn$I,
+                          mean=mcsamples[cbind(c(t(YImean[,Ws])),seqn)],
+                          sd=sqrt(mcsamples[cbind(c(t(YIvar[,Ws])),seqn)])),
+                        nrow=n, ncol=Yn$I, dimnames=list(NULL,Yv$I))
+                        ),
+             2, function(xxx){
+                 nimble::rinterval(n=n, xxx[-1], YIrights[[xxx[1]]])
+                 }
+             )
+         }else{NULL})
         ) # end probY
-        }
         ##
         ## ## Other approaches tested for roundoff error
         ## testc2 <- rowSums(exp(probX2 + probY - log(rowSums(exp(probX2)))))

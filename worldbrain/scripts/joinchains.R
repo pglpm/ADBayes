@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-14T10:03:39+0100
+## Last-Updated: 2022-12-16T06:41:42+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -261,7 +261,6 @@ for(v in unlist(variate)){#cat(avar)
         datum <- data0[[v]]
         datum <- datum[!is.na(datum)]
         ## fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
-        fiven <- fivenum(datum)
         if(!(varinfo[['type']][v] %in% c('O','D'))){
             if(contvar){
                 nh <- max(10,round(length(datum)/64))
@@ -293,7 +292,6 @@ for(v in unlist(variate)){#cat(avar)
                 tplot(x=varinfo[['max']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
             }
         }
-        abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
     }else if((showdata=='scatter')|(showdata==TRUE & contvar)){
         datum <- data0[[v]]
         datum <- datum[!is.na(datum)]
@@ -304,6 +302,8 @@ for(v in unlist(variate)){#cat(avar)
                                   max=min(diff(sort(unique(datum))))/4),
                                   col=yellow)
     }
+        fiven <- fivenum(datum)
+        abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
     ##
     dev.set(pdf2)
     marguncertainty <- t(apply(plotsamples, 1, function(x){tquant(x, c(1,31)/32)}))
