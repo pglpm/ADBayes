@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-17T17:50:53+0100
+## Last-Updated: 2022-12-18T00:14:51+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -694,7 +694,7 @@ foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
 
 
 ## Samples of variates
-samplesVariates <- function(n, Ynames, X=NULL, mcsamples, varinfo){
+generateVariates <- function(n, Ynames, X=NULL, mcsamples, varinfo){
     subsamples <- sample(1:nrow(mcsamples), n, replace=(n > nrow(mcsamples)))
     seqn <- 1:n
     mcsamples <- t(mcsamples[subsamples,,drop=FALSE])
