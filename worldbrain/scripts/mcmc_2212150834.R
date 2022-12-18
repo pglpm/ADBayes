@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-17T15:08:30+0100
+## Last-Updated: 2022-12-18T08:00:26+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,7 +8,7 @@
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testhyperprior3' # *** ## Base name of output directory
+baseversion <- '_testhyperprior4test' # *** ## Base name of output directory
 ## datafile <- 'testdataS1.csv'#'ingrid_data_nogds6.csv' #***
 datafile <- 'ingrid_data_nogds6.csv' #***
 predictorfile <- 'predictors.csv'
@@ -16,24 +16,24 @@ predictandfile <- NULL # 'predictors.csv'
 varinfofile <- 'varinfo.rds'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
-ndata <- NULL # set this if you want to use fewer data
+ndata <- 10 # set this if you want to use fewer data
 shuffledata <- FALSE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
 savetempsamples <- FALSE # save temporary MCMC samples
-plottempdistributions <- TRUE # plot temporary sampled distributions
+plottempdistributions <- FALSE # plot temporary sampled distributions
 showdata <- TRUE # 'histogram' 'scatter' FALSE TRUE
 plotmeans <- TRUE # plot frequency averages
 totsamples <- 100 # number of samples if plotting frequency averages
 ##
 niter0 <- 1024L * 1L # 3L # iterations burn-in
 nclusters <- 64L
-alpha0 <- 2^c(0,-3,-2,-1,1,2,3)
+alpha0 <- 2^((-3):3)
 casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
-showhyperparametertraces <- TRUE ##
-showsamplertimes <- TRUE ##
-maxstages <- 0
+showhyperparametertraces <- FALSE ##
+showsamplertimes <- FALSE ##
+maxstages <- 1
 family <- 'Palatino'
 #### Hyperparameters
 hwidth <- 2
@@ -61,6 +61,9 @@ ivar0 <- (7/8)^2
 ishapein0 <- 1
 ishapeout0 <- 1
 ivarscales <- ((1/4) * 2^((-hwidth):hwidth))^2
+##
+bshapein0 <- 1
+bshapeout0 <- 1
 
 
 #### Packages and setup ####
@@ -217,7 +220,7 @@ constants <- c(
 initsFunction <- function(){
     c(
         list( # distribution over concentration parameter
-                           Alphaindex = 1,
+                           Alphaindex = sample(1:nalpha,1),
                            probalpha0 = rep(1/nalpha, nalpha),
                            walpha0 = matrix(alpha0/nclusters,
                                             nrow=nalpha, ncol=nclusters)
@@ -262,8 +265,8 @@ initsFunction <- function(){
                      iprobvarscale0=rep(1/nivarscales,nivarscales)
                      )},
         if(len$B > 0){list( # binay variate
-                     Bshapeout0 = varinfo[[ 'hshapeout']][variate$B],
-                     Bshapein0 = varinfo[[ 'hshapein']][variate$B]
+                     Bshapeout0 = rep(bshapeout0, len$B),
+                     Bshapein0 = rep(bshapein0, len$B)
                  )},
         if(len$C > 0){list( # categorical variate
                      Calpha0 = t(sapply(variate$B, function(v){
@@ -784,7 +787,7 @@ dev.off()
                         tplot(x=Xgrid, y=rowMeans(plotsamples, na.rm=T), type='l', col=1, alpha=0.25, lty=1, lwd=4, add=T)
                     }
                 }else{ # plot of a continuous doubly-bounded variate
-                    interior <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
+                    interior <- which(Xgrid > varinfo[['tmin']][v] & Xgrid < varinfo[['tmax']][v])
                     tplot(x=Xgrid[interior], y=plotsamples[interior,subsample], type='l', col=5, alpha=7/8, lty=1, lwd=2,
                           xlab=paste0(v, ' (continuous with deltas)'),
                           ylab=paste0('frequency (density)'),
@@ -820,20 +823,20 @@ dev.off()
                             tplot(x=histo$mids, y=histo$counts/sum(histo$counts), col=yellow, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
                         }
                     }else{ # histogram for censored variate
-                        interior <- which(datum > varinfo[['min']][v] & datum < varinfo[['max']][v])
+                        interior <- which(datum > varinfo[['tmin']][v] & datum < varinfo[['tmax']][v])
                         histo <- thist(datum[interior], n=max(10,round(length(interior)/64)))
-                        interiorgrid <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
+                        interiorgrid <- which(Xgrid > varinfo[['tmin']][v] & Xgrid < varinfo[['tmax']][v])
                         histomax <- max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
                         tplot(x=histo$mids, y=histo$density*histomax, col=yellow, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
                         ##
-                        pborder <- sum(datum <= varinfo[['min']][v])/length(datum)
+                        pborder <- sum(datum <= varinfo[['tmin']][v])/length(datum)
                         if(pborder > 0){
-                            tplot(x=varinfo[['min']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=yellow, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
+                            tplot(x=varinfo[['tmin']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=yellow, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
                         }
                         ##
-                        pborder <- sum(datum >= varinfo[['max']][v])/length(datum)
+                        pborder <- sum(datum >= varinfo[['tmax']][v])/length(datum)
                         if(pborder > 0){
-                            tplot(x=varinfo[['max']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=yellow, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
+                            tplot(x=varinfo[['tmax']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=yellow, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
                         }
                     }
                     abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
@@ -841,7 +844,7 @@ dev.off()
                     datum <- data0[[v]]
                     datum <- datum[!is.na(datum)]
                     diffdatum <- c(apply(cbind(c(0,diff(datum)),c(diff(datum),0)),1,min))/2
-                    scatteraxis(side=1, n=NA, alpha='88', ext=8, x=datum+runif(length(datum),
+                    scatteraxis(side=1, n=NA, alpha='88', ext=5, x=datum+runif(length(datum),
                                                                                min=-min(diff(sort(unique(datum))))/4,
                                   max=min(diff(sort(unique(datum))))/4),
                                 col=yellow)

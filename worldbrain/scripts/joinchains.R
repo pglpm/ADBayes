@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-16T06:41:42+0100
+## Last-Updated: 2022-12-18T08:11:11+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -18,6 +18,7 @@ predictandfile <- NULL # 'predictors.csv'
 functionsfile <- 'functionsmcmc_2212120902.R'
 showdata <- TRUE # 'histogram' 'scatter' FALSE
 plotmeans <- TRUE
+quantilestoshow <- c(1,7)/8# c(1,31)/32
 ndata <- NULL # set this if you want to use fewer data
 shuffledata <- FALSE # useful if subsetting data
 family <- 'Palatino'
@@ -208,7 +209,7 @@ par(mfrow=c(1,1))
 ## Samples of marginal frequency distributions
 if(plotmeans){nfsamples <- totsamples}else{nfsamples <- 100}
 subsample <- round(seq(1,nfsamples, length.out=100))
-for(v in unlist(variate)){#cat(avar)
+for(v in unlist(variate)){
     contvar <- varinfo[['type']][v] %in% c('R','O','D')
     rg <- c(varinfo[['plotmin']][v], varinfo[['plotmax']][v])
     if(contvar){
@@ -218,7 +219,7 @@ for(v in unlist(variate)){#cat(avar)
         Xgrid <- cbind(Xgrid[Xgrid >= rg[1] & Xgrid <= rg[2]])
     }
     colnames(Xgrid) <- v
-    plotsamples <- samplesFDistribution(Y=Xgrid, mcsamples=mcsamples, varinfo=varinfo, subsamples=round(seq(1,nrow(mcsamples),length.out=nfsamples)), jacobian=TRUE)
+    plotsamples <- samplesFDistribution(Y=Xgrid, X=NULL, mcsamples=mcsamples, varinfo=varinfo, subsamples=round(seq(1,nrow(mcsamples),length.out=nfsamples)), jacobian=TRUE)
     ymax <- tquant(apply(plotsamples[,subsample],2,function(x){tquant(x,31/32)}),31/32, na.rm=T)
     if((showdata=='histogram' || showdata==TRUE) && !contvar){
         datum <- data0[[v]]
@@ -271,16 +272,16 @@ for(v in unlist(variate)){#cat(avar)
             histo <- thist(datum, n=nh)
             if(contvar){
                 histomax <- max(rowMeans(plotsamples))/max(histo$density)
-                tplot(x=histo$mids, y=histo$density*histomax, col=7, lty=2, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                tplot(x=histo$mids, y=histo$density*histomax, col=yellow, lty=1, alpha=2/4, border=darkgrey, border.alpha=3/4, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
             }else{
-                tplot(x=histo$mids, y=histo$counts/sum(histo$counts), col=7, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
+                tplot(x=histo$mids, y=histo$counts/sum(histo$counts), col=yellow, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
             }
         }else{ # histogram for censored variate
             interior <- which(datum > varinfo[['min']][v] & datum < varinfo[['max']][v])
             histo <- thist(datum[interior], n=max(10,round(length(interior)/64)))
             interiorgrid <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
-            histomax <- max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
-            tplot(x=histo$mids, y=histo$density*histomax, col=7, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
+            histomax <- 1#max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
+            tplot(x=histo$mids, y=histo$density*histomax, col=yellow, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
             ##
             pborder <- sum(datum <= varinfo[['min']][v])/length(datum)
             if(pborder > 0){
@@ -296,7 +297,7 @@ for(v in unlist(variate)){#cat(avar)
         datum <- data0[[v]]
         datum <- datum[!is.na(datum)]
         diffdatum <- c(apply(cbind(c(0,diff(datum)),c(diff(datum),0)),1,min))/2
-        scatteraxis(side=1, n=NA, alpha='88', ext=8,
+        scatteraxis(side=1, n=NA, alpha='88', ext=5,
                     x=datum+runif(length(datum),
                                   min=-min(diff(sort(unique(datum))))/4,
                                   max=min(diff(sort(unique(datum))))/4),
@@ -306,18 +307,18 @@ for(v in unlist(variate)){#cat(avar)
         abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
     ##
     dev.set(pdf2)
-    marguncertainty <- t(apply(plotsamples, 1, function(x){tquant(x, c(1,31)/32)}))
+    marguncertainty <- t(apply(plotsamples, 1, function(x){tquant(x, quantilestoshow)}))
     tplot(x=Xgrid, y=rowMeans(plotsamples), type='l', col=1, lty=1, lwd=3, xlab=paste0(v), ylab=paste0('frequency', (if(varinfo[['type']][v] %in% c('R','O','D')){' density'}else{''})),
           ylim=c(0, ymax), family=family)
     ##  93.75% marginal credibility intervals
-    plotquantiles(x=Xgrid, y=marguncertainty, col=4, alpha=0.75)
+    plotquantiles(x=Xgrid, y=marguncertainty, col=5, alpha=0.75)
     abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
     ##
     if((showdata=='histogram')||(showdata==TRUE && !contvar)){
         if(contvar){
-            tplot(x=histo$mids, y=histo$density*histomax, col=grey, alpha=0.5, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
+            tplot(x=histo$mids, y=histo$density*histomax, col=yellow, alpha=0.5, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
         }else{
-            tplot(x=histo$mids, y=histo$counts/sum(histo$counts), col=grey, alpha=0.5, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
+            tplot(x=histo$mids, y=histo$counts/sum(histo$counts), col=yellow, alpha=0.5, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
 }
     }else if((showdata=='scatter')|(showdata==TRUE & contvar)){
         scatteraxis(side=1, n=NA, alpha='88', ext=8,
