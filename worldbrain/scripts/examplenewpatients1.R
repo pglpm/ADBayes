@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-19T16:12:40+0100
+## Last-Updated: 2022-12-19T21:49:53+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -71,8 +71,6 @@ mcsamplesfile <-  paste0(origdir, mainfilelocation,
                          list.files(path=paste0(origdir,mainfilelocation), pattern='^_jointmcsamples.*\\.rds'))
 
 varinfo <- readRDS(paste0(varinfofile))
-mcsamples <- readRDS(paste0(mcsamplesfile))
-datapatients <- fread(paste0(origdir,exampledatafile), sep=',')
 
 ##
 variate <- lapply(variatetypes, function(x)names(varinfo[['type']])[varinfo[['type']]==x])
@@ -92,6 +90,8 @@ if(!is.null(predictorfile) && !is.null(predictandfile)){
     predictors <- setdiff(unlist(variate), predictands)
 }else{warning('predictors and predictands both missing')}
 
+mcsamples <- readRDS(paste0(mcsamplesfile))
+datapatients <- fread(paste0(origdir,exampledatafile), sep=',')
 
 tiemax <- function(xxx){ sample(rep( which(xxx==max(xxx)), 2), 1, replace=F) }
 
@@ -121,28 +121,44 @@ alllikelihoods <- aperm(sapply(1:nrow(predictandvalues), function(yyy){
 likelihoods <- colMeans(alllikelihoods)
 postps <- likelihoods[2,]*priorp/(likelihoods[2,]*priorp + likelihoods[1,]*(1-priorp))
 
-totutilities <- foreach(patient=1:npatients, .combine=c)%do%{
-    utility <- patientutilities[patient,,]
-##    utility <- diag(2)
-    thischoice <- tiemax( utility %*% c(1-postps[patient], postps[patient]) )
-    utility[thischoice, datapatients[[predictands]][patient]+1]
-}
-
-
 alldirectprobs <- samplesFDistribution(X=datapatients[,..predictors], Y=predictandvalues[2,,drop=F],
                                        mcsamples=mcsamples,
                                        varinfo=varinfo)
 directprobs <- rowMeans(alldirectprobs)
 
-totutilities2 <- foreach(patient=1:npatients, .combine=c)%do%{
+
+totutilitiesGenUti <- foreach(patient=1:npatients, .combine=c)%do%{
+    utility <- patientutilities[patient,,]
+##    utility <- diag(2)
+    thischoice <- tiemax( utility %*% c(1-postps[patient], postps[patient]) )
+    utility[thischoice, datapatients[[predictands]][patient]+1]
+}
+##
+totutilitiesGenCla <- foreach(patient=1:npatients, .combine=c)%do%{
+    utility <- patientutilities[patient,,]
+##    utility <- diag(2)
+    thischoice <- tiemax( diag(2) %*% c(1-postps[patient], postps[patient]) )
+    utility[thischoice, datapatients[[predictands]][patient]+1]
+}
+##
+totutilitiesDisUti <- foreach(patient=1:npatients, .combine=c)%do%{
+    utility <- patientutilities[patient,,]
+##    utility <- diag(2)
+    thischoice <- tiemax( utility %*% c(1-directprobs[patient], directprobs[patient]) )
+    utility[thischoice, datapatients[[predictands]][patient]+1]
+}
+##
+totutilitiesDisCla <- foreach(patient=1:npatients, .combine=c)%do%{
     utility <- patientutilities[patient,,]
 ##    utility <- diag(2)
     thischoice <- tiemax( diag(2) %*% c(1-directprobs[patient], directprobs[patient]) )
     utility[thischoice, datapatients[[predictands]][patient]+1]
 }
 
-summary(totutilities)
-summary(totutilities2)
+summary(totutilitiesDisCla)
+summary(totutilitiesDisUti)
+summary(totutilitiesGenCla)
+summary(totutilitiesGenUti)
 
 tplot(x=totutilities2,y=totutilities-totutilities2, type='p', pch=16, cex=0.5,
       xlim=c(-0.5,1.5), ylim=c(-2,2))
@@ -150,13 +166,29 @@ tplot(x=totutilities2,y=totutilities-totutilities2, type='p', pch=16, cex=0.5,
 tplot(x=totutilities2,y=totutilities, type='p', pch=16, cex=0.5,
       xlim=c(-0.5,1.5), ylim=c(-0.5,1.5))
 
-histo1 <- thist(totutilities,n=25)
-histo2 <- thist(totutilities2,n=25)
+histoDC <- thist(totutilitiesDisCla,n=25)
+histoDU <- thist(totutilitiesDisUti,n=25)
+histoGC <- thist(totutilitiesGenCla,n=25)
+histoGU <- thist(totutilitiesGenUti,n=25)
+ymax <- max(histoDC$counts,histoDU$counts,histoGC$counts,histoGU$counts)+1
 pdff('procedurecomparison_results')
-tplot(x=list(histo1$breaks, histo2$breaks), y=list(histo1$counts,histo2$counts),
-      xlab='benefit/loss',ylab='# patients')
-legend('topleft',c('generative & utility-aware', 'discriminative & 50%-threshold'),
-       bty='n',lwd=5, col=c(1,2))
+tplot(x=list(histoDC$breaks, histoDU$breaks), y=list(histoDC$counts,histoDU$counts),
+      xlab='benefit/loss',ylab='# patients', col=c(2,5),xlim=c(-0.5,1.5),ylim=c(0,ymax),border=darkgrey)
+legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDisCla),3)),
+                   paste0('discriminative & utility-aware, mean = ',signif(mean(totutilitiesDisUti),3))),
+       bty='n',lwd=7, col=c(2,5))
+##
+tplot(x=list(histoDC$breaks, histoGC$breaks), y=list(histoDC$counts,histoGC$counts),
+      xlab='benefit/loss',ylab='# patients', col=c(2,1),xlim=c(-0.5,1.5),ylim=c(0,ymax),border=darkgrey)
+legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDisCla),3)),
+                          paste0('generative & 50%-threshold, mean = ',signif(mean(totutilitiesGenCla),3))),
+       bty='n',lwd=7, col=c(2,1))
+##
+tplot(x=list(histoDC$breaks, histoGU$breaks), y=list(histoDC$counts,histoGU$counts),
+      xlab='benefit/loss',ylab='# patients', col=c(2,3),xlim=c(-0.5,1.5),ylim=c(0,ymax),border=darkgrey)
+legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDisCla),3)),
+                          paste0('generative & utility-aware, mean = ',signif(mean(totutilitiesGenUti),3))),
+       bty='n',lwd=7, col=c(2,3))
 dev.off()
 
 
