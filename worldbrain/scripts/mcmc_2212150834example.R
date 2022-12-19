@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-19T12:57:31+0100
+## Last-Updated: 2022-12-19T13:25:56+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,15 +8,17 @@
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testhyperprior4test' # *** ## Base name of output directory
-## datafile <- 'testdataS1.csv'#'ingrid_data_nogds6.csv' #***
-datafile <- 'ingrid_data_nogds6.csv' #***
+baseversion <- '_exampleapplication3' # *** ## Base name of output directory
+maxstages <- Inf
+ncores <- 1
+datafile <- 'dataexample_learn.csv'
+## datafile <- 'ingrid_data_nogds6.csv' #***
 predictorfile <- 'predictors.csv'
 predictandfile <- NULL # 'predictors.csv'
 varinfofile <- 'varinfo.rds'
 requiredESS <- 1024*2/20 # required effective sample size
 nsamples <- 8*ceiling((requiredESS*1.5)/8) # number of samples AFTER thinning
-ndata <- 10 # set this if you want to use fewer data
+ndata <- NULL # set this if you want to use fewer data
 shuffledata <- FALSE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 minstepincrease <- 8L
@@ -26,16 +28,18 @@ showdata <- TRUE # 'histogram' 'scatter' FALSE TRUE
 plotmeans <- TRUE # plot frequency averages
 totsamples <- 100 # number of samples if plotting frequency averages
 ##
-niter0 <- 1024L * 1L # 3L # iterations burn-in
+niter0 <- 1024L * 4L # 3L # iterations burn-in
 nclusters <- 64L
 alpha0 <- 2^((-3):3)
 casualinitvalues <- FALSE
 ## stagestart <- 3L # set this if continuing existing MC = last saved + 1
 showhyperparametertraces <- FALSE ##
 showsamplertimes <- FALSE ##
-maxstages <- 1
-ncores <- 6
 family <- 'Palatino'
+
+
+
+
 
 
 #### Hyperparameters
@@ -136,11 +140,7 @@ novarscales <- length(ovarscales)
 nivarscales <- length(ivarscales)
 
 
-if(grepl('\\.rds$',datafile)){
-    data0 <- readRDS(paste0(origdir,datafile))
-}else{
-    data0 <- fread(paste0(origdir,datafile), sep=',')
-}
+data0 <- fread(paste0(origdir,datafile), sep=',')
 if(!all(unlist(variate) %in% colnames(data0))){cat('\nERROR: variates missing from datafile')}
 data0 <- data0[, unlist(variate), with=F]
 ## shuffle data
@@ -298,7 +298,6 @@ initsFunction <- function(){
                                              K = sample(1:nclusters, ndata, replace=TRUE)
                                          )}
     )}
-
 
 ##
 #### Mathematical representation of long-run frequency distributions

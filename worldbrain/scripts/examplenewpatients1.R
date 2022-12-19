@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-19T11:11:00+0100
+## Last-Updated: 2022-12-19T14:16:03+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -8,15 +8,15 @@ if(!exists('tplot')){source('~/work/pglpm_plotfunctions.R')}
 
 #rm(list=ls())
 
-outputdir <- 'testpatientoutput'
+outputdir <- 'examplenewpatients1'
 extratitle <- 'patients'
-totsamples <- 4096L
+## totsamples <- 4096L
 datafile <- 'ingrid_data_nogds6.csv'
+exampledatafile <- 'dataexample_act.csv'
 ## datafile <- 'ingriddatalearn.csv' #***
 predictorfile <- 'predictors.csv'
 predictandfile <- NULL # 'predictors.csv'
-mcsamplesfile <- '_hyperprior4/_jointmcsamples--R_testhyperprior4-V13-D704-K64-I160---4096.rds'
-varinfofile <- '_hyperprior4/_varinfo-R_testhyperprior4-V13-D704-K64-I160.rds'
+mainfilelocation <- '_exampleapplication3/'
 functionsfile <- 'functionsmcmc_2212120902.R'
 showdata <- TRUE # 'histogram' 'scatter' FALSE
 plotmeans <- TRUE
@@ -61,9 +61,14 @@ if(!exists('outputdir') || is.na(outputdir) || is.null(outputdir)){
 }
 outputdir <- paste0(sub('(.+)/','\\1',outputdir),'/')
 dir.create(outputdir)
+origdir <- paste0(getwd(), '/')
 setwd(outputdir)
-origdir <- '../'
 source(paste0(origdir,functionsfile)) # load functions for post-MCMC
+
+varinfofile <- paste0(origdir, mainfilelocation,
+                      list.files(path=paste0(origdir,mainfilelocation), pattern='^_varinfo.*\\.rds'))
+mcsamplesfile <-  paste0(origdir, mainfilelocation,
+                         list.files(path=paste0(origdir,mainfilelocation), pattern='^_jointmcsamples.*\\.rds'))
 
 varinfo <- readRDS(paste0(origdir,varinfofile))
 mcsamples <- readRDS(paste0(origdir,mcsamplesfile))
@@ -84,6 +89,11 @@ if(!is.null(predictorfile) && !is.null(predictandfile)){
     predictands <- as.vector(unlist(read.csv(predictandfile, header=F)))
     predictors <- setdiff(unlist(variate), predictands)
 }else{warning('predictors and predictands both missing')}
+
+
+
+
+
 
 predictandvalues <- cbind(seq(varinfo[['min']][predictands],varinfo[['max']][predictands],length.out=varinfo[['n']][predictands]))
 colnames(predictandvalues) <- predictands
