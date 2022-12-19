@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-19T14:16:03+0100
+## Last-Updated: 2022-12-19T16:12:40+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -70,8 +70,10 @@ varinfofile <- paste0(origdir, mainfilelocation,
 mcsamplesfile <-  paste0(origdir, mainfilelocation,
                          list.files(path=paste0(origdir,mainfilelocation), pattern='^_jointmcsamples.*\\.rds'))
 
-varinfo <- readRDS(paste0(origdir,varinfofile))
-mcsamples <- readRDS(paste0(origdir,mcsamplesfile))
+varinfo <- readRDS(paste0(varinfofile))
+mcsamples <- readRDS(paste0(mcsamplesfile))
+datapatients <- fread(paste0(origdir,exampledatafile), sep=',')
+
 ##
 variate <- lapply(variatetypes, function(x)names(varinfo[['type']])[varinfo[['type']]==x])
 len <- lapply(variate,length)
@@ -91,12 +93,73 @@ if(!is.null(predictorfile) && !is.null(predictandfile)){
 }else{warning('predictors and predictands both missing')}
 
 
+tiemax <- function(xxx){ sample(rep( which(xxx==max(xxx)), 2), 1, replace=F) }
 
 
-
-
+priorp <- sum(datapatients[[predictands]]==1)/nrow(datapatients)
+npatients <- nrow(datapatients)
+##
 predictandvalues <- cbind(seq(varinfo[['min']][predictands],varinfo[['max']][predictands],length.out=varinfo[['n']][predictands]))
 colnames(predictandvalues) <- predictands
+##
+set.seed(123)
+patientutilities <- array( c(runif(n=npatients, min=0.5, max=1.5),
+                          runif(n=npatients, min=-0.5, max=0.5),
+                          runif(n=npatients, min=-0.5, max=0.5),
+                          runif(n=npatients, min=0.5, max=1.5)),
+                          dim=c(npatients,2,2),
+                          dimnames=list(paste0('patient',1:npatients),
+                                        paste0('choice',0:1),
+                                        paste0('true',0:1)) )
+
+
+alllikelihoods <- aperm(sapply(1:nrow(predictandvalues), function(yyy){
+    samplesFDistribution(Y=datapatients[,..predictors], X=predictandvalues[yyy,,drop=F],
+                         mcsamples=mcsamples,
+                         varinfo=varinfo)
+}, simplify='array'), c(2,3,1))
+likelihoods <- colMeans(alllikelihoods)
+postps <- likelihoods[2,]*priorp/(likelihoods[2,]*priorp + likelihoods[1,]*(1-priorp))
+
+totutilities <- foreach(patient=1:npatients, .combine=c)%do%{
+    utility <- patientutilities[patient,,]
+##    utility <- diag(2)
+    thischoice <- tiemax( utility %*% c(1-postps[patient], postps[patient]) )
+    utility[thischoice, datapatients[[predictands]][patient]+1]
+}
+
+
+alldirectprobs <- samplesFDistribution(X=datapatients[,..predictors], Y=predictandvalues[2,,drop=F],
+                                       mcsamples=mcsamples,
+                                       varinfo=varinfo)
+directprobs <- rowMeans(alldirectprobs)
+
+totutilities2 <- foreach(patient=1:npatients, .combine=c)%do%{
+    utility <- patientutilities[patient,,]
+##    utility <- diag(2)
+    thischoice <- tiemax( diag(2) %*% c(1-directprobs[patient], directprobs[patient]) )
+    utility[thischoice, datapatients[[predictands]][patient]+1]
+}
+
+summary(totutilities)
+summary(totutilities2)
+
+tplot(x=totutilities2,y=totutilities-totutilities2, type='p', pch=16, cex=0.5,
+      xlim=c(-0.5,1.5), ylim=c(-2,2))
+
+tplot(x=totutilities2,y=totutilities, type='p', pch=16, cex=0.5,
+      xlim=c(-0.5,1.5), ylim=c(-0.5,1.5))
+
+histo1 <- thist(totutilities,n=25)
+histo2 <- thist(totutilities2,n=25)
+pdff('procedurecomparison_results')
+tplot(x=list(histo1$breaks, histo2$breaks), y=list(histo1$counts,histo2$counts),
+      xlab='benefit/loss',ylab='# patients')
+legend('topleft',c('generative & utility-aware', 'discriminative & 50%-threshold'),
+       bty='n',lwd=5, col=c(1,2))
+dev.off()
+
+
 
 npatients <- 1024
 set.seed(999)
