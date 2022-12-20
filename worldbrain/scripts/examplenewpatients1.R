@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-20T11:21:47+0100
+## Last-Updated: 2022-12-20T11:39:54+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -102,13 +102,14 @@ npatients <- nrow(datapatients)
 predictandvalues <- cbind(seq(varinfo[['min']][predictands],varinfo[['max']][predictands],length.out=varinfo[['n']][predictands]))
 colnames(predictandvalues) <- predictands
 ##
+repeats <- 4
 set.seed(101)
-patientutilities <- array( c(runif(n=npatients, min=0.5, max=1.5),
-                          runif(n=npatients, min=-0.5, max=0.5),
-                          runif(n=npatients, min=-0.5, max=0.5),
-                          runif(n=npatients, min=0.5, max=1.5)),
-                          dim=c(npatients,2,2),
-                          dimnames=list(paste0('patient',1:npatients),
+patientutilities <- array( c(runif(n=npatients*repeats, min=0.5, max=1.5),
+                          runif(n=npatients*repeats, min=-0.5, max=0.5),
+                          runif(n=npatients*repeats, min=-0.5, max=0.5),
+                          runif(n=npatients*repeats, min=0.5, max=1.5)),
+                          dim=c(npatients*repeats,2,2),
+                          dimnames=list(rep(paste0('patient',1:npatients),repeats),
                                         paste0('choice',0:1),
                                         paste0('true',0:1)) )
 xlim <- c(-0.5,1.5)
@@ -124,84 +125,6 @@ xlim <- c(-0.5,1.5)
 ##                                         paste0('true',0:1)) )
 ## xlim <- c(-1.5,2.5)
 
-alllikelihoods <- aperm(sapply(1:nrow(predictandvalues), function(yyy){
-    samplesFDistribution(Y=datapatients[,..predictors], X=predictandvalues[yyy,,drop=F],
-                         mcsamples=mcsamples,
-                         varinfo=varinfo)
-}, simplify='array'), c(2,3,1))
-likelihoods <- colMeans(alllikelihoods)
-postps <- likelihoods[2,]*priorp/(likelihoods[2,]*priorp + likelihoods[1,]*(1-priorp))
-
-alldirectprobs <- samplesFDistribution(X=datapatients[,..predictors], Y=predictandvalues[2,,drop=F],
-                                       mcsamples=mcsamples,
-                                       varinfo=varinfo)
-directprobs <- rowMeans(alldirectprobs)
-
-
-totutilitiesGenUti <- foreach(patient=1:npatients, .combine=c)%do%{
-    utility <- patientutilities[patient,,]
-##    utility <- diag(2)
-    thischoice <- tiemax( utility %*% c(1-postps[patient], postps[patient]) )
-    utility[thischoice, datapatients[[predictands]][patient]+1]
-}
-##
-totutilitiesGenCla <- foreach(patient=1:npatients, .combine=c)%do%{
-    utility <- patientutilities[patient,,]
-##    utility <- diag(2)
-    thischoice <- tiemax( diag(2) %*% c(1-postps[patient], postps[patient]) )
-    utility[thischoice, datapatients[[predictands]][patient]+1]
-}
-##
-totutilitiesDisUti <- foreach(patient=1:npatients, .combine=c)%do%{
-    utility <- patientutilities[patient,,]
-##    utility <- diag(2)
-    thischoice <- tiemax( utility %*% c(1-directprobs[patient], directprobs[patient]) )
-    utility[thischoice, datapatients[[predictands]][patient]+1]
-}
-##
-totutilitiesDisCla <- foreach(patient=1:npatients, .combine=c)%do%{
-    utility <- patientutilities[patient,,]
-##    utility <- diag(2)
-    thischoice <- tiemax( diag(2) %*% c(1-directprobs[patient], directprobs[patient]) )
-    utility[thischoice, datapatients[[predictands]][patient]+1]
-}
-
-summary(totutilitiesDisCla)
-summary(totutilitiesDisUti)
-summary(totutilitiesGenCla)
-summary(totutilitiesGenUti)
-
-tplot(x=totutilities2,y=totutilities-totutilities2, type='p', pch=16, cex=0.5,
-      xlim=c(-0.5,1.5), ylim=c(-2,2))
-
-tplot(x=totutilities2,y=totutilities, type='p', pch=16, cex=0.5,
-      xlim=c(-0.5,1.5), ylim=c(-0.5,1.5))
-
-histoDC <- thist(totutilitiesDisCla,n=25)
-histoDU <- thist(totutilitiesDisUti,n=25)
-histoGC <- thist(totutilitiesGenCla,n=25)
-histoGU <- thist(totutilitiesGenUti,n=25)
-ymax <- max(histoDC$counts,histoDU$counts,histoGC$counts,histoGU$counts)+1
-pdff('procedurecomparison_results')
-tplot(x=list(histoDC$breaks, histoDU$breaks), y=list(histoDC$counts,histoDU$counts),
-      xlab='benefit/loss',ylab='# patients', col=c(2,5),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
-legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDisCla),3)),
-                   paste0('discriminative & utility-aware, mean = ',signif(mean(totutilitiesDisUti),3))),
-       bty='n',lwd=7, col=c(2,5))
-##
-tplot(x=list(histoDC$breaks, histoGC$breaks), y=list(histoDC$counts,histoGC$counts),
-      xlab='benefit/loss',ylab='# patients', col=c(2,3),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
-legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDisCla),3)),
-                          paste0('generative & 50%-threshold, mean = ',signif(mean(totutilitiesGenCla),3))),
-       bty='n',lwd=7, col=c(2,3))
-##
-tplot(x=list(histoDC$breaks, histoGU$breaks), y=list(histoDC$counts,histoGU$counts),
-      xlab='benefit/loss',ylab='# patients', col=c(2,1),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
-legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDisCla),3)),
-                          paste0('generative & utility-aware, mean = ',signif(mean(totutilitiesGenUti),3))),
-       bty='n',lwd=7, col=c(2,1))
-dev.off()
-
 
 #### conditional on other variates
 directp <- colMeans(aperm(
@@ -214,12 +137,14 @@ directp <- colMeans(aperm(
     c(2,3,1)))
 rownames(directp) <- predictandvalues
 
-givens <- c('Apoe4_', 'Gender_num_', 'AGE', 'LRHHC_n_long')
+
+## givens <- c('Apoe4_', 'Gender_num_', 'AGE', 'LRHHC_n_long')
 ## givens <- c('Apoe4_', 'Gender_num_', 'AGE')
-## givens <- c()
+givens <- c()
 tofind <- setdiff(variatenames, c(givens, 'Subgroup_num_'))
 priorp <- sum(datapatients[[predictands]]==1)/nrow(datapatients)
-
+##
+##
 ll <- colMeans(aperm(
     sapply(predictandvalues, function(yyy){
         samplesFDistribution(
@@ -230,39 +155,43 @@ ll <- colMeans(aperm(
     }, simplify='array'),
     c(2,3,1)))
 rownames(ll) <- predictandvalues
-
-totutilitiesGU <- foreach(patient=1:npatients, .combine=c)%do%{
+##
+##
+totutilitiesGU <- foreach(ii=1:(npatients*repeats), .combine=c)%do%{
+    patient <- ((ii-1)%%npatients)+1
     postp <- ll['1',patient]*priorp/(ll['1',patient]*priorp + ll['0',patient]*(1-priorp))
     ##
-    utility <- patientutilities[patient,,]
+    utility <- patientutilities[ii,,]
     ##
     thischoice <- tiemax( utility %*% c(1-postp, postp) )
     utility[thischoice, datapatients[[predictands]][patient]+1]
 }
 ##
-totutilitiesDC <- foreach(patient=1:npatients, .combine=c)%do%{
+totutilitiesDC <- foreach(ii=1:(npatients*repeats), .combine=c)%do%{
+    patient <- ((ii-1)%%npatients)+1
     postp <- directp['1',patient]
     ##
-    utility <- patientutilities[patient,,]
+    utility <- patientutilities[ii,,]
     ##
     thischoice <- tiemax( diag(2) %*% c(1-postp, postp) )
     utility[thischoice, datapatients[[predictands]][patient]+1]
 }
 ##
-totutilitiesGC <- foreach(patient=1:npatients, .combine=c)%do%{
+totutilitiesGC <- foreach(ii=1:(npatients*repeats), .combine=c)%do%{
+    patient <- ((ii-1)%%npatients)+1
     postp <- ll['1',patient]*priorp/(ll['1',patient]*priorp + ll['0',patient]*(1-priorp))
     ##
-    utility <- patientutilities[patient,,]
+    utility <- patientutilities[ii,,]
     ##
     thischoice <- tiemax( diag(2) %*% c(1-postp, postp) )
     utility[thischoice, datapatients[[predictands]][patient]+1]
 }
 ##
-##
-totutilitiesDU <- foreach(patient=1:npatients, .combine=c)%do%{
+totutilitiesDU <- foreach(ii=1:(npatients*repeats), .combine=c)%do%{
+    patient <- ((ii-1)%%npatients)+1
     postp <- directp['1',patient]
     ##
-    utility <- patientutilities[patient,,]
+    utility <- patientutilities[ii,,]
     ##
     thischoice <- tiemax( utility %*% c(1-postp, postp) )
     utility[thischoice, datapatients[[predictands]][patient]+1]
@@ -299,35 +228,34 @@ legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(
 dev.off()
 
 ## no other
-## >  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4996 -0.0231  0.3819  0.4366  0.8959  1.4993 
-## >  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4996  0.0413  0.4090  0.4970  1.0100  1.4993 
-## >  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.462   0.534   0.852   0.791   1.181   1.499 
-## > Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.462   0.510   0.861   0.796   1.181   1.499
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## -0.4975 -0.0359  0.3896  0.4415  0.9185  1.4993 
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## -0.4975  0.0479  0.4246  0.5004  0.9919  1.4993 
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  -0.499   0.535   0.856   0.774   1.172   1.499 
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  -0.499   0.504   0.869   0.786   1.184   1.499
 
 ## no HC
 ## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4996 -0.0231  0.3819  0.4366  0.8959  1.4993 
+## -0.4975 -0.0359  0.3896  0.4415  0.9185  1.4993 
 ## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4996  0.0413  0.4090  0.4970  1.0100  1.4993 
+## -0.4975  0.0479  0.4246  0.5004  0.9919  1.4993 
 ## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.462   0.534   0.852   0.791   1.180   1.499 
+##  -0.499   0.534   0.854   0.773   1.165   1.499 
 ## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.462   0.516   0.868   0.806   1.181   1.499 
+##  -0.499   0.478   0.861   0.776   1.180   1.499
 
 ## with HC
-##  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4996 -0.0231  0.3819  0.4366  0.8959  1.4993 
 ## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4996  0.0413  0.4090  0.4970  1.0100  1.4993 
+## -0.4975 -0.0359  0.3896  0.4415  0.9185  1.4993 
 ## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.462   0.520   0.835   0.785   1.178   1.499 
+## -0.4975  0.0479  0.4246  0.5004  0.9919  1.4993 
 ## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.462   0.493   0.835   0.785   1.180   1.499 
-
+##  -0.499   0.521   0.847   0.763   1.162   1.499 
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  -0.499   0.475   0.855   0.776   1.180   1.499
 
 
 
