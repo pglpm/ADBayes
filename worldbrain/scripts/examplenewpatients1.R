@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-20T11:08:05+0100
+## Last-Updated: 2022-12-20T11:21:47+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -102,7 +102,7 @@ npatients <- nrow(datapatients)
 predictandvalues <- cbind(seq(varinfo[['min']][predictands],varinfo[['max']][predictands],length.out=varinfo[['n']][predictands]))
 colnames(predictandvalues) <- predictands
 ##
-set.seed(123)
+set.seed(101)
 patientutilities <- array( c(runif(n=npatients, min=0.5, max=1.5),
                           runif(n=npatients, min=-0.5, max=0.5),
                           runif(n=npatients, min=-0.5, max=0.5),
@@ -204,21 +204,6 @@ dev.off()
 
 
 #### conditional on other variates
-givens <- c('Apoe4_', 'Gender_num_', 'AGE')#, 'LRHHC_n_long')
-tofind <- setdiff(variatenames, c(givens, 'Subgroup_num_'))
-priorp <- sum(datapatients[[predictands]]==1)/nrow(datapatients)
-
-ll <- colMeans(aperm(
-    sapply(predictandvalues, function(yyy){
-        samplesFDistribution(
-            Y=data.matrix(datapatients[,..tofind]),
-            X=cbind('Subgroup_num_'=yyy,
-                    data.matrix(datapatients[,..givens]) ),
-            mcsamples=mcsamples, varinfo=varinfo)
-    }, simplify='array'),
-    c(2,3,1)))
-rownames(ll) <- predictandvalues
-
 directp <- colMeans(aperm(
     sapply(predictandvalues, function(yyy){
         samplesFDistribution(
@@ -229,6 +214,22 @@ directp <- colMeans(aperm(
     c(2,3,1)))
 rownames(directp) <- predictandvalues
 
+givens <- c('Apoe4_', 'Gender_num_', 'AGE', 'LRHHC_n_long')
+## givens <- c('Apoe4_', 'Gender_num_', 'AGE')
+## givens <- c()
+tofind <- setdiff(variatenames, c(givens, 'Subgroup_num_'))
+priorp <- sum(datapatients[[predictands]]==1)/nrow(datapatients)
+
+ll <- colMeans(aperm(
+    sapply(predictandvalues, function(yyy){
+        samplesFDistribution(
+            Y=data.matrix(datapatients[,..tofind]),
+            X=cbind('Subgroup_num_'=yyy,
+                    if(length(givens) > 0){data.matrix(datapatients[,..givens])} ),
+            mcsamples=mcsamples, varinfo=varinfo)
+    }, simplify='array'),
+    c(2,3,1)))
+rownames(ll) <- predictandvalues
 
 totutilitiesGU <- foreach(patient=1:npatients, .combine=c)%do%{
     postp <- ll['1',patient]*priorp/(ll['1',patient]*priorp + ll['0',patient]*(1-priorp))
@@ -271,13 +272,13 @@ summary(totutilitiesDC)
 summary(totutilitiesDU)
 summary(totutilitiesGC)
 summary(totutilitiesGU)
-
+##
 histoDC <- thist(totutilitiesDC,n=25)
 histoDU <- thist(totutilitiesDU,n=25)
 histoGC <- thist(totutilitiesGC,n=25)
 histoGU <- thist(totutilitiesGU,n=25)
 ymax <- max(histoDC$counts,histoDU$counts,histoGC$counts,histoGU$counts)+1
-pdff('procedurecomparison_results_llcognitiveandHC')
+pdff(paste0('procedurecomparison_results_ll-',paste0(givens, collapse='-')))
 tplot(x=list(histoDC$breaks, histoDU$breaks), y=list(histoDC$counts,histoDU$counts),
       xlab='benefit/loss',ylab='# patients', col=c(2,5),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
 legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDC),3)),
@@ -297,10 +298,35 @@ legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(
        bty='n',lwd=7, col=c(2,1))
 dev.off()
 
+## no other
+## >  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## -0.4996 -0.0231  0.3819  0.4366  0.8959  1.4993 
+## >  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## -0.4996  0.0413  0.4090  0.4970  1.0100  1.4993 
+## >  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  -0.462   0.534   0.852   0.791   1.181   1.499 
+## > Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## -0.462   0.510   0.861   0.796   1.181   1.499
 
+## no HC
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## -0.4996 -0.0231  0.3819  0.4366  0.8959  1.4993 
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## -0.4996  0.0413  0.4090  0.4970  1.0100  1.4993 
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  -0.462   0.534   0.852   0.791   1.180   1.499 
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  -0.462   0.516   0.868   0.806   1.181   1.499 
 
-
-
+## with HC
+##  Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## -0.4996 -0.0231  0.3819  0.4366  0.8959  1.4993 
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## -0.4996  0.0413  0.4090  0.4970  1.0100  1.4993 
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  -0.462   0.520   0.835   0.785   1.178   1.499 
+## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##  -0.462   0.493   0.835   0.785   1.180   1.499 
 
 
 
