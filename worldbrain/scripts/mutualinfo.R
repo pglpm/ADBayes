@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-20T13:49:56+0100
+## Last-Updated: 2022-12-20T20:39:35+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -8,15 +8,14 @@ if(!exists('tplot')){source('~/work/pglpm_plotfunctions.R')}
 
 #rm(list=ls())
 
+nsamplesMI <- 1024
 outputdir <- 'examplenewpatients1'
-extratitle <- 'patients'
+extratitle <- 'mutualinfo'
 ## totsamples <- 4096L
 datafile <- 'ingrid_data_nogds6.csv'
-exampledatafile <- 'dataexample_act.csv'
-## datafile <- 'ingriddatalearn.csv' #***
 predictorfile <- 'predictors.csv'
 predictandfile <- NULL # 'predictors.csv'
-mainfilelocation <- '_exampleapplication3/'
+mainfilelocation <- '_inference1/'
 functionsfile <- 'functionsmcmc_2212120902.R'
 showdata <- TRUE # 'histogram' 'scatter' FALSE
 plotmeans <- TRUE
@@ -91,192 +90,141 @@ if(!is.null(predictorfile) && !is.null(predictandfile)){
 }else{warning('predictors and predictands both missing')}
 
 mcsamples <- readRDS(paste0(mcsamplesfile))
-datapatients <- fread(paste0(origdir,exampledatafile), sep=',')
 
-tiemax <- function(xxx){ sample(rep( which(xxx==max(xxx)), 2), 1, replace=F) }
+data0 <- fread(paste0(origdir,datafile), sep=',')
+if(!all(unlist(variate) %in% colnames(data0))){cat('\nERROR: variates missing from datafile')}
+data0 <- data0[, unlist(variate), with=F]
+## shuffle data
+if(exists('shuffledata') && shuffledata){data0 <- data0[sample(1:nrow(data0))]}
+if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(data0)}
+data0 <- data0[1:ndata]
 
 
-priorp <- sum(datapatients[[predictands]]==1)/nrow(datapatients)
-npatients <- nrow(datapatients)
-##
+## tiemax <- function(xxx){ sample(rep( which(xxx==max(xxx)), 2), 1, replace=F) }
+
+
+
+#### CALCULATION OF MUTUAL INFO ####
+
 predictandvalues <- cbind(seq(varinfo[['min']][predictands],varinfo[['max']][predictands],length.out=varinfo[['n']][predictands]))
 colnames(predictandvalues) <- predictands
-##
-repeats <- 16
-set.seed(101)
-patientutilities <- array( c(runif(n=npatients*repeats, min=0.5, max=1.5),
-                          runif(n=npatients*repeats, min=-0.5, max=0.5),
-                          runif(n=npatients*repeats, min=-0.5, max=0.5),
-                          runif(n=npatients*repeats, min=0.5, max=1.5)),
-                          dim=c(npatients*repeats,2,2),
-                          dimnames=list(rep(paste0('patient',1:npatients),repeats),
-                                        paste0('choice',0:1),
-                                        paste0('true',0:1)) )
-xlim <- c(-0.5,1.5)
-##
-## s1 <- 1
-## patientutilities <- array( c(rbeta(n=npatients, 1, 3*s1)*2+0.5,
-##                           -rbeta(n=npatients, 1, 3*s1)*2+0.5,
-##                           -rbeta(n=npatients, 1, 3*s1)*2+0.5,
-##                           rbeta(n=npatients, 1, 3*s1)*2+0.5 ),
-##                           dim=c(npatients,2,2),
-##                           dimnames=list(paste0('patient',1:npatients),
-##                                         paste0('choice',0:1),
-##                                         paste0('true',0:1)) )
-## xlim <- c(-1.5,2.5)
 
-
-#### conditional on other variates
-directp <- colMeans(aperm(
-    sapply(predictandvalues, function(yyy){
-        samplesFDistribution(
-            Y=cbind('Subgroup_num_'=yyy),
-            X=data.matrix(datapatients[,..predictors]),
-            mcsamples=mcsamples, varinfo=varinfo)
-    }, simplify='array'),
-    c(2,3,1)))
-rownames(directp) <- predictandvalues
-
-for(givens in list(
-                  c(),
-                  c('Apoe4_', 'Gender_num_', 'AGE'),
-                  c('Apoe4_', 'Gender_num_', 'AGE', 'LRHHC_n_long')
-              )){
-tofind <- setdiff(variatenames, c(givens, 'Subgroup_num_'))
-priorp <- sum(datapatients[[predictands]]==1)/nrow(datapatients)
-##
-##
-ll <- colMeans(aperm(
-    sapply(predictandvalues, function(yyy){
-        samplesFDistribution(
-            Y=data.matrix(datapatients[,..tofind]),
-            X=cbind('Subgroup_num_'=yyy,
-                    if(length(givens) > 0){data.matrix(datapatients[,..givens])} ),
-            mcsamples=mcsamples, varinfo=varinfo)
-    }, simplify='array'),
-    c(2,3,1)))
-rownames(ll) <- predictandvalues
-##
-##
-totutilitiesGU <- foreach(ii=1:(npatients*repeats), .combine=c)%do%{
-    patient <- ((ii-1)%%npatients)+1
-    postp <- ll['1',patient]*priorp/(ll['1',patient]*priorp + ll['0',patient]*(1-priorp))
+nsamplesMI <- 8
+MIdata <- foreach(v=c('',predictors), .combine=cbind)%do%{
+    print(v)
+    predictors0 <- setdiff(predictors,v)
+    xsamples2 <- t(generateVariates(Ynames=c(predictors0,predictands), X=NULL,
+                                    mcsamples=mcsamples, varinfo=varinfo,
+                                    n=nsamplesMI)[,,1])
+    saveRDS(xsamples2,paste0('xsamples2-',v,'-',nsamplesMI,'.rds'))
     ##
-    utility <- patientutilities[ii,,]
+    condprobsy <- samplesFDistribution(Y=xsamples2[,predictors0,drop=F],
+                                       X=NULL,
+                                       mcsamples=mcsamples, varinfo=varinfo,
+                                       jacobian=FALSE, fn=mean)
     ##
-    thischoice <- tiemax( utility %*% c(1-postp, postp) )
-    utility[thischoice, datapatients[[predictands]][patient]+1]
+    condprobsx <- samplesFDistribution(Y=xsamples2[,predictands,drop=F],
+                                       X=NULL,
+                                       mcsamples=mcsamples, varinfo=varinfo,
+                                       jacobian=FALSE, fn=mean)
+    ##
+    condprobsj <- samplesFDistribution(Y=xsamples2,
+                                       X=NULL,
+                                       mcsamples=mcsamples, varinfo=varinfo,
+                                       jacobian=FALSE, fn=mean)
+    ##
+    saveRDS(condprobsx,paste0('condprobsx-',v,'-',nsamplesMI,'.rds'))
+    saveRDS(condprobsy,paste0('condprobsy-',v,'-',nsamplesMI,'.rds'))
+    saveRDS(condprobsj,paste0('condprobsj-',v,'-',nsamplesMI,'.rds'))
+    ##
+    mutualinfos2 <- log2(condprobsj)-log2(condprobsx)-log2(condprobsy)
+    saveRDS(mutualinfos2,paste0('mutualinfos2-',v,'-',nsamplesMI,'.rds'))
+    mutualinfos2
 }
-##
-totutilitiesDC <- foreach(ii=1:(npatients*repeats), .combine=c)%do%{
-    patient <- ((ii-1)%%npatients)+1
-    postp <- directp['1',patient]
-    ##
-    utility <- patientutilities[ii,,]
-    ##
-    thischoice <- tiemax( diag(2) %*% c(1-postp, postp) )
-    utility[thischoice, datapatients[[predictands]][patient]+1]
-}
-##
-totutilitiesGC <- foreach(ii=1:(npatients*repeats), .combine=c)%do%{
-    patient <- ((ii-1)%%npatients)+1
-    postp <- ll['1',patient]*priorp/(ll['1',patient]*priorp + ll['0',patient]*(1-priorp))
-    ##
-    utility <- patientutilities[ii,,]
-    ##
-    thischoice <- tiemax( diag(2) %*% c(1-postp, postp) )
-    utility[thischoice, datapatients[[predictands]][patient]+1]
-}
-##
-totutilitiesDU <- foreach(ii=1:(npatients*repeats), .combine=c)%do%{
-    patient <- ((ii-1)%%npatients)+1
-    postp <- directp['1',patient]
-    ##
-    utility <- patientutilities[ii,,]
-    ##
-    thischoice <- tiemax( utility %*% c(1-postp, postp) )
-    utility[thischoice, datapatients[[predictands]][patient]+1]
-}
-##
-summary(totutilitiesDC)
-summary(totutilitiesDU)
-summary(totutilitiesGC)
-summary(totutilitiesGU)
-##
-histoDC <- thist(totutilitiesDC,n=25)
-histoDU <- thist(totutilitiesDU,n=25)
-histoGC <- thist(totutilitiesGC,n=25)
-histoGU <- thist(totutilitiesGU,n=25)
-ymax <- max(histoDC$counts/repeats,histoDU$counts/repeats,histoGC$counts/repeats,histoGU$counts/repeats)+1
-pdff(paste0('procedurecomparison_results_ll-',paste0(givens, collapse='-')))
-tplot(x=list(histoDC$breaks, histoDU$breaks), y=list(histoDC$counts/repeats,histoDU$counts/repeats),
-      xlab='benefit/loss',ylab='# patients', col=c(2,5),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
-legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDC),3)),
-                   paste0('discriminative & utility-aware, mean = ',signif(mean(totutilitiesDU),3))),
-       bty='n',lwd=7, col=c(2,5))
-##
-tplot(x=list(histoDC$breaks, histoGC$breaks), y=list(histoDC$counts/repeats,histoGC$counts/repeats),
-      xlab='benefit/loss',ylab='# patients', col=c(2,3),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
-legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDC),3)),
-                          paste0('generative & 50%-threshold, mean = ',signif(mean(totutilitiesGC),3))),
-       bty='n',lwd=7, col=c(2,3))
-##
-tplot(x=list(histoDC$breaks, histoGU$breaks), y=list(histoDC$counts/repeats,histoGU$counts/repeats),
-      xlab='benefit/loss',ylab='# patients', col=c(2,1),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
-legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDC),3)),
-                          paste0('generative & utility-aware, mean = ',signif(mean(totutilitiesGU),3))),
-       bty='n',lwd=7, col=c(2,1))
-dev.off()
-}
+colnames(MIdata) <- c('all',predictors)
 
-## no other
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4975 -0.0359  0.3896  0.4415  0.9185  1.4993 
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4975  0.0479  0.4246  0.5004  0.9919  1.4993 
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.499   0.535   0.856   0.774   1.172   1.499 
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.499   0.504   0.869   0.786   1.184   1.499
 
-## no HC
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4975 -0.0359  0.3896  0.4415  0.9185  1.4993 
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4975  0.0479  0.4246  0.5004  0.9919  1.4993 
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.499   0.534   0.854   0.773   1.165   1.499 
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.499   0.478   0.861   0.776   1.180   1.499
-
-## with HC
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4975 -0.0359  0.3896  0.4415  0.9185  1.4993 
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-## -0.4975  0.0479  0.4246  0.5004  0.9919  1.4993 
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.499   0.521   0.847   0.763   1.162   1.499 
-## >    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-##  -0.499   0.475   0.855   0.776   1.180   1.499
-
+        print(summary(mutualinfos2))
+mutualinfo2 <- mean(mutualinfos2)
+mutualinfosd2 <- sd(mutualinfos2)/sqrt(nsamplesMI)
+names(mutualinfo2) <- names(mutualinfosd2) <- 'Sh'
+c(mutualinfo2,mutualinfosd2)
 
 
 #### CALCULATION OF MUTUAL INFO (CORRECTED BY BASE RATE) ####
+
+priorp <- 0.5
+priorpvect <- c(1-priorp, priorp)
+predictandvalues <- cbind(seq(varinfo[['min']][predictands],varinfo[['max']][predictands],length.out=varinfo[['n']][predictands]))
+colnames(predictandvalues) <- predictands
 
 xsamples <- aperm(
     sapply(predictandvalues, function(yyy){
     generateVariates(Ynames=predictors, X=cbind('Subgroup_num_'=yyy),
                      mcsamples=mcsamples, varinfo=varinfo,
-                     n=2*nrow(mcsamples))
-    },simplify='array')[,,1,],
-    c(2,1,3))
-dimnames(xsamples)[[3]] <- predictandvalues
+                     n=nsamplesMI)
+    },simplify='array')[,,1,]
+)
+dimnames(xsamples)[[1]] <- predictandvalues
+saveRDS(xsamples,paste0('xsamples',nsamplesMI,'.rds'))
 
-condprobs <- sapply(predictandvalues, function(yyy){
-    samplesFDistribution(Y=xsamples[,,yyy+1],
+condprobs <- sapply(predictandvalues, function(xxx){
+    sapply(predictandvalues, function(yyy){
+    samplesFDistribution(Y=xsamples[xxx+1,,],
                          X=cbind('Subgroup_num_'=yyy),
+                         mcsamples=mcsamples, varinfo=varinfo,
+                         jacobian=FALSE, fn=mean)[,1]
+    }, simplify='array')
+}, simplify='array')
+saveRDS(condprobs,paste0('condprobs',nsamplesMI,'.rds'))
+
+mutualinfos <- rowSums(sapply(predictandvalues,function(yyy){
+    priorpvect[yyy+1] * (
+        log2(condprobs[,yyy+1,yyy+1]) -
+        log2(rowSums(sapply(predictandvalues,function(xxx){
+            priorpvect[xxx+1] * condprobs[,xxx+1,yyy+1]
+        })))
+    )
+}))
+print(summary(mutualinfos))
+mutualinfo <- mean(mutualinfos)
+mutualinfosd <- sd(mutualinfos)/sqrt(nsamplesMI)
+names(mutualinfo) <- names(mutualinfosd) <- 'Sh'
+c(mutualinfo,mutualinfosd)
+saveRDS(mutualinfo,paste0('mutualinfo',nsamplesMI,'.rds'))
+
+
+stop('end')
+
+pdff('check_samples')
+for(v in predictors){
+        vn <- min(varinfo[['n']][v],256)
+        vmin <- varinfo[['plotmin']][v]
+        vmax <- varinfo[['plotmax']][v]
+        vd <- (vmax-vmin)/(vn-1)
+    for(i in 0:1){
+        histo <- thist(xsamples[,v,i+1],
+                       n=seq(vmin-vd/2,vmax+vd/2,length.out=vn+1))
+        xgrid <- cbind(histo$mids)
+        colnames(xgrid) <- v
+    distri <- samplesFDistribution(Y=xgrid,
+                         X=cbind('Subgroup_num_'=i),
+                         mcsamples=mcsamples, varinfo=varinfo,
+                         jacobian=TRUE, fn=mean)
+    tplot(x=list(xgrid,xgrid),y=list(histo$density,distri))
+    }
+}
+dev.off()
+
+test <-     samplesFDistribution(Y=xsamples[1:10,,0+1],
+                         X=cbind('Subgroup_num_'=0),
+                         mcsamples=mcsamples, varinfo=varinfo, fn=mean)
+
+
+test2 <-     samplesFDistribution(Y=xsamples[1:10,,0+1],
+                         X=cbind('Subgroup_num_'=0),
                          mcsamples=mcsamples, varinfo=varinfo)
-    },simplify='array')
+
 
 
 

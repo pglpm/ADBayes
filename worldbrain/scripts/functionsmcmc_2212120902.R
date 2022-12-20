@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-18T00:14:51+0100
+## Last-Updated: 2022-12-20T13:42:39+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -266,7 +266,7 @@ proposethinning <- function(x){
 }
 
 ## samples of marginal and conditional full-population freq. distributions
-samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nrow(mcsamples), jacobian=TRUE){
+samplesFDistribution <- function(Y, X=NULL, mcsamples, varinfo, subsamples=1:nrow(mcsamples), jacobian=TRUE, fn=identity){
     if(length(subsamples) == 1 && !is.numeric(subsamples)){
         subsamples <- seq(1, nrow(mcsamples), length.out=round(abs(as.complex(subsamples))))
     }
@@ -684,7 +684,7 @@ foreach(y=t(Y2), x=t(X2), .combine=rbind, .inorder=T)%dopar%{
             probX <- probX - apply(probX, 1, max, na.rm=T)
             out <- rowSums(exp(probX+probY))/rowSums(exp(probX))
         }
-            out
+            fn(out)
     } *
     (if(jacobian){exp(-rowSums(
                            log(invjacobian(Y,varinfo=varinfo))
