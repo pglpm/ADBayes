@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-19T18:38:03+0100
+## Last-Updated: 2022-12-20T06:12:58+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -818,8 +818,7 @@ dev.off()
                 if((showdata=='histogram')||(showdata==TRUE && !contvar)){
                     datum <- data0[[v]]
                     datum <- datum[!is.na(datum)]
-                    ## fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
-                    fiven <- fivenum(datum)
+                    ##
                     if(!(varinfo[['type']][v] %in% c('O','D'))){
                         if(contvar){
                             nh <- max(10,round(length(datum)/64))
@@ -830,7 +829,7 @@ dev.off()
                         histo <- thist(datum, n=nh)
                         if(contvar){
                             histomax <- max(rowMeans(plotsamples))/max(histo$density)
-                            tplot(x=histo$mids, y=histo$density*histomax, col=yellow, lty=2, alpha=3/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=1, family=family, ylim=c(0,NA), add=TRUE)
+                            tplot(x=histo$mids, y=histo$density*histomax, col=yellow, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
                         }else{
                             tplot(x=histo$mids, y=histo$counts/sum(histo$counts), col=yellow, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
                         }
@@ -838,7 +837,7 @@ dev.off()
                         interior <- which(datum > varinfo[['tmin']][v] & datum < varinfo[['tmax']][v])
                         histo <- thist(datum[interior], n=max(10,round(length(interior)/64)))
                         interiorgrid <- which(Xgrid > varinfo[['tmin']][v] & Xgrid < varinfo[['tmax']][v])
-                        histomax <- max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
+                        histomax <- 1#max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
                         tplot(x=histo$mids, y=histo$density*histomax, col=yellow, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
                         ##
                         pborder <- sum(datum <= varinfo[['tmin']][v])/length(datum)
@@ -851,16 +850,18 @@ dev.off()
                             tplot(x=varinfo[['tmax']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=yellow, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
                         }
                     }
-                    abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
                 }else if((showdata=='scatter')|(showdata==TRUE & contvar)){
                     datum <- data0[[v]]
                     datum <- datum[!is.na(datum)]
                     diffdatum <- c(apply(cbind(c(0,diff(datum)),c(diff(datum),0)),1,min))/2
-                    scatteraxis(side=1, n=NA, alpha='88', ext=5, x=datum+runif(length(datum),
-                                                                               min=-min(diff(sort(unique(datum))))/4,
-                                  max=min(diff(sort(unique(datum))))/4),
+                    scatteraxis(side=1, n=NA, alpha='88',
+                                ext=5, x=datum+runif(length(datum),
+                                                     min=-min(diff(sort(unique(datum))))/4,
+                                                     max=min(diff(sort(unique(datum))))/4),
                                 col=yellow)
                 }
+                fiven <- fivenum(datum)
+                abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
             }else{
                 par(mfrow=c(8,8),mar = c(0,0,0,0))
                 tplot(x=list(Xgrid,Xgrid), y=list(rowMeans(plotsamples),rep(0,length(Xgrid))), type='l', col=c(paste0(palette()[3], 'FF'), '#bbbbbb80'), lty=1, lwd=c(2,1), xlab=NA, ylab=NA, ylim=c(0, NA), family=family,

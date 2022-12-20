@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-19T21:49:53+0100
+## Last-Updated: 2022-12-20T11:08:05+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -111,7 +111,18 @@ patientutilities <- array( c(runif(n=npatients, min=0.5, max=1.5),
                           dimnames=list(paste0('patient',1:npatients),
                                         paste0('choice',0:1),
                                         paste0('true',0:1)) )
-
+xlim <- c(-0.5,1.5)
+##
+## s1 <- 1
+## patientutilities <- array( c(rbeta(n=npatients, 1, 3*s1)*2+0.5,
+##                           -rbeta(n=npatients, 1, 3*s1)*2+0.5,
+##                           -rbeta(n=npatients, 1, 3*s1)*2+0.5,
+##                           rbeta(n=npatients, 1, 3*s1)*2+0.5 ),
+##                           dim=c(npatients,2,2),
+##                           dimnames=list(paste0('patient',1:npatients),
+##                                         paste0('choice',0:1),
+##                                         paste0('true',0:1)) )
+## xlim <- c(-1.5,2.5)
 
 alllikelihoods <- aperm(sapply(1:nrow(predictandvalues), function(yyy){
     samplesFDistribution(Y=datapatients[,..predictors], X=predictandvalues[yyy,,drop=F],
@@ -173,23 +184,134 @@ histoGU <- thist(totutilitiesGenUti,n=25)
 ymax <- max(histoDC$counts,histoDU$counts,histoGC$counts,histoGU$counts)+1
 pdff('procedurecomparison_results')
 tplot(x=list(histoDC$breaks, histoDU$breaks), y=list(histoDC$counts,histoDU$counts),
-      xlab='benefit/loss',ylab='# patients', col=c(2,5),xlim=c(-0.5,1.5),ylim=c(0,ymax),border=darkgrey)
+      xlab='benefit/loss',ylab='# patients', col=c(2,5),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
 legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDisCla),3)),
                    paste0('discriminative & utility-aware, mean = ',signif(mean(totutilitiesDisUti),3))),
        bty='n',lwd=7, col=c(2,5))
 ##
 tplot(x=list(histoDC$breaks, histoGC$breaks), y=list(histoDC$counts,histoGC$counts),
-      xlab='benefit/loss',ylab='# patients', col=c(2,1),xlim=c(-0.5,1.5),ylim=c(0,ymax),border=darkgrey)
+      xlab='benefit/loss',ylab='# patients', col=c(2,3),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
 legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDisCla),3)),
                           paste0('generative & 50%-threshold, mean = ',signif(mean(totutilitiesGenCla),3))),
-       bty='n',lwd=7, col=c(2,1))
+       bty='n',lwd=7, col=c(2,3))
 ##
 tplot(x=list(histoDC$breaks, histoGU$breaks), y=list(histoDC$counts,histoGU$counts),
-      xlab='benefit/loss',ylab='# patients', col=c(2,3),xlim=c(-0.5,1.5),ylim=c(0,ymax),border=darkgrey)
+      xlab='benefit/loss',ylab='# patients', col=c(2,1),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
 legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDisCla),3)),
                           paste0('generative & utility-aware, mean = ',signif(mean(totutilitiesGenUti),3))),
-       bty='n',lwd=7, col=c(2,3))
+       bty='n',lwd=7, col=c(2,1))
 dev.off()
+
+
+#### conditional on other variates
+givens <- c('Apoe4_', 'Gender_num_', 'AGE')#, 'LRHHC_n_long')
+tofind <- setdiff(variatenames, c(givens, 'Subgroup_num_'))
+priorp <- sum(datapatients[[predictands]]==1)/nrow(datapatients)
+
+ll <- colMeans(aperm(
+    sapply(predictandvalues, function(yyy){
+        samplesFDistribution(
+            Y=data.matrix(datapatients[,..tofind]),
+            X=cbind('Subgroup_num_'=yyy,
+                    data.matrix(datapatients[,..givens]) ),
+            mcsamples=mcsamples, varinfo=varinfo)
+    }, simplify='array'),
+    c(2,3,1)))
+rownames(ll) <- predictandvalues
+
+directp <- colMeans(aperm(
+    sapply(predictandvalues, function(yyy){
+        samplesFDistribution(
+            Y=cbind('Subgroup_num_'=yyy),
+            X=data.matrix(datapatients[,..predictors]),
+            mcsamples=mcsamples, varinfo=varinfo)
+    }, simplify='array'),
+    c(2,3,1)))
+rownames(directp) <- predictandvalues
+
+
+totutilitiesGU <- foreach(patient=1:npatients, .combine=c)%do%{
+    postp <- ll['1',patient]*priorp/(ll['1',patient]*priorp + ll['0',patient]*(1-priorp))
+    ##
+    utility <- patientutilities[patient,,]
+    ##
+    thischoice <- tiemax( utility %*% c(1-postp, postp) )
+    utility[thischoice, datapatients[[predictands]][patient]+1]
+}
+##
+totutilitiesDC <- foreach(patient=1:npatients, .combine=c)%do%{
+    postp <- directp['1',patient]
+    ##
+    utility <- patientutilities[patient,,]
+    ##
+    thischoice <- tiemax( diag(2) %*% c(1-postp, postp) )
+    utility[thischoice, datapatients[[predictands]][patient]+1]
+}
+##
+totutilitiesGC <- foreach(patient=1:npatients, .combine=c)%do%{
+    postp <- ll['1',patient]*priorp/(ll['1',patient]*priorp + ll['0',patient]*(1-priorp))
+    ##
+    utility <- patientutilities[patient,,]
+    ##
+    thischoice <- tiemax( diag(2) %*% c(1-postp, postp) )
+    utility[thischoice, datapatients[[predictands]][patient]+1]
+}
+##
+##
+totutilitiesDU <- foreach(patient=1:npatients, .combine=c)%do%{
+    postp <- directp['1',patient]
+    ##
+    utility <- patientutilities[patient,,]
+    ##
+    thischoice <- tiemax( utility %*% c(1-postp, postp) )
+    utility[thischoice, datapatients[[predictands]][patient]+1]
+}
+##
+summary(totutilitiesDC)
+summary(totutilitiesDU)
+summary(totutilitiesGC)
+summary(totutilitiesGU)
+
+histoDC <- thist(totutilitiesDC,n=25)
+histoDU <- thist(totutilitiesDU,n=25)
+histoGC <- thist(totutilitiesGC,n=25)
+histoGU <- thist(totutilitiesGU,n=25)
+ymax <- max(histoDC$counts,histoDU$counts,histoGC$counts,histoGU$counts)+1
+pdff('procedurecomparison_results_llcognitiveandHC')
+tplot(x=list(histoDC$breaks, histoDU$breaks), y=list(histoDC$counts,histoDU$counts),
+      xlab='benefit/loss',ylab='# patients', col=c(2,5),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
+legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDC),3)),
+                   paste0('discriminative & utility-aware, mean = ',signif(mean(totutilitiesDU),3))),
+       bty='n',lwd=7, col=c(2,5))
+##
+tplot(x=list(histoDC$breaks, histoGC$breaks), y=list(histoDC$counts,histoGC$counts),
+      xlab='benefit/loss',ylab='# patients', col=c(2,3),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
+legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDC),3)),
+                          paste0('generative & 50%-threshold, mean = ',signif(mean(totutilitiesGC),3))),
+       bty='n',lwd=7, col=c(2,3))
+##
+tplot(x=list(histoDC$breaks, histoGU$breaks), y=list(histoDC$counts,histoGU$counts),
+      xlab='benefit/loss',ylab='# patients', col=c(2,1),xlim=xlim,ylim=c(0,ymax),border=darkgrey)
+legend('topleft',c(paste0('discriminative & 50%-threshold, mean = ',signif(mean(totutilitiesDC),3)),
+                          paste0('generative & utility-aware, mean = ',signif(mean(totutilitiesGU),3))),
+       bty='n',lwd=7, col=c(2,1))
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

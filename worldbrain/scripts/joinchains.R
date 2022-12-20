@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-18T08:11:11+0100
+## Last-Updated: 2022-12-20T06:11:04+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -242,7 +242,7 @@ for(v in unlist(variate)){
             tplot(x=Xgrid, y=rowMeans(plotsamples, na.rm=T), type='l', col=1, alpha=0.25, lty=1, lwd=4, add=T)
         }
     }else{ # plot of a continuous doubly-bounded variate
-        interior <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
+        interior <- which(Xgrid > varinfo[['tmin']][v] & Xgrid < varinfo[['tmax']][v])
         tplot(x=Xgrid[interior], y=plotsamples[interior,subsample], type='l', col=5, alpha=7/8, lty=1, lwd=2,
               xlab=paste0(v, ' (continuous with deltas)'),
               ylab=paste0('frequency (density)'),
@@ -261,7 +261,7 @@ for(v in unlist(variate)){
     if((showdata=='histogram')||(showdata==TRUE && !contvar)){
         datum <- data0[[v]]
         datum <- datum[!is.na(datum)]
-        ## fiven <- varinfo[v,c('min','Q1','Q2','Q3','max')]
+        ##
         if(!(varinfo[['type']][v] %in% c('O','D'))){
             if(contvar){
                 nh <- max(10,round(length(datum)/64))
@@ -277,20 +277,20 @@ for(v in unlist(variate)){
                 tplot(x=histo$mids, y=histo$counts/sum(histo$counts), col=yellow, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
             }
         }else{ # histogram for censored variate
-            interior <- which(datum > varinfo[['min']][v] & datum < varinfo[['max']][v])
+            interior <- which(datum > varinfo[['tmin']][v] & datum < varinfo[['tmax']][v])
             histo <- thist(datum[interior], n=max(10,round(length(interior)/64)))
-            interiorgrid <- which(Xgrid > varinfo[['min']][v] & Xgrid < varinfo[['max']][v])
+            interiorgrid <- which(Xgrid > varinfo[['tmin']][v] & Xgrid < varinfo[['tmax']][v])
             histomax <- 1#max(rowMeans(plotsamples)[interiorgrid])/max(histo$density)
             tplot(x=histo$mids, y=histo$density*histomax, col=yellow, alpha=2/4, border=darkgrey, border.alpha=3/4, lty=1, lwd=4, family=family, ylim=c(0,NA), add=TRUE)
             ##
-            pborder <- sum(datum <= varinfo[['min']][v])/length(datum)
+            pborder <- sum(datum <= varinfo[['tmin']][v])/length(datum)
             if(pborder > 0){
-                tplot(x=varinfo[['min']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
+                tplot(x=varinfo[['tmin']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
             }
             ##
-            pborder <- sum(datum >= varinfo[['max']][v])/length(datum)
+            pborder <- sum(datum >= varinfo[['tmax']][v])/length(datum)
             if(pborder > 0){
-                tplot(x=varinfo[['max']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
+                tplot(x=varinfo[['tmax']][v], y=pborder*ymax, type='p', pch=0, cex=2, col=7, alpha=0, lty=1, lwd=5, family=family, ylim=c(0,NA), add=TRUE)
             }
         }
     }else if((showdata=='scatter')|(showdata==TRUE & contvar)){
@@ -303,14 +303,14 @@ for(v in unlist(variate)){
                                   max=min(diff(sort(unique(datum))))/4),
                                   col=yellow)
     }
-        fiven <- fivenum(datum)
-        abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
+    fiven <- fivenum(datum)
+    abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
     ##
     dev.set(pdf2)
     marguncertainty <- t(apply(plotsamples, 1, function(x){tquant(x, quantilestoshow)}))
     tplot(x=Xgrid, y=rowMeans(plotsamples), type='l', col=1, lty=1, lwd=3, xlab=paste0(v), ylab=paste0('frequency', (if(varinfo[['type']][v] %in% c('R','O','D')){' density'}else{''})),
           ylim=c(0, ymax), family=family)
-    ##  93.75% marginal credibility intervals
+    ##  
     plotquantiles(x=Xgrid, y=marguncertainty, col=5, alpha=0.75)
     abline(v=fiven,col=paste0(palette()[c(2,4,5,4,2)], '44'),lwd=4)
     ##
