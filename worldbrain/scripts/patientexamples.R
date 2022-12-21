@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-21T16:07:21+0100
+## Last-Updated: 2022-12-21T21:48:12+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -104,39 +104,78 @@ givens <- c(predictands, 'Apoe4_', 'Gender_num_', 'AGE', 'LRHHC_n_long')
 nogivens <- setdiff(variatenames, givens)
 ##
 set.seed(101)
-ntrypatients <- 128
-trypatients <- t(generateVariates(Ynames=variatenames, X=NULL,
+ntrypatients <- 256
+ngender <- 'Gender_num_'
+trypatientsOC <- t(generateVariates(Ynames=setdiff(variatenames,ngender), X=cbind('Gender_num_'=1),
                                 mcsamples=mcsamples, varinfo=varinfo,
                                 n=ntrypatients)[,,1])
-trypatients0 <- trypatients1 <- trypatients
-trypatients0[,predictands] <- 0
-trypatients1[,predictands] <- 1
+trypatientsOC <- cbind(trypatientsOC, 'Gender_num_'=1)
+trypatientsOC0 <- trypatientsOC1 <- trypatientsOC
+trypatientsOC0[,predictands] <- 0
+trypatientsOC1[,predictands] <- 1
+##
+trypatientsA <- t(generateVariates(Ynames=setdiff(variatenames,ngender), X=cbind('Gender_num_'=0),
+                                mcsamples=mcsamples, varinfo=varinfo,
+                                n=ntrypatients)[,,1])
+trypatientsA <- cbind(trypatientsA, 'Gender_num_'=0)
+trypatientsA0 <- trypatientsA1 <- trypatientsA
+trypatientsA0[,predictands] <- 0
+trypatientsA1[,predictands] <- 1
 
 
-llpatients0 <- samplesFDistribution(Y=trypatients0[,nogivens,drop=F],
-                                  X=trypatients0[,givens,drop=F],
+llpatientsOC0 <- samplesFDistribution(Y=trypatientsOC0[,nogivens,drop=F],
+                                  X=trypatientsOC0[,givens,drop=F],
                                   mcsamples=mcsamples, varinfo=varinfo,
                                   jacobian=TRUE, fn=identity)
 ##
-llpatients1 <- samplesFDistribution(Y=trypatients1[,nogivens,drop=F],
-                                  X=trypatients1[,givens,drop=F],
+llpatientsOC1 <- samplesFDistribution(Y=trypatientsOC1[,nogivens,drop=F],
+                                  X=trypatientsOC1[,givens,drop=F],
+                                  mcsamples=mcsamples, varinfo=varinfo,
+                                  jacobian=TRUE, fn=identity)
+##
+llpatientsOC1d <- samplesFDistribution(Y=trypatientsOC[,predictands,drop=F],
+                                  X=trypatientsOC[,predictors,drop=F],
                                   mcsamples=mcsamples, varinfo=varinfo,
                                   jacobian=TRUE, fn=identity)
 
+takewith1 <- which(trypatientsOC[,predictands]==1)
+orderOC <- order(abs(rowMeans(llpatientsOC1d)[takewith1]-0.6))
+closeOC <- orderOC[1]
+trypatientsOC[takewith1,][closeOC,]
+rowMeans(llpatientsOC1d)[takewith1][closeOC]
 
-um <- matrix(c(1,0.75,0,0,0.75,1),3,2)
-rownames(um) <- c(0,1/3,1)
-um2 <- matrix(c(1,0.75,0.5,0,0,0.5,0.75,1),4,2)
-rownames(um2) <- c(0,1/3,2/3,1)
-foreach(pat=1:ntrypatients, .combine=rbind)%do%{
+
+##
+llpatientsA1d <- samplesFDistribution(Y=trypatientsA[,predictands,drop=F],
+                                  X=trypatientsA[,predictors,drop=F],
+                                  mcsamples=mcsamples, varinfo=varinfo,
+                                  jacobian=TRUE, fn=identity)
+
+takewith1 <- which(trypatientsA[,predictands]==1)
+orderA <- order(abs(rowMeans(llpatientsA1d)[takewith1]-0.8))
+closeA <- orderA[1]
+trypatientsA[takewith1,][closeA,]
+rowMeans(llpatientsA1d)[takewith1][closeA]
+
+
+um <- matrix(c(1,0.75,0, 0,0.75,1),3,2)
+rownames(um) <- c(1:3)
+um2 <- matrix(c(1,0.75,0,0.5, 0,0.5,1,0.75),4,2)
+rownames(um2) <- c(1:4)
+testres <- foreach(pat=1:ntrypatients, .combine=rbind)%do%{
     logl0 <- mean(llpatients0[pat,])
     logl1 <- mean(llpatients1[pat,])
     prior1 <- 0.15
     postp0 <- logl1*dataprior/(logl1*dataprior + logl0*(1-dataprior))
     postp1 <- logl1*prior1/(logl1*prior1 + logl0*(1-prior1))
-    
+    dec0 <- choicefn(postp0,um)
+    dec1 <- choicefn(postp1,um)
+    dec0b <- choicefn(postp0,um2)
+    dec1b <- choicefn(postp1,um2)
+    c(dec0,dec1,dec0b)
 }
 
+totry <- which(apply(testres,1,function(xxx)length(unique(xxx))==3))
 
 
 ##
@@ -146,11 +185,15 @@ choicefn <- function(pv,umx){
         })
 }
 ##
+um <- matrix(c(1,0.6,0, 0,0.7,1),3,2)
+rownames(um) <- c(1:3)
+um2 <- matrix(c(1,0.7,0,0.5, 0,0.5,1,0.8),4,2)
+rownames(um2) <- c(1:4)
+##
 pseq <- seq(0,1,length.out=256)
 pdff('decisionthresholds')
 tplot(x=list(pseq,pseq), y=list(choicefn(pseq,um),choicefn(pseq,um2)),
-      xlab='posterior probability',
-      yticks=c(0,1/3,2/3,1), ylabels=c('a','b','b2','c'))
+      xlab='posterior probability')
 dev.off()
 
 
@@ -239,6 +282,61 @@ for(v in variatenames){
     colnames(xgrid) <- v
     testpdf <- samplesFDistribution(Y=xgrid,
                                     X=NULL,
+                                    mcsamples=mcsamples, varinfo=varinfo,
+                                    jacobian=TRUE, fn=mean)
+    histo <- thist(ysamples[,v],n=nh)
+    tplot(list(histo$mids, xgrid),list(histo$density,testpdf[,1]),ylim=c(0,NA),xlab=v)
+}
+dev.off()
+
+
+ysamples <- t(generateVariates(Ynames=sample(predictors), X=cbind('Subgroup_num_'=0),
+                                mcsamples=mcsamples, varinfo=varinfo,
+                               n=4096*4)[,,1])
+##
+pdff('testgeneratingfunction_conditional0')
+for(v in predictors){
+    if(varinfo[['type']][v] %in% c('I','B')){
+        xgrid <- seq(varinfo[['min']][v], varinfo[['max']][v],
+                     length.out=varinfo[['n']][v])
+        nh <- (varinfo[['max']][v]-varinfo[['min']][v])/(varinfo[['n']][v]-1)
+        nh <- seq(varinfo[['min']][v]-nh/2, varinfo[['max']][v]+nh/2, length.out=varinfo[['n']][v]+1)
+    }else{
+        xgrid <- seq(varinfo[['plotmin']][v], varinfo[['plotmax']][v],
+                     length.out=256)
+        nh <- max(10,round(length(ysamples[,v])/64))
+    }
+    xgrid <- cbind(xgrid)
+    colnames(xgrid) <- v
+    testpdf <- samplesFDistribution(Y=xgrid,
+                                    X=cbind('Subgroup_num_'=0),
+                                    mcsamples=mcsamples, varinfo=varinfo,
+                                    jacobian=TRUE, fn=mean)
+    histo <- thist(ysamples[,v],n=nh)
+    tplot(list(histo$mids, xgrid),list(histo$density,testpdf[,1]),ylim=c(0,NA),xlab=v)
+}
+dev.off()
+
+ysamples <- t(generateVariates(Ynames=sample(predictors), X=cbind('Subgroup_num_'=1),
+                                mcsamples=mcsamples, varinfo=varinfo,
+                               n=4096*4)[,,1])
+##
+pdff('testgeneratingfunction_conditional1')
+for(v in predictors){
+    if(varinfo[['type']][v] %in% c('I','B')){
+        xgrid <- seq(varinfo[['min']][v], varinfo[['max']][v],
+                     length.out=varinfo[['n']][v])
+        nh <- (varinfo[['max']][v]-varinfo[['min']][v])/(varinfo[['n']][v]-1)
+        nh <- seq(varinfo[['min']][v]-nh/2, varinfo[['max']][v]+nh/2, length.out=varinfo[['n']][v]+1)
+    }else{
+        xgrid <- seq(varinfo[['plotmin']][v], varinfo[['plotmax']][v],
+                     length.out=256)
+        nh <- max(10,round(length(ysamples[,v])/64))
+    }
+    xgrid <- cbind(xgrid)
+    colnames(xgrid) <- v
+    testpdf <- samplesFDistribution(Y=xgrid,
+                                    X=cbind('Subgroup_num_'=1),
                                     mcsamples=mcsamples, varinfo=varinfo,
                                     jacobian=TRUE, fn=mean)
     histo <- thist(ysamples[,v],n=nh)
