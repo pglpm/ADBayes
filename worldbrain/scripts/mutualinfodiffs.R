@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-20T20:47:31+0100
+## Last-Updated: 2022-12-21T14:46:52+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -8,7 +8,8 @@ if(!exists('tplot')){source('~/work/pglpm_plotfunctions.R')}
 
 #rm(list=ls())
 
-outputdir <- 'mutualinforesults'
+nsamplesMI <- 4096*4
+outputdir <- 'mutualinforesults3'
 extratitle <- 'mutualinfo'
 ## totsamples <- 4096L
 datafile <- 'ingrid_data_nogds6.csv'
@@ -104,37 +105,56 @@ data0 <- data0[1:ndata]
 predictandvalues <- cbind(seq(varinfo[['min']][predictands],varinfo[['max']][predictands],length.out=varinfo[['n']][predictands]))
 colnames(predictandvalues) <- predictands
 
-nsamplesMI <- 4096
-MIdata <- foreach(v=c('',predictors), .combine=cbind)%do%{
+set.seed(101)
+xsamples2 <- t(generateVariates(Ynames=c(predictors,predictands), X=NULL,
+                                mcsamples=mcsamples, varinfo=varinfo,
+                                    n=nsamplesMI)[,,1])
+saveRDS(xsamples2,paste0('xsamples2-',nsamplesMI,'.rds'))
+##
+condprobsx <- samplesFDistribution(Y=xsamples2[,predictands,drop=F],
+                                   X=NULL,
+                                       mcsamples=mcsamples, varinfo=varinfo,
+                                   jacobian=FALSE, fn=mean)
+colnames(condprobsx) <- predictands
+saveRDS(condprobsx,paste0('condprobsx-',nsamplesMI,'.rds'))
+##
+
+allcondp <- foreach(v=c('',predictors), .combine=cbind)%do%{
     print(v)
     predictors0 <- setdiff(predictors,v)
-    xsamples2 <- t(generateVariates(Ynames=c(predictors0,predictands), X=NULL,
-                                    mcsamples=mcsamples, varinfo=varinfo,
-                                    n=nsamplesMI)[,,1])
-    saveRDS(xsamples2,paste0('xsamples2-',v,'-',nsamplesMI,'.rds'))
     ##
-    condprobsy <- samplesFDistribution(Y=xsamples2[,predictors0,drop=F],
-                                       X=NULL,
+    condprobsxgy <- samplesFDistribution(Y=xsamples2[,predictands,drop=F],
+                                       X=xsamples2[,predictors0,drop=F],
                                        mcsamples=mcsamples, varinfo=varinfo,
                                        jacobian=FALSE, fn=mean)
     ##
-    condprobsx <- samplesFDistribution(Y=xsamples2[,predictands,drop=F],
-                                       X=NULL,
-                                       mcsamples=mcsamples, varinfo=varinfo,
-                                       jacobian=FALSE, fn=mean)
-    ##
-    condprobsj <- samplesFDistribution(Y=xsamples2,
-                                       X=NULL,
-                                       mcsamples=mcsamples, varinfo=varinfo,
-                                       jacobian=FALSE, fn=mean)
-    ##
-    saveRDS(condprobsx,paste0('condprobsx-',v,'-',nsamplesMI,'.rds'))
-    saveRDS(condprobsy,paste0('condprobsy-',v,'-',nsamplesMI,'.rds'))
-    saveRDS(condprobsj,paste0('condprobsj-',v,'-',nsamplesMI,'.rds'))
-    ##
-    log2(condprobsj)-log2(condprobsx)-log2(condprobsy)
+    colnames(condprobsxgy) <- (if(v!=''){v}else{'all'})
+    saveRDS(condprobsxgy,paste0('condprobsxgallminus-',v,'-',nsamplesMI,'.rds'))
+    condprobsxgy
 }
+saveRDS(allcondp,paste0('condprobsxgiveny-',nsamplesMI,'.rds'))
+
+
+stop('None. End of script')
+
 colnames(MIdata) <- c('all',predictors)
 saveRDS(MIdata,paste0('MIdata-',nsamplesMI,'.rds'))
+
+
+decreases <- (colMeans(MIdata)/mean(MIdata[,1])-1)*100
+variances <- (
+    abs(apply(MIdata,2,sd)/mean(MIdata[,1]) -
+    colMeans(MIdata)*sd(MIdata[,1])/mean(MIdata[,1])^2)
+        ) *100/sqrt(nsamplesMI)
+sorto <- order(decreases)
+signif(cbind(
+    decreases[sorto],
+    variances[sorto]
+),4)
+cbind(
+    round(decreases[sorto],signif(-log10(variances[sorto]),1)),
+    signif(variances[sorto],2)
+)
+
 
 stop('End of script')
