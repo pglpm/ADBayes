@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-21T21:48:12+0100
+## Last-Updated: 2022-12-22T08:54:00+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -98,64 +98,107 @@ if(exists('shuffledata') && shuffledata){data0 <- data0[sample(1:nrow(data0))]}
 if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(data0)}
 data0 <- data0[1:ndata]
 
+
+predictand0 <- cbind(0)
+predictand1 <- cbind(1)
+colnames(predictand0) <- colnames(predictand1) <- predictands
+
+givens <- c('Apoe4_', 'Gender_num_', 'AGE', 'LRHHC_n_long')
+nogivens <- setdiff(variatenames, c(givens,predictands))
 dataprior <- sum(data0[[predictands]]==1)/ndata
 
-givens <- c(predictands, 'Apoe4_', 'Gender_num_', 'AGE', 'LRHHC_n_long')
-nogivens <- setdiff(variatenames, givens)
 ##
 set.seed(101)
 ntrypatients <- 256
 ngender <- 'Gender_num_'
-trypatientsOC <- t(generateVariates(Ynames=setdiff(variatenames,ngender), X=cbind('Gender_num_'=1),
+trypatientsOC <- t(generateVariates(Ynames=setdiff(variatenames,c(ngender,predictands)), X=cbind('Gender_num_'=1),
                                 mcsamples=mcsamples, varinfo=varinfo,
                                 n=ntrypatients)[,,1])
 trypatientsOC <- cbind(trypatientsOC, 'Gender_num_'=1)
-trypatientsOC0 <- trypatientsOC1 <- trypatientsOC
-trypatientsOC0[,predictands] <- 0
-trypatientsOC1[,predictands] <- 1
 ##
-trypatientsA <- t(generateVariates(Ynames=setdiff(variatenames,ngender), X=cbind('Gender_num_'=0),
+trypatientsA <- t(generateVariates(Ynames=setdiff(variatenames,c(ngender,predictands)), X=cbind('Gender_num_'=0),
                                 mcsamples=mcsamples, varinfo=varinfo,
                                 n=ntrypatients)[,,1])
 trypatientsA <- cbind(trypatientsA, 'Gender_num_'=0)
-trypatientsA0 <- trypatientsA1 <- trypatientsA
-trypatientsA0[,predictands] <- 0
-trypatientsA1[,predictands] <- 1
 
 
-llpatientsOC0 <- samplesFDistribution(Y=trypatientsOC0[,nogivens,drop=F],
-                                  X=trypatientsOC0[,givens,drop=F],
+llpatientsOC0 <- samplesFDistribution(Y=trypatientsOC[,nogivens,drop=F],
+                                      X=cbind(trypatientsOC[,givens,drop=F],
+                                              'Subgroup_num_'=0),
                                   mcsamples=mcsamples, varinfo=varinfo,
                                   jacobian=TRUE, fn=identity)
 ##
-llpatientsOC1 <- samplesFDistribution(Y=trypatientsOC1[,nogivens,drop=F],
-                                  X=trypatientsOC1[,givens,drop=F],
+llpatientsOC1 <- samplesFDistribution(Y=trypatientsOC[,nogivens,drop=F],
+                                      X=cbind(trypatientsOC[,givens,drop=F],
+                                              'Subgroup_num_'=1),
                                   mcsamples=mcsamples, varinfo=varinfo,
                                   jacobian=TRUE, fn=identity)
 ##
-llpatientsOC1d <- samplesFDistribution(Y=trypatientsOC[,predictands,drop=F],
+llpatientsOCd <- samplesFDistribution(Y=predictand1,
                                   X=trypatientsOC[,predictors,drop=F],
                                   mcsamples=mcsamples, varinfo=varinfo,
                                   jacobian=TRUE, fn=identity)
 
-takewith1 <- which(trypatientsOC[,predictands]==1)
-orderOC <- order(abs(rowMeans(llpatientsOC1d)[takewith1]-0.6))
-closeOC <- orderOC[1]
-trypatientsOC[takewith1,][closeOC,]
-rowMeans(llpatientsOC1d)[takewith1][closeOC]
-
+## for(i in 1:10){
+i <- 5
+##takewith1 <- (trypatientsOC[,predictands]==1)
+orderOC <- order(abs(rowMeans(llpatientsOCd)-0.6))# + takewith1*1e12)
+closeOC <- orderOC[i]
+trypatientsOC[closeOC,]
+## rowMeans(llpatientsOCd)[closeOC]
+##
+ll1 <- rowMeans(llpatientsOC1)[closeOC]
+ll0 <- rowMeans(llpatientsOC0)[closeOC]
+xgrid <- seq(0,1,length.out=256)
+tplot(x=list(xgrid,xgrid),
+      y=list(choicefn(xgrid,um),
+             choicefn(ll1*xgrid/(ll1*xgrid+ll0*(1-xgrid)),um)),
+      )
+##
+xgrid <- 0.3
+postp <- ll1*xgrid/(ll1*xgrid+ll0*(1-xgrid))
+    if(length(unique(c(
+        choicefn(postp,um),choicefn(rowMeans(llpatientsOCd)[closeOC],um),choicefn(rowMeans(llpatientsOCd)[closeOC],um2)
+    ))) >2 ){
+        print(i)
+        print(rowMeans(llpatientsOCd)[closeOC])
+        print(postp)
+print('B')
+print(choicefn(postp,um))
+print('O')
+print(choicefn(rowMeans(llpatientsOCd)[closeOC],um))
+print('C')
+print(choicefn(rowMeans(llpatientsOCd)[closeOC],um2))
+}
+## }
 
 ##
-llpatientsA1d <- samplesFDistribution(Y=trypatientsA[,predictands,drop=F],
+llpatientsAd <- samplesFDistribution(Y=predictand1,
                                   X=trypatientsA[,predictors,drop=F],
                                   mcsamples=mcsamples, varinfo=varinfo,
                                   jacobian=TRUE, fn=identity)
 
-takewith1 <- which(trypatientsA[,predictands]==1)
-orderA <- order(abs(rowMeans(llpatientsA1d)[takewith1]-0.8))
+orderA <- order(abs(rowMeans(llpatientsAd)-0.8))# + takewith1*1e12)
 closeA <- orderA[1]
-trypatientsA[takewith1,][closeA,]
-rowMeans(llpatientsA1d)[takewith1][closeA]
+trypatientsA[closeA,]
+postp <- rowMeans(llpatientsAd)[closeA]
+print(choicefn(postp,um))
+
+
+
+llpatientsOCG0 <- samplesFDistribution(Y=predictand0,
+                                  X=trypatientsOC[,setdiff(givens,predictands),drop=F],
+                                  mcsamples=mcsamples, varinfo=varinfo,
+                                  jacobian=TRUE, fn=identity)
+##
+llpatientsOCG1 <- samplesFDistribution(Y=predictand1,
+                                  X=trypatientsOC[,setdiff(givens,predictands),drop=F],
+                                  mcsamples=mcsamples, varinfo=varinfo,
+                                  jacobian=TRUE, fn=identity)
+
+checkposts <- (rowMeans(llpatientsOC1)*rowMeans(llpatientsOCG1)/(rowMeans(llpatientsOC1)*rowMeans(llpatientsOCG1)+rowMeans(llpatientsOC0)*(rowMeans(llpatientsOCG0))))/rowMeans(llpatientsOCd) -1
+
+## Find prior for B: decision threshold max 30%
 
 
 um <- matrix(c(1,0.75,0, 0,0.75,1),3,2)
