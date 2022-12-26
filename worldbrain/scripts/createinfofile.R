@@ -2,6 +2,7 @@ library('data.table')
 library('png')
 library('foreach')
 
+sd2iqr <- 0.5/qnorm(0.75)
 Tprob <- 2^-6
 params <- c('name','type','transform','min','max','n','tmin','tmax',
             'location','scale',
@@ -10,10 +11,10 @@ params <- c('name','type','transform','min','max','n','tmin','tmax',
 dt <- fread('~/repositories/ADBayes/worldbrain/scripts/ingrid_data_nogds6.csv')
 varnames <- colnames(dt)
 ##
-variate <- list(S=c("TRAASCOR_neuro","TRABSCOR_neuro"),
+variate <- list(##S=c("TRAASCOR_neuro","TRABSCOR_neuro"),
                 L=c("AGE","LRHHC_n_long"),
                 B=c("Apoe4_","Gender_num_","Subgroup_num_"),
-                I=c("ANARTERR_neuro","AVDEL30MIN_neuro","AVDELTOT_neuro","CATANIMSC_neuro","GDTOTAL_gds","RAVLT_immediate")
+                I=c("ANARTERR_neuro","AVDEL30MIN_neuro","AVDELTOT_neuro","CATANIMSC_neuro","GDTOTAL_gds","RAVLT_immediate","TRAASCOR_neuro","TRABSCOR_neuro")
                 )
 if(any(sort(unlist(variate))!=sort(varnames))){warning('variate mismatch')}
 varinfo <- lapply(1:length(params),function(x){
@@ -29,9 +30,9 @@ for(i in variate){varinfo[['name']][i] <- i}
 ## integer
 varinfo[['type']][variate$I] <- 'I'
 varinfo[['transform']][variate$I] <- 'probit'
-varinfo[['n']][variate$I] <- c(51L,16L,16L,64L,7L,76L)
-varinfo[['min']][variate$I] <- 0L
-varinfo[['max']][variate$I] <- varinfo[['n']][variate$I]-1L
+varinfo[['n']][variate$I] <- c(51L,16L,16L,64L,7L,76L,150L,300L)
+varinfo[['min']][variate$I] <- c(0L,0L,0L,0L,0L,0L,1L,1L)
+varinfo[['max']][variate$I] <- varinfo[['n']][variate$I]-1L + varinfo[['min']][variate$I]
 varinfo[['tmin']][variate$I] <- -Inf
 varinfo[['tmax']][variate$I] <- +Inf
 varinfo[['location']][variate$I] <- varinfo[['min']][variate$I]
@@ -79,23 +80,23 @@ varinfo[['plotmax']][variate$L] <- apply(dt[,variate$L,with=F],2,function(x){
 })
 
 ## logarithmic censored
-varinfo[['type']][variate$S] <- 'O'
-varinfo[['transform']][variate$S] <- 'log'
-varinfo[['n']][variate$S] <- 0
-varinfo[['min']][variate$S] <- 0
-varinfo[['max']][variate$S] <- +Inf
-varinfo[['tmin']][variate$S] <- -Inf
-varinfo[['tmax']][variate$S] <- c(150L,300L)
-varinfo[['location']][variate$S] <- apply(log(dt[,variate$S,with=F]),2,median,na.rm=T)
-varinfo[['scale']][variate$S] <- apply(log(dt[,variate$S,with=F]),2,IQR,na.rm=T)*sd2iqr
-##
-varinfo[['plotmin']][variate$S] <- apply(dt[,variate$S,with=F],2,function(x){
-    max(0, min(x, na.rm=T) - diff(tquant(x, c(0.25,0.5))))
-    })
-varinfo[['plotmax']][variate$S] <- sapply(variate$S,function(v){
-    dat <- dt[[v]]
-    min(varinfo[['tmax']][v], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
-})
+## varinfo[['type']][variate$S] <- 'O'
+## varinfo[['transform']][variate$S] <- 'log'
+## varinfo[['n']][variate$S] <- 0
+## varinfo[['min']][variate$S] <- 0
+## varinfo[['max']][variate$S] <- +Inf
+## varinfo[['tmin']][variate$S] <- -Inf
+## varinfo[['tmax']][variate$S] <- c(150L,300L)
+## varinfo[['location']][variate$S] <- apply(log(dt[,variate$S,with=F]),2,median,na.rm=T)
+## varinfo[['scale']][variate$S] <- apply(log(dt[,variate$S,with=F]),2,IQR,na.rm=T)*sd2iqr
+## ##
+## varinfo[['plotmin']][variate$S] <- apply(dt[,variate$S,with=F],2,function(x){
+##     max(0, min(x, na.rm=T) - diff(tquant(x, c(0.25,0.5))))
+##     })
+## varinfo[['plotmax']][variate$S] <- sapply(variate$S,function(v){
+##     dat <- dt[[v]]
+##     min(varinfo[['tmax']][v], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
+## })
 
 ## varinfo[['t']][variate$S] <- lapply(variate$S,function(v){function(x){(log(x)-varinfo[['location']][v])/varinfo[['scale']][v]}})
 ## varinfo[['ij']][variate$S] <- lapply(variate$S,function(v){function(x){

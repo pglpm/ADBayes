@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-20T06:11:04+0100
+## Last-Updated: 2022-12-26T12:57:32+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -104,17 +104,20 @@ for(achain in chainlist){
     donechains <- donechains+1
     totake <- round(remainingsamples/(nchains-donechains+1))
     temptrace <- readRDS(file=paste0('_mctraces',basename,achain,'-F.rds'))
-    minESS <- floor(min(LaplacesDemon::ESS(temptrace * (abs(temptrace) < Inf))))
-    lsamples <- nrow(temptrace)
+    validsamples <- apply(temptrace,1,function(xxx){all(is.finite(xxx))})
+    if(any(!validsamples)){ cat(paste0('WARNING non-finite values in chain ',achain),'\n') }
+    lsamples <- (1:nrow(temptrace))[validsamples]
+    minESS <- floor(min(LaplacesDemon::ESS(temptrace[validsamples,])))
     if(minESS >= totake){
         cat(paste0('chain ',achain,': ESS = ',minESS))
     }else{
         cat(paste0('WARNING chain ',achain,': insufficient ESS = ',minESS))
     }
     cat(paste0(' (req. ',totake,')\n'))
-        topick <- round(seq(from=1, to=lsamples, length.out=totake))
+        topick <- lsamples[round(seq(from=1, to=length(lsamples), length.out=totake))]
     ##
     traces <- rbind(traces, temptrace[topick,])
+    mcsamples <- rbind(mcsamples, readRDS(file=paste0('_mcsamples',basename,achain,'-F.rds'))[topick,])
     mcsamples <- rbind(mcsamples, readRDS(file=paste0('_mcsamples',basename,achain,'-F.rds'))[topick,])
     remainingsamples <- remainingsamples - totake
 }
