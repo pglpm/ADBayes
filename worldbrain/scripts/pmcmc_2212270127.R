@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-27T01:27:31+0100
+## Last-Updated: 2022-12-27T12:26:11+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,8 +8,9 @@
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_lltest2' # Base name of output directory
-nsamples <- 256L # 256 gives 4096 samples with 16 parallel runs
+baseversion <- '_inferencep4' # Base name of output directory
+nchains <- 64L 
+samplesperchain <- 4L # 64 * 4 with 16 parallel runs gives 4096 samples
 ncores <- 1
 datafile <- 'ingrid_data_nogds6.csv'
 predictorfile <- 'predictors.csv'
@@ -19,19 +20,22 @@ ndata <- NULL # set this if you want to use fewer data
 shuffledata <- FALSE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 ## savetempsamples <- FALSE # save temporary MCMC samples
-plottemptraces <- TRUE # plot temporary sampled distributions
+plottemptraces <- TRUE # plot traces of single chains
 showdata <- TRUE # 'histogram' 'scatter' FALSE TRUE
 plotmeans <- TRUE # plot frequency averages
 totsamples <- 'all' # 'all' number of samples if plotting frequency averages
 showsamples <- 100 # number of samples to show. Shown separately for posterior=F
 ##
 niter0 <- 1024L # 3L # iterations to try
-nthreshold <- 2 # multiple of threshold for acceptable number of burn-in samples
 casualinitvalues <- FALSE
 showhyperparametertraces <- FALSE ##
 showsamplertimes <- FALSE ##
 family <- 'Palatino'
 
+multcorr <- 2L
+thresholdfn <- function(diagnESS, diagnIAT, diagnBMK, diagnMCSE, diagnStat, diagnBurn, diagnBurn2, diagnThin){
+    ceiling(2* max(diagnBurn2) + (samplesperchain-1L) * multcorr * ceiling(max(diagnIAT, diagnThin)))
+}
 #### Hyperparameters
 nclusters <- 64L
 alpha0 <- 2^((-3):3)
@@ -76,7 +80,7 @@ mcmcseed <- arguments
 if(is.na(mcmcseed) || (!is.na(mcmcseed) && mcmcseed <= 0)){mcmcseed <- 1}
 cat(paste0('\nMCMC seed = ',mcmcseed,'\n'))
 ##
-set.seed(701+mcmcseed)
+set.seed(1+mcmcseed)
 ##
 ## Packages
 library('data.table')
@@ -141,7 +145,7 @@ if(exists('shuffledata') && shuffledata){data0 <- data0[sample(1:nrow(data0))]}
 if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(data0)}
 data0 <- data0[1:ndata]
 
-basename <- paste0(baseversion,'-V',sum(unlist(len)),'-D',ndata,'-K',nclusters,'-I',nsamples)
+basename <- paste0(baseversion,'-V',sum(unlist(len)),'-D',ndata,'-K',nclusters,'-I',nchains*samplesperchain)
 ##
 if(!is.na(arguments)){
     dirname <- ''
@@ -200,7 +204,7 @@ datapoints = c(
                    Iaux = matrix(1L, nrow=ndata, ncol=len$I)
     )},
     ## binary
-    if(len$B > 0){list( Bdata = transf(data0[,variate$B,with=F], varinfo) )},
+    if(len$B > 0){list( Bdata = transf(data0[,variate$B,with=F], varinfo, Bout='data') )},
     ## categorical
     if(len$C > 0){list( Cdata = transf(data0[,variate$C,with=F], varinfo) )}
 )
@@ -617,35 +621,38 @@ achain <- 0L
 continue <- TRUE
 newchain <- TRUE
 allmcsamples <- NULL
+maxusedclusters <- 0
 testdata <- rbind(varinfo[['Q2']], varinfo[['Q1']], varinfo[['Q3']]) #, varinfo[['plotmin']], varinfo[['plotmax']], varinfo[['datamin']], varinfo[['datamax']])
 
 calctime <- Sys.time()
-set.seed(mcmcseed+1000)
 while(continue){
     if(newchain){
         niter <- nitertot <- niter0
         reset <- TRUE
-        traces <- NULL
+        traces <- mcsamples <- prevmcsamples <- NULL
         achain <- achain + 1L
+        cat(paste0('Seed: ', 100 + (mcmcseed-1L)*nchains + achain), '\n')
+        set.seed(100 + (mcmcseed-1L)*nchains + achain)
         Cfinitemixnimble$setInits(initsFunction())
     }else{
+        prevmcsamples <- rbind(prevmcsamples,mcsamples)
         niter <- lengthmeasure - nitertot
         nitertot <- lengthmeasure
         reset <- FALSE
     }
-    showsamplertimes0 <- showsamplertimes && (achain==1)
-    showhyperparametertraces0 <- showhyperparametertraces && (achain==1)
+    showsamplertimes0 <- showsamplertimes && (achain==1) && newchain
+    showhyperparametertraces0 <- showhyperparametertraces && (achain==1) && newchain
 
-    if(achain > nsamples){
+    if(achain > nchains){
         continue <- FALSE
         achain <- 'F'
         mcsamples <- allmcsamples
-        saveRDS(mcsamples, file=paste0(dirname,'_mcsamples-R',basename,'--',mcmcseed,'-',achain,'.rds'))
-
+        usedclusters <- maxusedclusters
+        ## saveRDS(mcsamples, file=paste0(dirname,'_mcsamples-R',basename,'--',mcmcseed,'-',achain,'.rds'))
     }else{
         ##
         cat(paste0('Iterations: ', niter),'\n')
-        cat(paste0('chain: ', achain,'. Est. remaining time: ')); print((Sys.time()-calctime)/(achain-1)*(nsamples-achain+1))
+        cat(paste0('chain: ', achain,'. Est. remaining time: ')); print((Sys.time()-calctime)/(achain-1)*(nchains-achain+1))
         todelete <- Cmcsampler$run(niter=niter, thin=1, thin2=niter, nburnin=0, time=showsamplertimes0, reset=reset, resetMV=TRUE)
         mcsamples <- as.matrix(Cmcsampler$mvSamples)
         finalstate <- as.matrix(Cmcsampler$mvSamples2)
@@ -753,26 +760,28 @@ while(continue){
 #### CHECK IF WE NEED TO SAMPLE MORE ####
 #########################################
     if(continue){
-        lengthmeasure <- ceiling(nthreshold * max(diagnBurn2,diagnIAT))
-        ## lengthmeasure <- ceiling(max(diagnBurn2))
+        lengthmeasure <- thresholdfn(diagnESS=diagnESS, diagnIAT=diagnIAT, diagnBMK=diagnBMK, diagnMCSE=diagnMCSE, diagnStat=diagnStat, diagnBurn=diagnBurn, diagnBurn2=diagnBurn2, diagnThin=diagnThin)
+        cat(paste0('\nNumber of iterations ', nitertot, ', required ', lengthmeasure),'\n')
+        ##
         if(nitertot < lengthmeasure){
-            cat(paste0('\nNumber of iterations/threshold is too small: ', signif(nitertot/lengthmeasure,2)), '. ')
-            cat(paste0('Increasing to ', lengthmeasure), '\n')
+            cat(paste0('Increasing by ', lengthmeasure-nitertot), '\n')
             newchain <- FALSE
         }else{
-            cat(paste0('\nNumber of iterations/threshold: ', signif(nitertot/lengthmeasure,2)), '\n')
-            allmcsamples <- rbind(allmcsamples, mcsamples[nrow(mcsamples),])
-            saveRDS(traces,file=paste0(dirname,'_mctraces-R',basename,'--',mcmcseed,'-',achain,'.rds'))
+            mcsamples <- rbind(prevmcsamples, mcsamples)
+            allmcsamples <- rbind(allmcsamples, mcsamples[rev( nrow(mcsamples) - seq(from=0, length.out=samplesperchain, by=multcorr*ceiling(max(diagnIAT,diagnThin))) ),,drop=F])
+            maxusedclusters <- max(usedclusters, maxusedclusters)
             newchain <- TRUE
         }
     }
-    else{
-        saveRDS(traces,file=paste0(dirname,'_mctraces-R',basename,'--',mcmcseed,'-',achain,'.rds'))
-    }
+
 #########################################
 #### END CHECK                       ####
 #########################################
     ##
+    if(newchain){
+        saveRDS(traces,file=paste0(dirname,'_mctraces-R',basename,'--',mcmcseed,'-',achain,'.rds'))
+        saveRDS(allmcsamples, file=paste0(dirname,'_mcsamples-R',basename,'--',mcmcseed,'-','F','.rds'))
+    }
 
     if(newchain && (plottemptraces || !continue)){
         ##
@@ -789,7 +798,8 @@ while(continue){
               paste0('max MCSE = ', signif(max(diagnMCSE[tracegroups[[agroup]]]),6)),
               paste0('stationary: ', sum(diagnStat[tracegroups[[agroup]]]),'/',length(diagnStat[tracegroups[[agroup]]])),
               ## paste0('burn: ', signif(max(diagnBurn[tracegroups[[agroup]]]),6))
-              paste0('burn: ', signif(diagnBurn2,6))
+              paste0('burn: ', signif(diagnBurn2,6)),
+              paste0('max thin = ', signif(max(diagnThin[tracegroups[[agroup]]]),6))
               )
         }
         colpalette <- c(7,2,1)
@@ -827,9 +837,10 @@ while(continue){
                               ' | IAT = ', signif(diagnIAT[avar], 3),
                               ' | BMK = ', signif(diagnBMK[avar], 3),
                               ' | MCSE = ', signif(diagnMCSE[avar], 3),
-                              ' | stat: ', diagnStat[avar],
-                              ' | burn I: ', diagnBurn[avar],
-                              ' | burn II: ', diagnBurn2
+                              ' | stat: ', diagnStat[avar]*1L,
+                              ' | burnI: ', diagnBurn[avar],
+                              ' | burnII: ', diagnBurn2,
+                              ' | thin: ', diagnThin[avar]
                               ),
                   ylab=paste0(avar,'/dHart'), xlab='sample', family=family
                   )

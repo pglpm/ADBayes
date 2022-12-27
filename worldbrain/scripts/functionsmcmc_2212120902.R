@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-26T21:40:47+0100
+## Last-Updated: 2022-12-27T09:52:36+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -63,7 +63,7 @@ variatetypes <- c( 'C', 'B', 'I', 'R', 'O', 'D' )
 
 
 ## Transformation from variate to internal variable
-transf <- function(x, varinfo, Iout='init', Oout='data', Dout='data', Bout='correct', variates=NULL){ # 'in' 'data' 'aux'
+transf <- function(x, varinfo, Iout='init', Oout='data', Dout='data', Bout='data', variates=NULL){ # 'in' 'data' 'aux'
     x <- cbind(data.matrix(x))
     if(!is.null(variates)){colnames(x) <- variates}
     matrix(sapply(colnames(x), function(v){
@@ -97,7 +97,7 @@ transf <- function(x, varinfo, Iout='init', Oout='data', Dout='data', Bout='corr
             }
             ##
         } else if(info$type == 'B'){ # binary
-            datum <- round((datum-info$location)/info$scale) # output is in range 0 to 1
+            datum <- round((datum-info$location)/info$scale) # output in range 0 to 1
             if(Bout == 'correct'){ # in output functions
                 datum <- datum * info$scale + info$location
             }
@@ -205,6 +205,9 @@ invtransf <- function(z, varinfo, Oout='censored', variates=NULL){ #
         } else if(info$type == 'I'){ # integer, discrete ordinal
             datum <- nimble::rinterval(n=length(datum), datum,
                                        qnorm((1:(info$n-1))/info$n) )
+            datum <- datum * info$scale + info$location
+            ##
+        } else if(info$type == 'B'){ # binary
             datum <- datum * info$scale + info$location
             ##
         } else if(info$type == 'O'){ # one-censored
