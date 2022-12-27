@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-21T14:28:19+0100
+## Last-Updated: 2022-12-26T21:40:47+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -63,7 +63,7 @@ variatetypes <- c( 'C', 'B', 'I', 'R', 'O', 'D' )
 
 
 ## Transformation from variate to internal variable
-transf <- function(x, varinfo, Iout='init', Oout='data', Dout='data', variates=NULL){ # 'in' 'data' 'aux'
+transf <- function(x, varinfo, Iout='init', Oout='data', Dout='data', Bout='correct', variates=NULL){ # 'in' 'data' 'aux'
     x <- cbind(data.matrix(x))
     if(!is.null(variates)){colnames(x) <- variates}
     matrix(sapply(colnames(x), function(v){
@@ -92,6 +92,14 @@ transf <- function(x, varinfo, Iout='init', Oout='data', Dout='data', variates=N
                 datum[is.na(datum)] <- +Inf
             } else if(Iout == 'index'){ # in output functions
                 datum <- datum+1L
+            } else if(Iout == 'correct'){ # in output functions
+                datum <- datum * info$scale + info$location
+            }
+            ##
+        } else if(info$type == 'B'){ # binary
+            datum <- round((datum-info$location)/info$scale) # output is in range 0 to 1
+            if(Bout == 'correct'){ # in output functions
+                datum <- datum * info$scale + info$location
             }
             ##
         } else if(info$type == 'O'){ # one-censored

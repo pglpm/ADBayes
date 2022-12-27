@@ -11,4 +11,4 @@
 "GDTOTAL_gds","GDTOTAL_gds","I","probit",0,6,7,-Inf,Inf,0,1,1,1,2,0,5,0,6
 "RAVLT_immediate","RAVLT_immediate","I","probit",0,75,76,-Inf,Inf,0,1,26,32,39,11,67,5,74
 "TRAASCOR_neuro","TRAASCOR_neuro","I","probit",1,150,150,-Inf,Inf,1,1,30,37,49,13,150,6,150
-"TRABSCOR_neuro","TRABSCOR_neuro","I","probit",1,300,300,-Inf,Inf,1,1,73,100.5,143.25,33,300,5.5,300
+"TRABSCOR_neuro","TRABSCOR_neuro","I","probit",1,300,300,-Inf,Inf,1,1,73,101,143,33,300,5,300

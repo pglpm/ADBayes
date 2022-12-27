@@ -38,14 +38,20 @@ varinfo[['tmax']][variate$I] <- +Inf
 varinfo[['location']][variate$I] <- varinfo[['min']][variate$I]
 varinfo[['scale']][variate$I] <- (varinfo[['max']][variate$I]-varinfo[['min']][variate$I])/(varinfo[['n']][variate$I]-1L)
 ##
-varinfo[['plotmin']][variate$I] <- sapply(variate$I,function(v){
+varinfo[['plotmin']][variate$I] <- transf(x=rbind(sapply(variate$I,function(v){
     dat <- dt[[v]]
     max(varinfo[['min']][v], min(dat, na.rm=T) - diff(tquant(dat, c(0.25,0.5))))
-    })
-varinfo[['plotmax']][variate$I] <- sapply(variate$I,function(v){
+})), varinfo=varinfo, Iout='correct')
+varinfo[['plotmax']][variate$I] <- transf(x=rbind(sapply(variate$I,function(v){
     dat <- dt[[v]]
     min(varinfo[['max']][v], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
-})
+})), varinfo=varinfo, Iout='correct')
+varinfo[['Q1']][variate$I] <- transf(x=rbind(apply(dt[,variate$I,with=F], 2, tquant, 0.25)), varinfo=varinfo, Iout='correct')
+varinfo[['Q2']][variate$I] <- transf(x=rbind(apply(dt[,variate$I,with=F], 2, tquant, 0.5)), varinfo=varinfo, Iout='correct')
+varinfo[['Q3']][variate$I] <- transf(x=rbind(apply(dt[,variate$I,with=F], 2, tquant, 0.75)), varinfo=varinfo, Iout='correct')
+varinfo[['datamin']][variate$I] <- transf(x=rbind(apply(dt[,variate$I,with=F], 2, min, na.rm=T)), varinfo=varinfo, Iout='correct')
+varinfo[['datamax']][variate$I] <- transf(x=rbind(apply(dt[,variate$I,with=F], 2, max, na.rm=T)), varinfo=varinfo, Iout='correct')
+
 
 ## binary
 varinfo[['type']][variate$B] <- 'B'
@@ -58,8 +64,19 @@ varinfo[['tmax']][variate$B] <- +Inf
 varinfo[['location']][variate$B] <- varinfo[['min']][variate$B]
 varinfo[['scale']][variate$B] <- varinfo[['max']][variate$B]-varinfo[['min']][variate$B]
 ##
-varinfo[['plotmin']][variate$B] <- varinfo[['min']][variate$B]
-varinfo[['plotmax']][variate$B] <- varinfo[['max']][variate$B]
+varinfo[['plotmin']][variate$B] <- transf(x=rbind(sapply(variate$B,function(v){
+    dat <- dt[[v]]
+    max(varinfo[['min']][v], min(dat, na.rm=T) - diff(tquant(dat, c(0.25,0.5))))
+})), varinfo=varinfo, Bout='correct')
+varinfo[['plotmax']][variate$B] <- transf(x=rbind(sapply(variate$B,function(v){
+    dat <- dt[[v]]
+    min(varinfo[['max']][v], max(dat, na.rm=T) + diff(tquant(dat, c(0.5,0.75))))
+})), varinfo=varinfo, Bout='correct')
+varinfo[['Q1']][variate$B] <- transf(x=rbind(apply(dt[,variate$B,with=F], 2, tquant, 0.25)), varinfo=varinfo, Bout='correct')
+varinfo[['Q2']][variate$B] <- transf(x=rbind(apply(dt[,variate$B,with=F], 2, tquant, 0.5)), varinfo=varinfo, Bout='correct')
+varinfo[['Q3']][variate$B] <- transf(x=rbind(apply(dt[,variate$B,with=F], 2, tquant, 0.75)), varinfo=varinfo, Bout='correct')
+varinfo[['datamin']][variate$B] <- transf(x=rbind(apply(dt[,variate$B,with=F], 2, min, na.rm=T)), varinfo=varinfo, Bout='correct')
+varinfo[['datamax']][variate$B] <- transf(x=rbind(apply(dt[,variate$B,with=F], 2, max, na.rm=T)), varinfo=varinfo, Bout='correct')
 
 ## logarithmic
 varinfo[['type']][variate$L] <- 'R'
@@ -78,6 +95,12 @@ varinfo[['plotmin']][variate$L] <- apply(dt[,variate$L,with=F],2,function(x){
 varinfo[['plotmax']][variate$L] <- apply(dt[,variate$L,with=F],2,function(x){
     max(x, na.rm=T) + diff(tquant(x, c(0.5,0.75)))
 })
+##
+varinfo[['Q1']][variate$L] <- apply(dt[,variate$L,with=F], 2, tquant, 0.25)
+varinfo[['Q2']][variate$L] <- apply(dt[,variate$L,with=F], 2, tquant, 0.5)
+varinfo[['Q3']][variate$L] <- apply(dt[,variate$L,with=F], 2, tquant, 0.75)
+varinfo[['datamin']][variate$L] <- apply(dt[,variate$L,with=F], 2, min, na.rm=T)
+varinfo[['datamax']][variate$L] <- apply(dt[,variate$L,with=F], 2, max, na.rm=T)
 
 ## logarithmic censored
 ## varinfo[['type']][variate$S] <- 'O'
@@ -105,12 +128,6 @@ varinfo[['plotmax']][variate$L] <- apply(dt[,variate$L,with=F],2,function(x){
 ##     out
 ## }})
 
-##
-varinfo[['Q1']][varnames] <- apply(dt[,..varnames], 2, tquant, 0.25)
-varinfo[['Q2']][varnames] <- apply(dt[,..varnames], 2, tquant, 0.5)
-varinfo[['Q3']][varnames] <- apply(dt[,..varnames], 2, tquant, 0.75)
-varinfo[['datamin']][varnames] <- apply(dt[,..varnames], 2, min, na.rm=T)
-varinfo[['datamax']][varnames] <- apply(dt[,..varnames], 2, max, na.rm=T)
 
 
 ## varinfo[['hmean']][variate$R] <- 0L

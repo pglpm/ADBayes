@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-09-08T17:03:24+0200
-## Last-Updated: 2022-12-26T19:53:12+0100
+## Last-Updated: 2022-12-26T23:43:53+0100
 #########################################
 ## Inference of exchangeable variates (nonparametric density regression)
 ## using effectively-infinite mixture of product kernels
@@ -8,14 +8,14 @@
 #########################################
 
 #### USER INPUTS AND CHOICES ####
-baseversion <- '_testnewthresh2' # Base name of output directory
+baseversion <- '_lltest1' # Base name of output directory
 nsamples <- 64L # 256 gives 4096 samples with 16 parallel runs
 ncores <- 1
 datafile <- 'ingrid_data_nogds6.csv'
 predictorfile <- 'predictors.csv'
 predictandfile <- NULL # 'predictors.csv'
 varinfofile <- 'varinfo.rds'
-ndata <- 20 # set this if you want to use fewer data
+ndata <- NULL # set this if you want to use fewer data
 shuffledata <- FALSE # useful if subsetting data
 posterior <- TRUE # if set to FALSE it samples and plots prior samples
 savetempsamples <- FALSE # save temporary MCMC samples
@@ -27,7 +27,7 @@ showsamples <- 100 # number of samples to show. Shown separately for posterior=F
 ##
 niter0 <- 1024L # 3L # iterations to try
 testLength <- TRUE
-nthreshold <- 2 # multiple of threshold for acceptable number of burn-in samples
+nthreshold <- 1.5 # multiple of threshold for acceptable number of burn-in samples
 casualinitvalues <- FALSE
 showhyperparametertraces <- FALSE ##
 showsamplertimes <- FALSE ##
@@ -699,18 +699,32 @@ while(continue){
     ## Diagnostics
     ## Log-likelihood
     diagntime <- Sys.time()
-    ll <- colSums(log(samplesFDistribution(Y=data.matrix(data0), X=NULL, mcsamples=mcsamples, varinfo=varinfo, jacobian=FALSE)), na.rm=T) #- sum(log(invjacobian(data.matrix(data0), varinfo)), na.rm=T)
-    lld <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictands]), X=data.matrix(data0[,..predictors]), mcsamples=mcsamples, varinfo=varinfo, jacobian=FALSE)), na.rm=T) # - sum(log(invjacobian(data.matrix(data0[,..predictands]), varinfo)), na.rm=T)
-    lli <- colSums(log(samplesFDistribution(Y=data.matrix(data0[,..predictors]), X=data.matrix(data0[,..predictands]), mcsamples=mcsamples, varinfo=varinfo, jacobian=FALSE)), na.rm=T) #- sum(log(invjacobian(data.matrix(data0[,..predictors]), varinfo)), na.rm=T)
-        ##
-        traces <- rbind(traces,
-                        10/log(10)/ndata *
-                        cbind(loglikelihood=ll,
-                              'mean of direct logprobabilities'=lld,
-                              'mean of inverse logprobabilities'=lli)
-                        )
-        traces2 <- traces[apply(traces,1,function(x){all(is.finite(x))}),]
-        saveRDS(traces,file=paste0(dirname,'_mctraces-R',basename,'--',mcmcseed,'-',stage,'.rds'))
+    ll <- colMeans(log(samplesFDistribution(Y=data.matrix(data0), X=NULL, mcsamples=mcsamples, varinfo=varinfo, jacobian=FALSE)),na.rm=T) #- sum(log(invjacobian(data.matrix(data0), varinfo)), na.rm=T)
+    lld <- colMeans(log(samplesFDistribution(Y=data.matrix(data0[,..predictands]), X=data.matrix(data0[,..predictors]), mcsamples=mcsamples, varinfo=varinfo, jacobian=FALSE)),na.rm=T) # - sum(log(invjacobian(data.matrix(data0[,..predictands]), varinfo)), na.rm=T)
+    lli <- colMeans(log(samplesFDistribution(Y=data.matrix(data0[,..predictors]), X=data.matrix(data0[,..predictands]), mcsamples=mcsamples, varinfo=varinfo, jacobian=FALSE)),na.rm=T) #- sum(log(invjacobian(data.matrix(data0[,..predictors]), varinfo)), na.rm=T)
+    ##
+    testdata <- rbind(varinfo[['Q2']], varinfo[['Q1']], varinfo[['Q3']]) #, varinfo[['plotmin']], varinfo[['plotmax']], varinfo[['datamin']], varinfo[['datamax']])
+    ll <- t(
+        log(samplesFDistribution(Y=testdata, X=NULL, mcsamples=mcsamples, varinfo=varinfo, jacobian=FALSE)) #- sum(log(invjacobian(data.matrix(data0), varinfo)), na.rm=T)
+    )
+    colnames(ll) <- paste0('log-',c('Q2','Q1','Q3')) #,'pm','pM','dm','dM'))
+    ## testdatalld <- log(samplesFDistribution(Y=testdata[,predictands,drop=F], X=testdata[,predictors,drop=F], mcsamples=mcsamples, varinfo=varinfo, jacobian=FALSE)) # - sum(log(invjacobian(data.matrix(data0[,..predictands]), varinfo)), na.rm=T)
+    ## rownames(testdatalld) <- paste0(c('Q2','Q1','Q3'),'d')
+    ## testdatalli <- log(samplesFDistribution(Y=testdata[,predictors,drop=F], X=testdata[,predictands,drop=F], mcsamples=mcsamples, varinfo=varinfo, jacobian=FALSE)) #- sum(log(invjacobian(data.matrix(data0[,..predictors]), varinfo)), na.rm=T)
+    ## rownames(testdatalli) <- paste0(c('Q2','Q1','Q3'),'i')
+    ## stestdatall <- colSums(testdatall, na.rm=T)
+    ## stestdatalld <- colSums(testdatalld, na.rm=T)
+    ## stestdatalli <- colSums(testdatalli, na.rm=T)
+    ##
+    traces <- 10/log(10) * ll
+    ## pdff('testdifferenttraces2')
+    ## tplot(y=traces, lwd=1, lty=1)
+    ## for(i in 1:ncol(traces)){
+    ##     tplot(y=traces[,i], main=colnames(traces)[i])
+    ## }
+    ## dev.off()
+    traces2 <- traces[apply(traces,1,function(x){all(is.finite(x))}),]
+    saveRDS(traces,file=paste0(dirname,'_mctraces-R',basename,'--',mcmcseed,'-',stage,'.rds'))
         flagll <- nrow(traces) != nrow(traces2)
         ##
         if(nrow(traces2)>=1000){
@@ -768,10 +782,8 @@ while(continue){
         ###############
         #### PLOTS ####
         ###############
-        tracegroups <- list(loglikelihood=1,
-                            'predictand given predictor'=2,
-                            'predictor given predictand'=3
-                            )
+    tracegroups <- list(1,2,3)
+    names(tracegroups) <- colnames(traces)
         grouplegends <- foreach(agroup=1:length(tracegroups))%do%{
             c( paste0('-- STATS ', names(tracegroups)[agroup], ' --'),
               paste0('min ESS = ', signif(min(diagnESS[tracegroups[[agroup]]]),6)),
