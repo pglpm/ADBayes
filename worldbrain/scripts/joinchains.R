@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-26T12:57:32+0100
+## Last-Updated: 2022-12-27T13:10:19+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -10,7 +10,7 @@ if(!exists('tplot')){source('~/work/pglpm_plotfunctions.R')}
 
 outputdir <- NA
 extratitle <- 'alldata'
-totsamples <- 4096L
+totsamples <- Inf # Inf to take all from each chain
 datafile <- 'ingrid_data_nogds6.csv'
 ## datafile <- 'ingriddatalearn.csv' #***
 predictorfile <- 'predictors.csv'
@@ -102,25 +102,25 @@ traces <- mcsamples <- NULL
 donechains <- 0
 for(achain in chainlist){
     donechains <- donechains+1
-    totake <- round(remainingsamples/(nchains-donechains+1))
     temptrace <- readRDS(file=paste0('_mctraces',basename,achain,'-F.rds'))
     validsamples <- apply(temptrace,1,function(xxx){all(is.finite(xxx))})
     if(any(!validsamples)){ cat(paste0('WARNING non-finite values in chain ',achain),'\n') }
     lsamples <- (1:nrow(temptrace))[validsamples]
+    totake <- min(round(remainingsamples/(nchains-donechains+1)), length(lsamples))
     minESS <- floor(min(LaplacesDemon::ESS(temptrace[validsamples,])))
     if(minESS >= totake){
         cat(paste0('chain ',achain,': ESS = ',minESS))
     }else{
-        cat(paste0('WARNING chain ',achain,': insufficient ESS = ',minESS))
+        cat(paste0('*** chain ',achain,': ESS = ',minESS))
     }
     cat(paste0(' (req. ',totake,')\n'))
         topick <- lsamples[round(seq(from=1, to=length(lsamples), length.out=totake))]
     ##
     traces <- rbind(traces, temptrace[topick,])
     mcsamples <- rbind(mcsamples, readRDS(file=paste0('_mcsamples',basename,achain,'-F.rds'))[topick,])
-    mcsamples <- rbind(mcsamples, readRDS(file=paste0('_mcsamples',basename,achain,'-F.rds'))[topick,])
     remainingsamples <- remainingsamples - totake
 }
+totsamples <- nrow(mcsamples)
 ##
 ## parmList <- mcsamples2parmlist(mcsamples, realVars, integerVars, categoryVars, binaryVars)
 saveRDS(mcsamples,file=paste0('_jointmcsamples-',basename,'-',totsamples,'.rds'))
