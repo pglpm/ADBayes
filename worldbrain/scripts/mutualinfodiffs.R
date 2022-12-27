@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-21T14:46:52+0100
+## Last-Updated: 2022-12-27T18:01:00+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -9,13 +9,12 @@ if(!exists('tplot')){source('~/work/pglpm_plotfunctions.R')}
 #rm(list=ls())
 
 nsamplesMI <- 4096*4
-outputdir <- 'mutualinforesults3'
+outputdir <- NA
 extratitle <- 'mutualinfo'
 ## totsamples <- 4096L
 datafile <- 'ingrid_data_nogds6.csv'
 predictorfile <- 'predictors.csv'
 predictandfile <- NULL # 'predictors.csv'
-mainfilelocation <- '_inference1/'
 functionsfile <- 'functionsmcmc_2212120902.R'
 showdata <- TRUE # 'histogram' 'scatter' FALSE
 plotmeans <- TRUE
@@ -59,22 +58,19 @@ if(!exists('outputdir') || is.na(outputdir) || is.null(outputdir)){
     }
 }
 outputdir <- paste0(sub('(.+)/','\\1',outputdir),'/')
-dir.create(outputdir)
-origdir <- paste0(getwd(), '/')
 setwd(outputdir)
+origdir <- '../'
 source(paste0(origdir,functionsfile)) # load functions for post-MCMC
+sink('MIoutput.txt')
 
-varinfofile <- paste0(origdir, mainfilelocation,
-                      list.files(path=paste0(origdir,mainfilelocation), pattern='^_varinfo.*\\.rds'))
-mcsamplesfile <-  paste0(origdir, mainfilelocation,
-                         list.files(path=paste0(origdir,mainfilelocation), pattern='^_jointmcsamples.*\\.rds'))
-
-varinfo <- readRDS(paste0(varinfofile))
-
+varinfofile <- list.files(pattern='^_varinfo.*\\.rds')
+if(length(varinfofile) !=1){stop('Problems with varinfo file')}
+varinfo <- readRDS(varinfofile)
 ##
 variate <- lapply(variatetypes, function(x)names(varinfo[['type']])[varinfo[['type']]==x])
 len <- lapply(variate,length)
 names(variate) <- names(len) <- variatetypes
+
 variatenames <- unlist(variate)
 if(!is.null(predictorfile)){predictorfile <- paste0(origdir,predictorfile) }
 if(!is.null(predictandfile)){predictandfile <- paste0(origdir,predictandfile) }
@@ -89,15 +85,17 @@ if(!is.null(predictorfile) && !is.null(predictandfile)){
     predictors <- setdiff(unlist(variate), predictands)
 }else{warning('predictors and predictands both missing')}
 
+mcsamplesfile <- list.files(pattern='^_jointmcsamples.*\\.rds')
+if(length(mcsamplesfile) !=1){stop('Problems with mcsamples file')}
 mcsamples <- readRDS(paste0(mcsamplesfile))
 
-data0 <- fread(paste0(origdir,datafile), sep=',')
-if(!all(unlist(variate) %in% colnames(data0))){cat('\nERROR: variates missing from datafile')}
-data0 <- data0[, unlist(variate), with=F]
-## shuffle data
-if(exists('shuffledata') && shuffledata){data0 <- data0[sample(1:nrow(data0))]}
-if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(data0)}
-data0 <- data0[1:ndata]
+## data0 <- fread(paste0(origdir,datafile), sep=',')
+## if(!all(unlist(variate) %in% colnames(data0))){cat('\nERROR: variates missing from datafile')}
+## data0 <- data0[, unlist(variate), with=F]
+## ## shuffle data
+## if(exists('shuffledata') && shuffledata){data0 <- data0[sample(1:nrow(data0))]}
+## if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(data0)}
+## data0 <- data0[1:ndata]
 
 
 #### CALCULATION OF MUTUAL INFO ####
@@ -118,9 +116,11 @@ condprobsx <- samplesFDistribution(Y=xsamples2[,predictands,drop=F],
 colnames(condprobsx) <- predictands
 saveRDS(condprobsx,paste0('condprobsx-',nsamplesMI,'.rds'))
 ##
-
+ii <- 0
+time0 <- Sys.time()
 allcondp <- foreach(v=c('',predictors), .combine=cbind)%do%{
-    print(v)
+    cat(paste0('\n',v,' - est. remaining time: '));print((Sys.time()-time0)/ii*(length(predictors)+1-ii))
+    ii <- ii+1
     predictors0 <- setdiff(predictors,v)
     ##
     condprobsxgy <- samplesFDistribution(Y=xsamples2[,predictands,drop=F],
@@ -129,32 +129,43 @@ allcondp <- foreach(v=c('',predictors), .combine=cbind)%do%{
                                        jacobian=FALSE, fn=mean)
     ##
     colnames(condprobsxgy) <- (if(v!=''){v}else{'all'})
-    saveRDS(condprobsxgy,paste0('condprobsxgallminus-',v,'-',nsamplesMI,'.rds'))
+    ## saveRDS(condprobsxgy,paste0('condprobsxgallminus-',v,'-',nsamplesMI,'.rds'))
     condprobsxgy
 }
 saveRDS(allcondp,paste0('condprobsxgiveny-',nsamplesMI,'.rds'))
 
 
+mism <- apply(log2(allcondp)-log2(c(condprobsx)),2,function(xxx){c(mean(xxx,na.rm=T),sd(xxx,na.rm=T)/sqrt(sum(is.finite(xxx))))})
+midiff <- apply(mism,2,function(xxx){c(mism[1,1]-xxx[1], abs(mism[2,1]/mism[1,1]+xxx[2]/xxx[1])*xxx[1])})
+rownames(midiff) <- rownames(mism) <- c('mean','sd')
+
+cat('\n\nMI:','\n')
+print(signif(mism[,order(mism[1,])],c(3,1)))
+
+cat('\n\nMI differences:','\n')
+print(signif(midiff[,order(midiff[1,])],c(3,1)))
+
+sink()
 stop('None. End of script')
 
-colnames(MIdata) <- c('all',predictors)
-saveRDS(MIdata,paste0('MIdata-',nsamplesMI,'.rds'))
+## colnames(MIdata) <- c('all',predictors)
+## saveRDS(MIdata,paste0('MIdata-',nsamplesMI,'.rds'))
 
 
-decreases <- (colMeans(MIdata)/mean(MIdata[,1])-1)*100
-variances <- (
-    abs(apply(MIdata,2,sd)/mean(MIdata[,1]) -
-    colMeans(MIdata)*sd(MIdata[,1])/mean(MIdata[,1])^2)
-        ) *100/sqrt(nsamplesMI)
-sorto <- order(decreases)
-signif(cbind(
-    decreases[sorto],
-    variances[sorto]
-),4)
-cbind(
-    round(decreases[sorto],signif(-log10(variances[sorto]),1)),
-    signif(variances[sorto],2)
-)
+## decreases <- (colMeans(MIdata)/mean(MIdata[,1])-1)*100
+## variances <- (
+##     abs(apply(MIdata,2,sd)/mean(MIdata[,1]) -
+##     colMeans(MIdata)*sd(MIdata[,1])/mean(MIdata[,1])^2)
+##         ) *100/sqrt(nsamplesMI)
+## sorto <- order(decreases)
+## signif(cbind(
+##     decreases[sorto],
+##     variances[sorto]
+## ),4)
+## cbind(
+##     round(decreases[sorto],signif(-log10(variances[sorto]),1)),
+##     signif(variances[sorto],2)
+## )
 
 
-stop('End of script')
+## stop('End of script')
