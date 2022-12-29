@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-29T02:34:16+0100
+## Last-Updated: 2022-12-29T16:49:28+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -108,8 +108,8 @@ nogivens <- setdiff(variatenames, c(givens,predictands))
 dataprior1 <- sum(data0[[predictands]]==1)/ndata
 
 
-olivia <- ariel <- bianca <- readRDS('OCBdata.rds')
-curtis <- readRDS('ABdata.rds')
+## olivia <- ariel <- bianca <- readRDS('OCBdata.rds')
+## curtis <- readRDS('ABdata.rds')
 
 Oll <- sapply(list(predictand0, predictand1), function(xxx){
     samplesFDistribution(Y=olivia[,nogivens,drop=F],
@@ -178,17 +178,17 @@ givens <- c('Apoe4_', 'Gender_num_', 'AGE', 'LRHHC_n_long')
 nogivens <- setdiff(variatenames, c(givens,predictands))
 dataprior1 <- sum(data0[[predictands]]==1)/ndata
 
-llpatientsOC0 <- samplesFDistribution(Y=trypatientsOC[,nogivens,drop=F],
-                                      X=cbind(trypatientsOC[,givens,drop=F],
-                                              'Subgroup_num_'=0),
-                                  mcsamples=mcsamples, varinfo=varinfo,
-                                  jacobian=TRUE, fn=identity)
+## llpatientsOC0 <- samplesFDistribution(Y=trypatientsOC[,nogivens,drop=F],
+##                                       X=cbind(trypatientsOC[,givens,drop=F],
+##                                               'Subgroup_num_'=0),
+##                                   mcsamples=mcsamples, varinfo=varinfo,
+##                                   jacobian=TRUE, fn=identity)
 ##
-llpatientsOC1 <- samplesFDistribution(Y=trypatientsOC[,nogivens,drop=F],
-                                      X=cbind(trypatientsOC[,givens,drop=F],
-                                              'Subgroup_num_'=1),
-                                  mcsamples=mcsamples, varinfo=varinfo,
-                                  jacobian=TRUE, fn=identity)
+## llpatientsOC1 <- samplesFDistribution(Y=trypatientsOC[,nogivens,drop=F],
+##                                       X=cbind(trypatientsOC[,givens,drop=F],
+##                                               'Subgroup_num_'=1),
+##                                   mcsamples=mcsamples, varinfo=varinfo,
+##                                   jacobian=TRUE, fn=identity)
 ##
 llpatientsOCd <- samplesFDistribution(Y=predictand1,
                                   X=trypatientsOC[,predictors,drop=F],
@@ -299,6 +299,42 @@ postCurtis <- probs[orderC[1]]
 ## Gender_num_        0.00000000
 ## posterior 0.70256
 postCurtis
+
+
+#### save selected data as example
+savedataOABC <- rbind(
+    olivia=trypatientsOC[orderO[1],],
+    ariel=trypatientsOC[orderO[1],],
+    bianca=trypatientsOC[orderO[1],],
+    curtis=trypatientsA[orderC[1],]
+)
+saveRDS(savedataOABC,'datapatientsOABCcomplete.rds')
+##
+savedataOABC['curtis','LRHHC_n_long'] <- NA
+saveRDS(savedataOABC,'datapatientsOABC.rds')
+
+probdirectOABC <- samplesFDistribution(Y=predictand1,
+                                       X=savedataOABC,
+                                       mcsamples=mcsamples, varinfo=varinfo,
+                                       jacobian=TRUE)
+rownames(probdirectOABC) <- rownames(savedataOABC)
+saveRDS(probdirectOABC, 'directprobabilitiesOABC.rds')
+
+probinverseOABC1 <- samplesFDistribution(Y=savedataOABC,
+                                         X=predictand1,
+                                       mcsamples=mcsamples, varinfo=varinfo,
+                                       jacobian=TRUE)
+rownames(probinverseOABC1) <- rownames(savedataOABC)
+saveRDS(probinverseOABC1, 'likelihoodsOABC1.rds')
+
+probinverseOABC0 <- samplesFDistribution(Y=savedataOABC,
+                                         X=predictand0,
+                                       mcsamples=mcsamples, varinfo=varinfo,
+                                       jacobian=TRUE)
+rownames(probinverseOABC0) <- rownames(savedataOABC)
+saveRDS(probinverseOABC0, 'likelihoodsOABC0.rds')
+
+
 
 ## find Bianca
 choicefn <- function(pv,umx){
