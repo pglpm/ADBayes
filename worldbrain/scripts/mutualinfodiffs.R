@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-27T18:01:00+0100
+## Last-Updated: 2022-12-28T18:40:17+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -50,7 +50,7 @@ if(ncores>1){
     plan(sequential)
 }
 
-#### Load files with MC information and data ####
+#### Load files with variate information and data ####
 if(!exists('outputdir') || is.na(outputdir) || is.null(outputdir)){
     outputdir <- as.character(commandArgs(trailingOnly=TRUE))[1]
     if(is.na(outputdir)){
