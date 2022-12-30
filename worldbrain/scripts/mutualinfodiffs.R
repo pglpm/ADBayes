@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-28T18:40:17+0100
+## Last-Updated: 2022-12-30T08:12:16+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -135,9 +135,15 @@ allcondp <- foreach(v=c('',predictors), .combine=cbind)%do%{
 saveRDS(allcondp,paste0('condprobsxgiveny-',nsamplesMI,'.rds'))
 
 
-mism <- apply(log2(allcondp)-log2(c(condprobsx)),2,function(xxx){c(mean(xxx,na.rm=T),sd(xxx,na.rm=T)/sqrt(sum(is.finite(xxx))))})
+mism <- apply(log2(allcondp)-log2(c(condprobsx)),2,function(xxx){
+    c(mean(xxx,na.rm=T),
+      sd(xxx,na.rm=T)/sqrt(sum(is.finite(xxx))),
+      sort(xxx)[length(xxx)*c(1,7)/8])
+})
+rownames(mism) <- c('mean','sd','O1','O7')
+
 midiff <- apply(mism,2,function(xxx){c(mism[1,1]-xxx[1], abs(mism[2,1]/mism[1,1]+xxx[2]/xxx[1])*xxx[1])})
-rownames(midiff) <- rownames(mism) <- c('mean','sd')
+rownames(midiff) <- c('mean','sd')
 
 cat('\n\nMI:','\n')
 print(signif(mism[,order(mism[1,])],c(3,1)))

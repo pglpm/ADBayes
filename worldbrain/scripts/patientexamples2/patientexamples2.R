@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-29T16:49:28+0100
+## Last-Updated: 2022-12-30T00:18:34+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -97,6 +97,12 @@ data0 <- data0[, unlist(variate), with=F]
 if(exists('shuffledata') && shuffledata){data0 <- data0[sample(1:nrow(data0))]}
 if(!exists('ndata') || is.null(ndata) || is.na(ndata)){ndata <- nrow(data0)}
 data0 <- data0[1:ndata]
+
+
+#### number of dimensions
+apply(data0,2,function(x){diff(range(x,na.rm=T))/min(diff(sort(unique(x[!is.na(x)]))))})
+
+prod(apply(data0,2,function(x){diff(range(x,na.rm=T))/min(diff(sort(unique(x[!is.na(x)]))))}))
 
 
 predictand0 <- cbind(0)
@@ -333,6 +339,120 @@ probinverseOABC0 <- samplesFDistribution(Y=savedataOABC,
                                        jacobian=TRUE)
 rownames(probinverseOABC0) <- rownames(savedataOABC)
 saveRDS(probinverseOABC0, 'likelihoodsOABC0.rds')
+
+##      olivia  ariel bianca curtis
+## [1,] 0.3020 0.3020 0.3020  0.691
+## [2,] 0.0009 0.0009 0.0009  0.001
+
+signif(apply(probdirectOABC,1,function(xxx){
+    c(mm <- mean(xxx), ss <- sd(xxx)/sqrt(length(xxx)), ss/mm*100)
+}),c(3,1,2))
+signif(apply(probinverseOABC1,1,function(xxx){
+    c(mm <- mean(xxx), ss <- sd(xxx)/sqrt(length(xxx)), ss/mm*100)
+}),c(3,1,2))
+signif(apply(probinverseOABC0,1,function(xxx){
+    c(mm <- mean(xxx), ss <- sd(xxx)/sqrt(length(xxx)), ss/mm*100)
+}),c(3,1,2))
+##      olivia  ariel bianca curtis
+## [1,] 0.3020 0.3020 0.3020  0.691
+## [2,] 0.0009 0.0009 0.0009  0.001
+## [3,] 0.3100 0.3100 0.3100  0.180
+##        olivia    ariel   bianca   curtis
+## [1,] 8.97e-12 8.97e-12 8.97e-12 1.54e-12
+## [2,] 6.00e-14 6.00e-14 6.00e-14 4.00e-14
+## [3,] 6.60e-01 6.60e-01 6.60e-01 2.30e+00
+##        olivia    ariel   bianca   curtis
+## [1,] 1.86e-11 1.86e-11 1.86e-11 5.01e-13
+## [2,] 1.00e-13 1.00e-13 1.00e-13 1.00e-14
+## [3,] 7.70e-01 7.70e-01 7.70e-01 2.10e+00
+
+
+priorariel <- 0.65
+posteriorarielbis <- probinverseOABC1['ariel',]*priorariel/
+    (probinverseOABC1['ariel',]*priorariel + probinverseOABC0['ariel',]*(1-priorariel))
+##
+posteriorariel <- mean(probinverseOABC1['ariel',])*priorariel/
+    (mean(probinverseOABC1['ariel',])*priorariel + mean(probinverseOABC0['ariel',])*(1-priorariel))
+posteriorariel
+##
+xxx <- posteriorarielbis
+t(t(c(mm <- mean(xxx), ss <- sd(xxx)/sqrt(length(xxx)), ss/mm*100)))
+
+
+signif(apply(probinverseOABC0,1,function(xxx){
+    c(mm <- mean(xxx), ss <- sd(xxx)/sqrt(length(xxx)), ss/mm*100)
+}),c(3,1,2))
+
+
+probconv <- samplesFDistribution(Y=predictand1, X=NULL,
+                                       mcsamples=mcsamples, varinfo=varinfo,
+                                       jacobian=TRUE)
+xxx <- probconv
+t(t(c(mm <- mean(xxx), ss <- sd(xxx)/sqrt(length(xxx)), ss/mm*100)))
+
+posteriorsOABC <- cbind(rowMeans(probdirectOABC))
+posteriorsOABC['ariel',] <- posteriorariel
+## > posteriorsOABC
+##            [,1]
+## olivia 0.301679
+## ariel  0.472940
+## bianca 0.301679
+## curtis 0.690920
+
+## > rbind(1-t(posteriorsOABC),t(posteriorsOABC))
+##        olivia   ariel   bianca  curtis
+## [1,] 0.698321 0.52706 0.698321 0.30908
+## [2,] 0.301679 0.47294 0.301679 0.69092
+
+
+um <- matrix(c(1,0.9,0.8,0,
+               0,0.3,0.5,1), 4,2)
+rownames(um) <- c(1:4)
+um2 <- matrix(c(1,0.8,0.7,0,
+               0,0.3,0.5,1), 4,2)
+rownames(um2) <- c(1:4)
+
+um %*% rbind(1-t(posteriorsOABC),t(posteriorsOABC))
+## > um %*% rbind(1-t(posteriorsOABC),t(posteriorsOABC))
+##     olivia    ariel   bianca   curtis
+## 1 0.698321 0.527060 0.698321 0.309080
+## 2 0.718993 0.616236 0.718993 0.485448
+## 3 0.709496 0.658118 0.709496 0.592724
+## 4 0.301679 0.472940 0.301679 0.690920
+
+um2 %*% rbind(1-t(posteriorsOABC['bianca',,drop=F]),t(posteriorsOABC['bianca',,drop=F]))
+##     bianca
+## 1 0.698321
+## 2 0.649161
+## 3 0.639664
+## 4 0.301679
+
+
+
+nbin <- 32
+maxd <- 0
+for(i in c('olivia', 'curtis')){
+maxd <- max(maxd,thist(probdirectOABC[i,],n=nbin)$density)
+}
+for(i in c('olivia', 'curtis')){
+    histo <- thist(probdirectOABC[i,],n=nbin)
+pdff(paste0('directprob_',i))
+tplot(x=histo$breaks, y=histo$density, xlim=0:1, ylim=c(0,maxd),
+      ylab='probability density',
+      xlab='frequency of conversion to AD, given predictor values'
+      )
+abline(v=mean(probdirectOABC[i,]), col=2, lwd=4)
+dev.off()
+}
+
+histo <- thist(probdirectOABC[4,],n=25)
+pdff('directprobC')
+tplot(x=histo$breaks, y=histo$density, xlim=0:1,
+      ylab='probability density',
+      xlab='frequency of conversion to AD, given predictor values'
+      )
+abline(v=mean(probdirectOABC[1,]), col=2, lwd=4)
+dev.off()
 
 
 
