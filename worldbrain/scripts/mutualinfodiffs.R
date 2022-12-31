@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-30T08:12:16+0100
+## Last-Updated: 2022-12-30T19:50:52+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -137,8 +137,8 @@ saveRDS(allcondp,paste0('condprobsxgiveny-',nsamplesMI,'.rds'))
 
 mism <- apply(log2(allcondp)-log2(c(condprobsx)),2,function(xxx){
     c(mean(xxx,na.rm=T),
-      sd(xxx,na.rm=T)/sqrt(sum(is.finite(xxx))),
-      sort(xxx)[length(xxx)*c(1,7)/8])
+      sd(xxx,na.rm=T)/sqrt(sum(is.finite(xxx)))
+      )
 })
 rownames(mism) <- c('mean','sd','O1','O7')
 

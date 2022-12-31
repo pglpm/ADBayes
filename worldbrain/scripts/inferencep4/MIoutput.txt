@@ -1,50 +1,83 @@
 
- - est. remaining time: Time difference of 259.153 secs
+Apoe4_ - est. remaining time: Time difference of Inf secs
 
-TRAASCOR_neuro - est. remaining time: Time difference of 36.8199 mins
+Gender_num_ - est. remaining time: Time difference of 581.199 secs
 
-TRABSCOR_neuro - est. remaining time: Time difference of 41.2358 mins
+ANARTERR_neuro - est. remaining time: Time difference of 8.88008 mins
 
-AGE - est. remaining time: Time difference of 40.5709 mins
+AVDEL30MIN_neuro - est. remaining time: Time difference of 9.61777 mins
 
-LRHHC_n_long - est. remaining time: Time difference of 38.7958 mins
+AVDELTOT_neuro - est. remaining time: Time difference of 9.31529 mins
 
-Apoe4_ - est. remaining time: Time difference of 35.5372 mins
+CATANIMSC_neuro - est. remaining time: Time difference of 8.66998 mins
 
-Gender_num_ - est. remaining time: Time difference of 31.418 mins
+GDTOTAL_gds - est. remaining time: Time difference of 7.84385 mins
 
-ANARTERR_neuro - est. remaining time: Time difference of 26.7729 mins
+RAVLT_immediate - est. remaining time: Time difference of 6.81811 mins
 
-AVDEL30MIN_neuro - est. remaining time: Time difference of 21.5832 mins
+TRAASCOR_neuro - est. remaining time: Time difference of 5.77146 mins
 
-AVDELTOT_neuro - est. remaining time: Time difference of 16.2886 mins
+TRABSCOR_neuro - est. remaining time: Time difference of 4.66777 mins
 
-CATANIMSC_neuro - est. remaining time: Time difference of 0.181866 hours
+AGE - est. remaining time: Time difference of 3.53005 mins
 
-GDTOTAL_gds - est. remaining time: Time difference of 0.09124 hours
+LRHHC_n_long - est. remaining time: Time difference of 2.28682 mins
 
-RAVLT_immediate - est. remaining time: Time difference of 0 hours
+cog - est. remaining time: Time difference of 1.11617 mins
+
+noncog - est. remaining time: Time difference of 0 mins
 
 
 MI: 
-     AVDEL30MIN_neuro RAVLT_immediate TRABSCOR_neuro AVDELTOT_neuro LRHHC_n_long
-mean            0.125           0.131          0.135          0.137        0.138
-sd              0.004           0.004          0.004          0.004        0.004
-     TRAASCOR_neuro CATANIMSC_neuro   AGE GDTOTAL_gds ANARTERR_neuro Gender_num_
-mean          0.139           0.139 0.139       0.140          0.140       0.140
-sd            0.004           0.004 0.004       0.004          0.004       0.004
-     Apoe4_   all
-mean  0.140 0.140
-sd    0.004 0.004
+                                mean     sd
+GDTOTAL_gds               0.00052096 0.0003
+Gender_num_               0.00320230 0.0008
+Apoe4_                    0.00349680 0.0010
+AGE                       0.00616330 0.0010
+ANARTERR_neuro            0.00686160 0.0010
+TRAASCOR_neuro            0.01329100 0.0020
+TRABSCOR_neuro            0.02385100 0.0020
+CATANIMSC_neuro           0.02425800 0.0020
+LRHHC_n_long              0.02813100 0.0020
+noncog                    0.03598000 0.0030
+AVDELTOT_neuro            0.06025100 0.0030
+RAVLT_immediate           0.09243000 0.0040
+AVDEL30MIN_neuro          0.09397900 0.0040
+allminus_AVDEL30MIN_neuro 0.12548000 0.0040
+allminus_RAVLT_immediate  0.13083000 0.0040
+allminus_TRABSCOR_neuro   0.13546000 0.0040
+allminus_AVDELTOT_neuro   0.13761000 0.0040
+allminus_LRHHC_n_long     0.13797000 0.0040
+cog                       0.13798000 0.0040
+allminus_TRAASCOR_neuro   0.13870000 0.0040
+allminus_CATANIMSC_neuro  0.13928000 0.0040
+allminus_AGE              0.13933000 0.0040
+allminus_GDTOTAL_gds      0.13956000 0.0040
+allminus_ANARTERR_neuro   0.13957000 0.0040
+allminus_Gender_num_      0.13974000 0.0040
+allminus_Apoe4_           0.13983000 0.0040
+all                       0.13984000 0.0040
 
 
 MI differences: 
-       all    Apoe4_ Gender_num_ ANARTERR_neuro GDTOTAL_gds      AGE CATANIMSC_neuro
-mean 0.000 0.0000121   0.0000939       0.000264    0.000295 0.000512        0.000561
-sd   0.009 0.0090000   0.0090000       0.009000    0.009000 0.009000        0.009000
-     TRAASCOR_neuro LRHHC_n_long AVDELTOT_neuro TRABSCOR_neuro RAVLT_immediate
-mean        0.00113      0.00187        0.00234        0.00438         0.00905
-sd          0.00900      0.00900        0.00900        0.00900         0.00800
-     AVDEL30MIN_neuro
-mean           0.0144
-sd             0.0080
+        all allminus_Apoe4_ allminus_Gender_num_ allminus_ANARTERR_neuro
+mean -0.136          -0.136               -0.136                  -0.136
+sd    0.040           0.040                0.040                   0.040
+     allminus_GDTOTAL_gds allminus_AGE allminus_CATANIMSC_neuro
+mean               -0.136       -0.136                   -0.136
+sd                  0.040        0.040                    0.040
+     allminus_TRAASCOR_neuro    cog allminus_LRHHC_n_long allminus_AVDELTOT_neuro
+mean                  -0.135 -0.134                -0.134                  -0.134
+sd                     0.040  0.040                 0.040                   0.040
+     allminus_TRABSCOR_neuro allminus_RAVLT_immediate allminus_AVDEL30MIN_neuro
+mean                  -0.132                   -0.127                    -0.122
+sd                     0.040                    0.040                     0.040
+     AVDEL30MIN_neuro RAVLT_immediate AVDELTOT_neuro  noncog LRHHC_n_long
+mean          -0.0905         -0.0889        -0.0568 -0.0325      -0.0246
+sd             0.0300          0.0300         0.0200  0.0100       0.0100
+     CATANIMSC_neuro TRABSCOR_neuro TRAASCOR_neuro ANARTERR_neuro      AGE Apoe4_
+mean         -0.0208        -0.0204       -0.00979       -0.00336 -0.00267  0.000
+sd            0.0090         0.0090        0.00500        0.00300  0.00300  0.002
+     Gender_num_ GDTOTAL_gds
+mean    0.000294     0.00298
+sd      0.002000     0.00040
