@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-30T00:18:34+0100
+## Last-Updated: 2023-01-01T23:34:13+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -493,6 +493,67 @@ choicefn(postOlivia,um)
 choicefn(postAriel,um)
 choicefn(postBianca,um2)
 choicefn(postCurtis,um)
+
+
+
+
+
+
+
+
+
+
+
+
+morecurtis <- c(generateVariates(Ynames='LRHHC_n_long', X=savedataOABC['curtis',,drop=F],
+                                mcsamples=mcsamples, varinfo=varinfo,
+                                n=nrow(mcsamples)))
+test <- savedataOABC['curtis',-which(colnames(savedataOABC)=='LRHHC_n_long'),drop=F]
+
+newcurtis <- cbind('LRHHC_n_long'=morecurtis)
+for(i in 1:ncol(test)){
+    newcurtis <- cbind(test[,i],newcurtis)
+    colnames(newcurtis)[1] <- colnames(test)[i]
+}
+
+otherprobcurtis <- samplesFDistribution(Y=predictand1,
+                                  X=newcurtis,
+                                  mcsamples=mcsamples, varinfo=varinfo,
+                                  jacobian=TRUE, fn=identity)
+
+exputcurtis <- sapply(otherprobcurtis, function(xxx){
+    um %*% c(1-xxx, xxx)
+})
+
+euchistos <- sapply(1:nrow(exputcurtis), function(xxx){
+    hist <- thist(exputcurtis[xxx,],n=32)
+    cbind(hist$mids, hist$density)
+}, simplify='array')
+
+tplot(x=euchistos[,1,], y=euchistos[,2,])
+
+
+testp <- samplesFDistribution(Y=predictand1,
+                                  X=savedataOABC['curtis',,drop=F],
+                                  mcsamples=mcsamples, varinfo=varinfo,
+                                  jacobian=TRUE, fn=mean)
+
+testpbis <- samplesFDistribution(Y=predictand1,
+                                  X=savedataOABC['curtis',-which(colnames(savedataOABC)=='LRHHC_n_long'),drop=F],
+                                  mcsamples=mcsamples, varinfo=varinfo,
+                                  jacobian=TRUE, fn=mean)
+
+testp2 <- samplesFDistribution(Y=predictand1,
+                                  X=newcurtis[3,,drop=F],
+                                  mcsamples=mcsamples, varinfo=varinfo,
+                                  jacobian=TRUE, fn=mean)
+um %*% c(1-testpbis, testpbis)
+
+
+
+
+
+
 
 
 

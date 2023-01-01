@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2022-12-31T18:56:20+0100
+## Last-Updated: 2023-01-01T20:38:56+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -190,7 +190,7 @@ text(sequ,mism2,colnames(mism), adj=c(0), cex=0.5)
 dev.off()
 
 
-c(
+shortnames <- c(
 'GDS',
 'Sex',
 'APOE4',
@@ -207,31 +207,100 @@ c(
 'all minus RAVLT-del',
 'all minus RAVLT-imm',
 'all minus TMTB',
-'cognitive+Age+Sex',
 'all minus RAVLT-rec',
 'all minus HC',
+'cognitive+Age+Sex',
 'all minus TMTA',
 'all minus CFT',
 'all minus Age',
 'all minus GDS',
 'all minus ANART',
 'all minus Sex',
-'all minus APOE4'
+'all minus APOE4',
+'all'
 )
 
+shortnames2 <- shortnames
+shortnames2[order(mism[1,])] <- shortnames
 
-sequ <- 1:100
-mism2 <- sort(mism[1,])
-errs <- mism[2,order(mism[1,])]
+cbind(names(sort(mism[1,])),
+      shortnames)
+
+cbind(colnames(mism), shortnames2)
+
+
+sequ <- 1:ncol(mism)
+mord <- order(mism[1,])
+mism2 <- mism[1,mord]
+errs <- mism[2,mord]
+dist <- max(errs)
+labs <- shortnames2[mord]
 pdff('plotMI',paper='a4p')
-tplot(y=sequ[1:length(mism2)],x=mism2,pch=16,cex=1,col=8,type='p',
-      yticks=NA,ylab=NA,
-      xlim=c(0,0.2))
+tplot(y=sequ,x=mism2,pch=16,cex=1,col=8,type='p',
+      yticks=NA,ylab=NA,xlab='mutual information/Sh',
+      xlim=c(0,0.2))#max(mism2+errs)+0.1))
 tplot(x=rbind(pmax(0,mism2-errs),mism2+errs),
-y=rbind(sequ[1:length(mism2)],sequ[1:length(mism2)]),lty=1,lwd=2,col=8,
+y=rbind(sequ,sequ),lty=1,lwd=2,col=8,
 add=T)
-text(mism2+errs,sequ[1:length(mism2)],names(mism2), adj=c(-0.05,0.5), cex=1)
+text(mism2+dist,sequ,labs, adj=c(-0.05,0.5), cex=1.25)
 dev.off()
+
+
+
+accus <- apply(1*(allcondp>0.5)+0.5*(allcondp==0.5),2,function(xxx){
+    c(mean(xxx,na.rm=T),
+      sd(xxx,na.rm=T)/sqrt(sum(is.finite(xxx)))
+      )
+})
+rownames(accus) <- c('mean','sd')
+
+cat('\n\nAcc:','\n')
+print(t(signif(accus[,ordwier(accus[1,])],c(5,1))))
+
+sequ <- 1:ncol(mism)
+mord <- order(mism[1,])
+accus2 <- accus[1,mord]
+errs <- accus[2,mord]
+dist <- max(errs)
+labs <- shortnames2[mord]
+pdff('plotAcc',paper='a4p')
+tplot(y=sequ[1:length(accus2)],x=accus2,pch=16,cex=1,col=8,type='p',
+      yticks=NA,ylab=NA,xlab='accuracy',
+      xlim=c(0.5,0.75))#max(accus2)+0.1))
+tplot(x=rbind(pmax(0,accus2-errs),accus2+errs),
+y=rbind(sequ,sequ),lty=1,lwd=2,col=8,
+add=T)
+text(accus2+dist,sequ,labs, adj=c(-0.05,0.5), cex=1.25)
+dev.off()
+m
+
+cbind((1-0.53)mmm*mism[1,mord]+0.5, accus[1,mord])
+
+(1-mi)*0.5+mi
+0.5-0.5*mi+mi
+0.5+
+
+##testo <- (accus[1,]-min(accus[1,]))/diff(range(accus[1,]))+(mism[1,]-min(mism[1,]))/diff(range(mism[1,]))
+tord <- order(mism[1,])
+accus2 <- accus[1,tord]
+sequ <- 1:100
+errs <- accus[2,tord]
+pdff('plotAcc',paper='a4p',asp=0.5/sqrt(2))
+tplot(y=sequ[1:length(accus2)],x=accus2,pch=16,cex=1,col=8,type='p',
+      yticks=NA,ylab=NA,
+      xlim=c(NA,max(accus2)+0.1))
+tplot(x=rbind(pmax(0,accus2-errs),accus2+errs),
+y=rbind(sequ[1:length(accus2)],sequ[1:length(accus2)]),lty=1,lwd=2,col=8,
+add=T)
+text(accus2+errs,sequ[1:length(accus2)],names(accus2), adj=c(-0.05,0.5), cex=0.75)
+dev.off()
+
+cbind(sort((1-mism[1,]/mism[1,'all'])*100))
+cbind(sort((1-accus[1,]/accus[1,'all'])*100))
+
+cbind(
+Acc=(1-accus[1,]/accus[1,'all'])*100
+)
 
 ## colnames(MIdata) <- c('all',predictors)
 ## saveRDS(MIdata,paste0('MIdata-',nsamplesMI,'.rds'))
