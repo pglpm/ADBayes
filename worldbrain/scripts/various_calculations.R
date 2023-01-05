@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2023-01-05T10:37:50+0100
+## Last-Updated: 2023-01-05T16:13:55+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -178,26 +178,54 @@ choicefn <- function(pv,umx){
     out
 }
 
-testr <- choicefn(probAD2, um)
+treat <- choicefn(probAD2, um)
 
 treatmean <- choicefn(meanprobAD2, um)
 
 ordering <- order(meanprobAD2)
 subsett <- round(seq(1,length(meanprobAD2),length.out=50))
-syms <- (c(1,3,2,4))
-## syms <- sapply(c('alpha','beta','gamma','delta'),expression)
+##syms <- (c(1,3,2,4))
+##syms <- as.character(1:4)
+syms <- c(expression(alpha), expression(beta), expression(gamma), expression(delta))
 pdff('plot1000patients')
-tplot(y=meanprobAD2[ordering], ylim=0:1, col=2, lwd=3,
-      xlab='sample patient #', ylab='probability of conversion to AD')
-tplot(x=as.list(subsett),y=as.list(meanprobAD2[ordering][subsett]), type='p',
-      pch=syms[treatmean[ordering][subsett]],
-      col=1, cex=1.25,
-      add=T)
-## plotquantiles(x=1:nrow(datapoints2),y=CprobAD2[ordering,], col=5,alpha=0.75)
+tplot(x=-10,y=-10,xlim=c(0,1000),ylim=0:1,
+            xlab='sample patient #', ylab='probability of conversion to AD')
 plotquantiles(x=1:nrow(datapoints2),y=OprobAD2[ordering,], col=6,alpha=0.75)
+tplot(y=meanprobAD2[ordering], ylim=0:1, col=2, lwd=3,
+      xlab='sample patient #', ylab='probability of conversion to AD',
+      add=T)
+text(x=subsett, y=meanprobAD2[ordering][subsett],
+     syms[treatmean[ordering][subsett]], cex=1.25, col=colalpha2hex(8,0.25))
+## tplot(x=as.list(subsett),y=as.list(meanprobAD2[ordering][subsett]), type='p',
+##       pch=syms[treatmean[ordering][subsett]],
+##       col=1, cex=1.25,
+##       add=T)
+## plotquantiles(x=1:nrow(datapoints2),y=CprobAD2[ordering,], col=5,alpha=0.75)
 dev.off()
 
+rangestreat <- foreach(xxx=treat,.combine=cbind)%do%{
+    tabulate(xxx, nbins=4)/length(xxx)
+}
 
+tplot(x=1:4,y=rangestreat[,1:1000],lty=1,lwd=0.5,alpha=0.75,col=7)
+
+summary(t(rangestreat))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+tplot(x=1,y=1,type='p',pch=expression('beta'))
+text(c(1,1.2),c(1,1.2),expression(alpha))
 
 if(!file.exists(paste0('condprobsx-',nsamplesMI,'.rds'))){
 set.seed(101)
