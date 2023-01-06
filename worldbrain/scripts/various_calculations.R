@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2023-01-05T16:13:55+0100
+## Last-Updated: 2023-01-06T08:56:08+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -121,7 +121,11 @@ probsYgivenX <- readRDS(paste0('allcondprobsxgiveny-',nsamplesMI,'.rds'))
 
 
 ## choose subset of typical points
-datapoints2 <- datapoints[sample(1:nrow(datapoints),1000,replace=F),]
+set.seed(101)
+datapoints2 <- t(generateVariates(Ynames=c(predictors,predictands), X=NULL,
+                                mcsamples=mcsamples, varinfo=varinfo,
+                                    n=nrow(mcsamples))[,,1])
+
 
 ## conditional probability distributions of predictand=1 for subset
 probAD2 <- samplesFDistribution(Y=predictandvalues['cAD',,drop=F],
@@ -129,22 +133,28 @@ probAD2 <- samplesFDistribution(Y=predictandvalues['cAD',,drop=F],
                                 mcsamples=mcsamples, varinfo=varinfo,
                                 jacobian=TRUE, fn=identity)
 
+## saveRDS(probAD2,'probAD2.rds')
+## saveRDS(datapoints2,'datapoints2.rds')
+
 ## probAD2bis <- samplesFDistribution2(Y=datapoints2[,predictors,drop=F],
 ##                                 X=NULL,
 ##                                 mcsamples=mcsamples, varinfo=varinfo,
 ##                                 jacobian=TRUE, fn=identity)
 
-meanprobAD2 <- rowMeans(probAD2)
+probAD2 <- probAD2[-which(is.na(probAD2), arr.ind = T)[,'row'],]
+
+
+meanprobAD2 <- rowMeans(probAD2,na.rm=T)
 OprobAD2 <- t(apply(probAD2,1,function(xxx)tquant(xxx,c(1,7)/8)))
 CprobAD2 <- t(apply(probAD2,1,function(xxx)tquant(xxx,c(5,95)/100)))
-accprobAD2 <- sapply(rowMeans(probAD2),function(xxx)max(xxx,1-xxx))
+accprobAD2 <- sapply(meanprobAD2,function(xxx)max(xxx,1-xxx))
 
 ordering <- order(meanprobAD2)
 pdff('plot1000patients')
 tplot(y=meanprobAD2[ordering], ylim=0:1, col=2, lwd=3,
       xlab='sample patient #', ylab='probability of conversion to AD')
 ## plotquantiles(x=1:nrow(datapoints2),y=CprobAD2[ordering,], col=5,alpha=0.75)
-plotquantiles(x=1:nrow(datapoints2),y=OprobAD2[ordering,], col=6,alpha=0.75)
+plotquantiles(x=1:length(ordering),y=OprobAD2[ordering,], col=6,alpha=0.75)
 dev.off()
 
 ## tplot(y=list(meanprobAD2[ordering],accprobAD2[ordering]), ylim=0:1)
@@ -179,18 +189,17 @@ choicefn <- function(pv,umx){
 }
 
 treat <- choicefn(probAD2, um)
-
 treatmean <- choicefn(meanprobAD2, um)
 
 ordering <- order(meanprobAD2)
 subsett <- round(seq(1,length(meanprobAD2),length.out=50))
 ##syms <- (c(1,3,2,4))
 ##syms <- as.character(1:4)
-syms <- c(expression(alpha), expression(beta), expression(gamma), expression(delta))
+syms <- c(expression(italic(alpha)), expression(italic(beta)), expression(italic(gamma)), expression(italic(delta)))
 pdff('plot1000patients')
-tplot(x=-10,y=-10,xlim=c(0,1000),ylim=0:1,
+tplot(x=-10,y=-10,xlim=c(0,length(meanprobAD2)),ylim=0:1,
             xlab='sample patient #', ylab='probability of conversion to AD')
-plotquantiles(x=1:nrow(datapoints2),y=OprobAD2[ordering,], col=6,alpha=0.75)
+plotquantiles(x=1:length(meanprobAD2),y=OprobAD2[ordering,], col=6,alpha=0.75)
 tplot(y=meanprobAD2[ordering], ylim=0:1, col=2, lwd=3,
       xlab='sample patient #', ylab='probability of conversion to AD',
       add=T)
@@ -211,12 +220,41 @@ tplot(x=1:4,y=rangestreat[,1:1000],lty=1,lwd=0.5,alpha=0.75,col=7)
 
 summary(t(rangestreat))
 
+##        [,1]  [,2]     [,3]  [,4]
+## 12.5% 0.220 0.026 0.258000 0.261
+## 50%   0.247 0.037 0.357000 0.357
+## 87.5% 0.269 0.062 0.465875 0.442
 
 
+## > apply(rangestreat,1,function(xx){tquant(xx,c(1,4,7)/8)})
+##           [,1]      [,2]     [,3]     [,4]
+## 12.5% 0.227406 0.0214949 0.261877 0.249176
+## 50%   0.248901 0.0293112 0.367855 0.351246
+## 87.5% 0.265511 0.0532487 0.477956 0.447240
+
+phist <- thist(meanprobAD2,n=seq(0,1,by=0.025))
+pdff('histog_future_probs')
+tplot(x=phist$breaks,y=phist$density, xlim=0:1,ylim=c(0,NA),
+      ylab='frequency density',
+      xlab='prognostic probability for future patients')
+dev.off()
 
 
-
-
+pdff('plot4096patients',paper='a4p')
+tplot(y=-10,x=-10,ylim=c(0,length(meanprobAD2)),xlim=0:1,
+            ylab='sample patient #', xlab='probability of conversion to AD')
+#plotquantiles(y=1:length(meanprobAD2),x=OprobAD2[ordering,], col=6,alpha=0.75)
+tplot(x=meanprobAD2[ordering], xlim=0:1, col=2, lwd=3,
+      ylab='sample patient #', xlab='probability of conversion to AD',
+      add=T)
+text(y=subsett, x=meanprobAD2[ordering][subsett],
+     syms[treatmean[ordering][subsett]], cex=1.25, col=colalpha2hex(8,0.25))
+## tplot(x=as.list(subsett),y=as.list(meanprobAD2[ordering][subsett]), type='p',
+##       pch=syms[treatmean[ordering][subsett]],
+##       col=1, cex=1.25,
+##       add=T)
+## plotquantiles(x=1:nrow(datapoints2),y=CprobAD2[ordering,], col=5,alpha=0.75)
+dev.off()
 
 
 
