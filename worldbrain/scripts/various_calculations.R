@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2023-01-06T08:56:08+0100
+## Last-Updated: 2023-01-06T14:49:15+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -232,9 +232,18 @@ summary(t(rangestreat))
 ## 50%   0.248901 0.0293112 0.367855 0.351246
 ## 87.5% 0.265511 0.0532487 0.477956 0.447240
 
-phist <- thist(meanprobAD2,n=seq(0,1,by=0.025))
+phist <- t(apply(probAD2,1,function(xxx){
+    thist(xxx,n=seq(0,1,by=0.025))$density
+}))
+
+xgrid <- thist(probAD2[1,],n=seq(0,1,by=0.025))$mids
+
+Ophist <- apply(phist,2,function(xxx){tquant(xxx, c(1,4,7)/8)})
+
+subsett <- round(seq(1,nrow(phist),length.out=100))
 pdff('histog_future_probs')
-tplot(x=phist$breaks,y=phist$density, xlim=0:1,ylim=c(0,NA),
+tplot(x=xgrid,y=t(phist[subsett,]), xlim=0:1,ylim=c(0,NA),
+      col=7,lty=1,lwd=1,
       ylab='frequency density',
       xlab='prognostic probability for future patients')
 dev.off()
@@ -255,6 +264,19 @@ text(y=subsett, x=meanprobAD2[ordering][subsett],
 ##       add=T)
 ## plotquantiles(x=1:nrow(datapoints2),y=CprobAD2[ordering,], col=5,alpha=0.75)
 dev.off()
+
+
+npsamples <- 4096
+probstats <- foreach(asample=t(mcsamples))%dorng%{
+    asample <- t(asample)
+    datasamples <- t(generateVariates(Ynames=c(predictors,predictands), X=NULL,
+                                      mcsamples=asample, varinfo=varinfo,
+                                      n=npsamples)[,,1])
+    probsamples <- samplesFDistribution(Y=predictandvalues['cAD',,drop=F],
+                                X=datasamples[,predictors,drop=F],
+                                mcsamples=asample, varinfo=varinfo,
+                                jacobian=TRUE, fn=identity)
+}
 
 
 
