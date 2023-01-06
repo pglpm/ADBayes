@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2023-01-06T21:06:22+0100
+## Last-Updated: 2023-01-06T23:04:21+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -395,6 +395,61 @@ thist(Olongrunprobs['mean',],plot=T)
 
 
 
+
+
+basepointsa <- rbeta(n=10, 2,2)-0.5
+basepointsb <- rbeta(n=10, 3,3)-0.5
+basepointsc <- rbeta(n=10, 2,2)-0.5
+basepointsd <- rbeta(n=10, 3,3)-0.5
+
+impdatax <- cbind(
+    c(basepointsa-1, basepointsb+0.25),
+    c(basepointsa-1, basepointsb+0.25)
+)
+impdatay <- cbind(
+    c(basepointsc-1, (basepointsd)+0.25),
+    c(basepointsd+0.25, (basepointsc)-1)
+)
+##
+pdff('example_importance_context',asp=1)
+tplot(x=impdatax,y=impdatay, type='p', pch=c(1,2),
+      xlim=c(-2,0.75), ylim=c(-2,0.75),
+      xticks=NA, yticks=NA,xlab=expression(italic(X)), ylab=expression(italic(Y)),
+      mar=c(NA,3.5,1,1), ly=2)
+tplot(x=impdatax,y=t(t(impdatay*0)-c(1.95,2.05)), type='p',, pch=c(1,2),
+      cex=1,
+      add=T)
+tplot(y=impdatay,x=t(t(impdatax*0)-c(1.95,2.05)), type='p',, pch=c(1,2),
+      cex=1,
+      add=T)
+abline(h=-1.75, col=7)
+abline(v=-1.75, col=7)
+## text(-0.5,-2.25,'marginals',adj=c(0.5,0.5),xpd=NA,col=8)
+## text(-2.25,0,'marginals',adj=c(1,0.5),xpd=NA,srt=90,col=8)
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+################### OLD #########################
 tplot(x=1,y=1,type='p',pch=expression('beta'))
 text(c(1,1.2),c(1,1.2),expression(alpha))
 
@@ -415,6 +470,51 @@ saveRDS(condprobsx,paste0('condprobsx-',nsamplesMI,'.rds'))
     condprobsx <- readRDS(paste0('condprobsx-',nsamplesMI,'.rds'))
     xsamples2 <- readRDS(paste0('xsamples2-',nsamplesMI,'.rds'))
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 Xlist <- NULL
 ##
