@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2023-01-06T23:04:21+0100
+## Last-Updated: 2023-01-07T10:25:13+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -345,15 +345,16 @@ thist(xxx['p(1|X)',], n=pgrid)$count
 
 statlongrunprobs <- apply(longrunprobs,1,function(xxx){
 c(tquant(xxx, c(1,2,4,6,7)/8), mean=mean(xxx))
-})/dim(longrunprobs)[2]*100
+})/dim(longrunprobs)[2]
 
 pdff('distribution_prognostic_probs',paper='a4p')
 tplot(pgrid2,t(statlongrunprobs), col='white',
       xlab=expression(italic(P):~'probability of conversion'~'(2% bins)'),
       ylab=expression('fraction of population prognosed with'~italic(P)),
-      ly=3,mar=c(NA,4.5,2,NA),
-      yticks=seq(0,ceiling(max(statlongrunprobs)),by=1),
-      ylabels=paste0(seq(0,ceiling(max(statlongrunprobs)),by=1),'%')
+      ly=3,mar=c(NA,4.5,2,NA), cex.axis=1.25,
+      ## yticks=seq(0,ceiling(max(statlongrunprobs)),by=1),
+      xticks=seq(0,1,by=0.1),#ceiling(max(statlongrunprobs)),by=1),
+      xlabels=paste0(seq(0,1,by=0.1)*100,'%')#ceiling(max(statlongrunprobs)),by=1),'%')
       )
 plotquantiles(pgrid2,t(statlongrunprobs[c(1,5),]), col=5,alpha=0.75)
 plotquantiles(pgrid2,t(statlongrunprobs[c(2,4),]), col=5,alpha=0.75)
@@ -362,7 +363,7 @@ tplot(pgrid2,statlongrunprobs['50%',],add=T)
 legend('topright',legend=c('median',#'mean',
                            '50% uncertainty','75% uncertainty'),
        col=c(1,#1,
-             colalpha2hex(5,c(0.5,0.75))),
+             alpha2hex(5,c(0.5,0.75))),
        lwd=c(2,#1,
              5,10),
        lty=c(1,#2,
@@ -370,6 +371,36 @@ legend('topright',legend=c('median',#'mean',
        bty='n'
        )
 dev.off()
+
+subsett <- round(seq(1,ncol(longrunprobs),length.out=5))
+pdff('samples_prognostic_probs',paper='a4p')
+tplot(pgrid2,longrunprobs[,subsett], lty=1, alpha=0.5,
+      xlab=expression(italic(P):~'probability of conversion'~'(2% bins)'),
+      ylab=expression('fraction of population prognosed with'~italic(P)),
+      ly=3,mar=c(NA,4.5,2,NA), cex.axis=1.25,
+      ## yticks=seq(0,ceiling(max(statlongrunprobs)),by=1),
+      xticks=seq(0,1,by=0.1),#ceiling(max(statlongrunprobs)),by=1),
+      xlabels=paste0(seq(0,1,by=0.1)*100,'%')#ceiling(max(statlongrunprobs)),by=1),'%')
+      )
+## plotquantiles(pgrid2,t(statlongrunprobs[c(1,5),]), col=5,alpha=0.75)
+## plotquantiles(pgrid2,t(statlongrunprobs[c(2,4),]), col=5,alpha=0.75)
+## tplot(pgrid2,statlongrunprobs['50%',],add=T)
+#tplot(pgrid2,statlongrunprobs['mean',],lty=2,lwd=1,add=T)
+legend('topright',legend=c('median',#'mean',
+                           '50% uncertainty','75% uncertainty'),
+       col=c(1,#1,
+             alpha2hex(5,c(0.5,0.75))),
+       lwd=c(2,#1,
+             5,10),
+       lty=c(1,#2,
+             1,1),
+       bty='n'
+       )
+dev.off()
+
+
+
+
 
 
 pdff('single_predictors')
