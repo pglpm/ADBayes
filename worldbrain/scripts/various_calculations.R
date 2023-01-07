@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2023-01-07T10:25:13+0100
+## Last-Updated: 2023-01-07T15:16:34+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -118,6 +118,147 @@ probsY <- readRDS(paste0('condprobsx-',nsamplesMI,'.rds'))
 
 ## conditional probabilities of predictand given other variates, for the samples
 probsYgivenX <- readRDS(paste0('allcondprobsxgiveny-',nsamplesMI,'.rds'))
+
+shortnames <- c(
+'APOE4',
+'Sex',
+'ANART',
+'RAVLT-del',
+'RAVLT-rec',
+'CFT',
+'GDS',
+'RAVLT-imm',
+'TMTA',
+'TMTB',
+'Age',
+'HC',
+'cognitive+Age+Sex',
+'APOE4+HC+Age+Sex',
+'all',
+'all minus TMTA',
+'all minus TMTB',
+'all minus Age',
+'all minus HC',
+'all minus APOE4',
+'all minus Sex',
+'all minus ANART',
+'all minus RAVLT-del',
+'all minus RAVLT-rec',
+'all minus CFT',
+'all minus GDS',
+'all minus RAVLT-imm'
+)
+##      [,1]                       
+##  [1,] "Apoe4_"                   
+##  [2,] "Gender_num_"              
+##  [3,] "ANARTERR_neuro"           
+##  [4,] "AVDEL30MIN_neuro"         
+##  [5,] "AVDELTOT_neuro"           
+##  [6,] "CATANIMSC_neuro"          
+##  [7,] "GDTOTAL_gds"              
+##  [8,] "RAVLT_immediate"          
+##  [9,] "TRAASCOR_neuro"           
+## [10,] "TRABSCOR_neuro"           
+## [11,] "AGE"                      
+## [12,] "LRHHC_n_long"             
+## [13,] "cog"                      
+## [14,] "noncog"                   
+## [15,] "all"                      
+## [16,] "allminus_TRAASCOR_neuro"  
+## [17,] "allminus_TRABSCOR_neuro"  
+## [18,] "allminus_AGE"             
+## [19,] "allminus_LRHHC_n_long"    
+## [20,] "allminus_Apoe4_"          
+## [21,] "allminus_Gender_num_"     
+## [22,] "allminus_ANARTERR_neuro"  
+## [23,] "allminus_AVDEL30MIN_neuro"
+## [24,] "allminus_AVDELTOT_neuro"  
+## [25,] "allminus_CATANIMSC_neuro" 
+## [26,] "allminus_GDTOTAL_gds"     
+## [27,] "allminus_RAVLT_immediate" 
+
+colnames(probsYgivenX) <- shortnames
+
+accnextpatient <- apply(probsYgivenX,2,function(xxx){
+    c(mean((xxx > 0.5) + 0.5*(xxx == 0.5), na.rm=T),
+      sd((xxx > 0.5) + 0.5*(xxx == 0.5), na.rm=T)*2/sqrt(nsamplesMI)
+      )
+})
+
+
+t(accnextpatient[,ordering])
+
+ordering <- c(setdiff(order(accnextpatient[1,]),which(colnames(accnextpatient)=='all')),
+              which(colnames(accnextpatient)=='all'))
+pdff('accuracy_ranks', paper='a4p')
+tplot(x=accnextpatient[1,ordering],y=1:ncol(accnextpatient), type='p', pch=16,
+      xlim=c(0.5,0.785), cex=1,
+      xlab='accuracy (expected utility)',
+      col=8, mar=c(NA,1,1,1),
+ xticks=seq(0.5,0.8, by=0.02),#cex.axis=1,
+      yticks=NA,ylab=NA)
+tplot(x=rbind(accnextpatient[1,ordering]-accnextpatient[2,ordering],
+              accnextpatient[1,ordering]+accnextpatient[2,ordering]),
+      y=rbind(1:ncol(accnextpatient), 1:ncol(accnextpatient)),
+      col=8, lty=1, lwd=2,
+      add=T)
+text(x=accnextpatient[1,ordering]+accnextpatient[2,ordering]+0.002,
+     y=1:ncol(accnextpatient),
+     colnames(accnextpatient)[ordering], adj=c(0,0.5),
+     cex=1.5)
+dev.off()
+
+
+minextpatient <- apply(probsYgivenX,2,function(xxx){
+    xxx <- log2(xxx)-log2(probsY[,1])
+    c(mean(xxx, na.rm=T),
+      sd(xxx,na.rm=T)*2/sqrt(nsamplesMI))
+})
+
+
+t(minextpatient[,ordering])
+
+ordering <- c(setdiff(order(minextpatient[1,]),which(colnames(minextpatient)=='all')),
+              which(colnames(minextpatient)=='all'))
+pdff('MI_ranks', paper='a4p')
+tplot(x=minextpatient[1,ordering],y=1:ncol(minextpatient), type='p', pch=16,
+      xlim=c(0,0.22), cex=1,
+      xlab='mutual information/Sh',
+      col=8, mar=c(NA,1,1,1),
+ ##     xticks=seq(0.5,0.752),#cex.axis=1,
+      yticks=NA,ylab=NA)
+tplot(x=rbind(minextpatient[1,ordering]-minextpatient[2,ordering],
+              minextpatient[1,ordering]+minextpatient[2,ordering]),
+      y=rbind(1:ncol(minextpatient), 1:ncol(minextpatient)),
+      col=8, lty=1, lwd=2,
+      add=T)
+text(x=minextpatient[1,ordering]+minextpatient[2,ordering]+0.002,
+     y=1:ncol(minextpatient),
+     colnames(minextpatient)[ordering], adj=c(0,0.5),
+     cex=1.5)
+dev.off()
+
+## sequ <- 1:ncol(mism)
+## mord <- order(mism[1,])
+## accus2 <- accus[1,mord]
+## errs <- accus[2,mord]
+## dist <- max(errs)
+## labs <- shortnames2[mord]
+## pdff('plotAcc',paper='a4p')
+## tplot(y=sequ[1:length(accus2)],x=accus2,pch=16,cex=1,col=8,type='p',
+##       yticks=NA,ylab=NA,xlab='accuracy',
+##       xlim=c(0.5,0.75))#max(accus2)+0.1))
+## tplot(x=rbind(pmax(0,accus2-errs),accus2+errs),
+## y=rbind(sequ,sequ),lty=1,lwd=2,col=8,
+## add=T)
+## text(accus2+dist,sequ,labs, adj=c(-0.05,0.5), cex=1.25)
+## dev.off()
+
+
+cbind(sort(accnextpatient[1,]))
+
+tplot()
+
 
 
 ## choose subset of typical points
@@ -537,7 +678,7 @@ saveRDS(condprobsx,paste0('condprobsx-',nsamplesMI,'.rds'))
 
 
 
-
+pYXsamples <- readRDS()
 
 
 
@@ -698,7 +839,7 @@ y=rbind(sequ,sequ),lty=1,lwd=2,col=8,
 add=T)
 text(accus2+dist,sequ,labs, adj=c(-0.05,0.5), cex=1.25)
 dev.off()
-m
+
 
 cbind((1-0.53)mmm*mism[1,mord]+0.5, accus[1,mord])
 
