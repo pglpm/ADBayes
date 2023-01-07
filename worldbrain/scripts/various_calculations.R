@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2023-01-07T16:12:07+0100
+## Last-Updated: 2023-01-07T16:13:47+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -898,9 +898,9 @@ v <- variatenames[13]
 vgrid <- cbind(seq(varinfo[['plotmin']][v], varinfo[['plotmax']][v], length.out=min(256, varinfo[['n']][v])))
 colnames(vgrid) <- v
 testd <-samplesFDistribution(Y=vgrid, X=NULL,
-                             mcsamples=mcsamples, varinfo=varinfo,
+                             mcsamples=mcsamples[1,,drop=F], varinfo=varinfo,
                              jacobian=TRUE, fn=mean)[,1]
 ##
-testh <- thist(testp[,v],n=32)#,n=seq(varinfo[['plotmin']][v]-1e-4, varinfo[['plotmax']][v]+1e-4, length.out=min(128, varinfo[['n']][v])))
+testh <- thist(testp[,v],n=40)#,n=seq(varinfo[['plotmin']][v]-1e-4, varinfo[['plotmax']][v]+1e-4, length.out=min(128, varinfo[['n']][v])))
 tplot(x=list(vgrid,testh$breaks), y=list(testd, testh$density/max(testh$density)*max(testd)),
       ylim=c(0,NA),xlab=v)
