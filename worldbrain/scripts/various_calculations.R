@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2023-01-08T12:11:56+0100
+## Last-Updated: 2023-01-08T12:20:01+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -487,7 +487,7 @@ thist(xxx['p(1|X)',], n=pgrid)$count
 })
 
 statlongrunprobs <- apply(longrunprobs,1,function(xxx){
-c(tquant(xxx, c(1,2,4,6,7)/8), mean=mean(xxx))
+c(tquant(xxx, c(8*2.5/100,1,2,4,6,7,8*97.5/100)/8), mean=mean(xxx))
 })/dim(longrunprobs)[2]
 
 pdff('distribution_prognostic_probs',paper='a4p')
@@ -499,18 +499,19 @@ tplot(pgrid2,t(statlongrunprobs), col='white',
       xticks=seq(0,1,by=0.1),#ceiling(max(statlongrunprobs)),by=1),
       xlabels=paste0(seq(0,1,by=0.1)*100,'%')#ceiling(max(statlongrunprobs)),by=1),'%')
       )
-plotquantiles(pgrid2,t(statlongrunprobs[c(1,5),]), col=5,alpha=0.75)
-plotquantiles(pgrid2,t(statlongrunprobs[c(2,4),]), col=5,alpha=0.75)
+plotquantiles(pgrid2,t(statlongrunprobs[c(1,7),]), col=5,alpha=0.75)
+plotquantiles(pgrid2,t(statlongrunprobs[c(2,6),]), col=5,alpha=0.75)
+plotquantiles(pgrid2,t(statlongrunprobs[c(3,5),]), col=5,alpha=0.75)
 tplot(pgrid2,statlongrunprobs['50%',],add=T)
 tplot(pgrid2,statlongrunprobs['mean',],lty=2,lwd=2,add=T)
 legend('topright',legend=c('median','mean',
-                           '50% uncertainty','75% uncertainty'),
+                           '50% uncertainty','75% uncertainty','95% uncertainty'),
        col=c(1,1,
-             alpha2hex(5,c(0.5,0.75))),
+             alpha2hex(5,c(0.25,0.5,0.75))),
        lwd=c(2,2,
-             5,10),
+             5,10,15),
        lty=c(1,2,
-             1,1),
+             1,1,1),
        bty='n'
        )
 dev.off()
