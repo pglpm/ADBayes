@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2023-01-08T12:20:01+0100
+## Last-Updated: 2023-01-08T12:29:44+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -504,7 +504,7 @@ plotquantiles(pgrid2,t(statlongrunprobs[c(2,6),]), col=5,alpha=0.75)
 plotquantiles(pgrid2,t(statlongrunprobs[c(3,5),]), col=5,alpha=0.75)
 tplot(pgrid2,statlongrunprobs['50%',],add=T)
 tplot(pgrid2,statlongrunprobs['mean',],lty=2,lwd=2,add=T)
-legend('topright',legend=c('median','mean',
+legend('topleft',legend=c('median','mean',
                            '50% uncertainty','75% uncertainty','95% uncertainty'),
        col=c(1,1,
              alpha2hex(5,c(0.25,0.5,0.75))),
