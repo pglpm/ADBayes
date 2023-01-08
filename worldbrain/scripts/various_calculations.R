@@ -1,6 +1,6 @@
 ## Author: PGL  Porta Mana
 ## Created: 2022-10-07T12:13:20+0200
-## Last-Updated: 2023-01-07T16:13:47+0100
+## Last-Updated: 2023-01-08T12:11:56+0100
 ################
 ## Combine multiple Monte Carlo chains
 ################
@@ -433,7 +433,9 @@ dim(probsamples) <- c(nrow(probsamples),3,ncol(probsamples)/3)
 dimnames(probsamples) <- list(NULL,c('p(Y|X)','p(Y)','p(1|X)'),NULL)
 probsamples <- aperm(probsamples)
 ## dim1: mcsamples, dim2:p/Yvalue, dim3: samples given lim-freq
-saveRDS(probsamples, '_probsamples.rds')
+##saveRDS(probsamples, '_probsamples.rds')
+
+probsamples <- readRDS('_probsamples.rds')
 
 allmutualinfodistr <- apply(probsamples,1,function(xxx){
     mean(log2(xxx['p(Y|X)',])) -
@@ -500,14 +502,14 @@ tplot(pgrid2,t(statlongrunprobs), col='white',
 plotquantiles(pgrid2,t(statlongrunprobs[c(1,5),]), col=5,alpha=0.75)
 plotquantiles(pgrid2,t(statlongrunprobs[c(2,4),]), col=5,alpha=0.75)
 tplot(pgrid2,statlongrunprobs['50%',],add=T)
-#tplot(pgrid2,statlongrunprobs['mean',],lty=2,lwd=1,add=T)
-legend('topright',legend=c('median',#'mean',
+tplot(pgrid2,statlongrunprobs['mean',],lty=2,lwd=2,add=T)
+legend('topright',legend=c('median','mean',
                            '50% uncertainty','75% uncertainty'),
-       col=c(1,#1,
+       col=c(1,1,
              alpha2hex(5,c(0.5,0.75))),
-       lwd=c(2,#1,
+       lwd=c(2,2,
              5,10),
-       lty=c(1,#2,
+       lty=c(1,2,
              1,1),
        bty='n'
        )
@@ -608,6 +610,47 @@ dev.off()
 
 
 
+savedataOABC <- readRDS('datapatientsOABC.rds')
+
+
+predictand0 <- cbind(0)
+predictand1 <- cbind(1)
+colnames(predictand0) <- colnames(predictand1) <- predictands
+
+
+
+test <- savedataOABC['curtis',-which(colnames(savedataOABC)=='LRHHC_n_long'),drop=F]
+morecurtis <- c(generateVariates(Ynames='LRHHC_n_long', X=test,
+                                mcsamples=mcsamples, varinfo=varinfo,
+                                n=nrow(mcsamples)))
+
+newcurtis <- cbind('LRHHC_n_long'=morecurtis)
+for(i in 1:ncol(test)){
+    newcurtis <- cbind(test[,i],newcurtis)
+    colnames(newcurtis)[1] <- colnames(test)[i]
+}
+
+otherprobcurtis <- samplesFDistribution(Y=predictand1,
+                                  X=newcurtis,
+                                  mcsamples=mcsamples, varinfo=varinfo,
+                                  jacobian=TRUE, fn=mean)
+
+um <- matrix(c(1,0.9,0.8,0,
+               0,0.3,0.5,1), 4,2)
+rownames(um) <- c(1:4)
+
+exputcurtis <- sapply(otherprobcurtis, function(xxx){
+    um %*% c(1-xxx, xxx)
+})
+
+apply(exputcurtis,1,tquant, prob=c(0.5/100,5/100,1/8,7/8,95/100,99.5/100))*10
+##          [,1]    [,2]    [,3]    [,4]
+## 0.5%  2.97225 4.78335 5.89167 7.01188
+## 5%    2.97226 4.78336 5.89168 7.01766
+## 12.5% 2.97235 4.78341 5.89170 7.02096
+## 87.5% 2.97904 4.78743 5.89371 7.02765
+## 95%   2.98234 4.78940 5.89470 7.02774
+## 99.5% 2.98812 4.79287 5.89643 7.02775
 
 
 
